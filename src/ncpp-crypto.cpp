@@ -26,8 +26,8 @@ namespace ncpp{ namespace crypto{
 }}
 
 #include "crypto/aes.cpp"
-#include "crypto/rsa.cpp"
-#include "crypto/dh.cpp"
+//#include "crypto/rsa.cpp"
+//#include "crypto/dh.cpp"
 
 #include "crypto/md5.cpp"
 #include "crypto/sha1.cpp"

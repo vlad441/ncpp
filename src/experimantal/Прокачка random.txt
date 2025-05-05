@@ -1,0 +1,25 @@
+unsigned long long xorshift128plus() {
+    static unsigned long long s[2];
+    static bool init = false;
+
+    if (!init) {
+        unsigned long long seed = GetTimestamp('m');
+        s[0] = seed ^ 0x9e3779b97f4a7c15ULL; // Улучшенный миксинг
+        s[1] = (seed >> 3) ^ 0x3c6ef372fe94f82aULL;
+        init = true;
+        for (int i = 0; i < 10; i++) { xorshift128plus(); } // Больше прогрева
+    }
+
+    unsigned long long x = s[0];
+    unsigned long long y = s[1];
+    s[0] = y;
+    x ^= x << 23;
+    x ^= x >> 17;
+    x ^= y ^ (y >> 26);
+    s[1] = x;
+    return x + y;
+}
+
+double random() {
+    return (xorshift128plus() & ((1ULL << 53) - 1)) * (1.0 / (1ULL << 53));
+}

@@ -4,7 +4,7 @@ TODO v0.0.1:
 -- Не разбрасываться noexept
 - HTTP: вспомогательные функции: cookie parser, qparse, etc.
 -- Req: waitbody().
-- Оптимизация и разделение base: min-base(print, etc...)
+- Оптимизация и разделение base: min-base(print, etc...) (+/-)
 
 - Stream
 -- Socket
@@ -17,7 +17,7 @@ TODO v0.0.1:
 -- File Async
 -- TCP Server (+/-)
 --- HTTP (+/-)
----- AutoIndex
+---- WebSocket
 -- Promise?
 - System
 -- CPU getCoresTime()
@@ -40,13 +40,10 @@ TODO v0.0.1:
 -- Минимальный набор(Кнопки, Input, Label, ...);
 -- Image (Win: GDI/GDI+, X11: XPutImage/XRender(GPU?), Wayland: ?)(Cairo: example)
 --- BMP parser? (Подбор оптимальный осруктуры для быстрой обработки? Лучшие практики Cairo)
-- const std::string&? -> CString?
 - Закрыть все TODO?
 - Разобрать реализацию sqlite3.c?
 - clang 3.5 support, Linux 3.10.0 and 2.6.18 (Debian4)
 -- Поддержка gcc3_winxpdef.h
--- Сделать библиотеку независимой от libstdc++?
---- Поддержка макроса NO_STDCPP, с ручными имплементациями std::vector (свой аллокатор?), std::string, std::map, std::unordered_map под musl.
 -- CI/CD?
 - Упаковать либу в .deb пакет.
 

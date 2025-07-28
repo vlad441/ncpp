@@ -54,6 +54,8 @@ int main(){ cpp_version(); gcc_version();
 //GCC 4.9.2 - Windows 32bit .exe file size:
 //only print() - 11 776 bytes
 //+printf() - 34 816 bytes
+//+free(); - 34 816 bytes
+
 //+std::vector() - 133 632 bytes
 //+std::string() - 451 072 bytes
 //+std::stringstream() - 562 688 bytes

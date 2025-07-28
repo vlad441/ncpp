@@ -3,12 +3,12 @@ namespace ncpp { namespace GUI {
 #define DEF_HWND_Y 50
 #define DEF_HWND_WIDTH 300
 #define DEF_HWND_HEIGHT 200
-#define HANDLER_PTR void (*handler)(std::string type)
-typedef std::pair<std::string, void (*)(std::string)> HANDLER_PAIR_TYPE;
+#define HANDLER_PTR void (*handler)(String type)
+typedef Pair<String, void (*)(String)> HANDLER_PAIR_TYPE;
 //enum { X11, WAYLAND } GUI_ENGINE;
 #ifndef _WIN32
-std::string get_session_type(){ //x11, wayland
-    std::string session = std::getenv("XDG_SESSION_TYPE");
+String get_session_type(){ //x11, wayland
+    String session = std::getenv("XDG_SESSION_TYPE");
     if(session == "x11"){}
     else if(session == "wayland"){} return session; }
 #endif

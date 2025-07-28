@@ -1,6 +1,6 @@
 //#if __cplusplus >= 202002L // C++20 или новее
 //#elif __cplusplus >= 201103L // не старее C++11 и не новее C++20
-#if __cplusplus >= 201103L && !defined(NO_USE_STDTHREADS) // C++11 или новее
+#if __cplusplus >= 201103L && defined(NCPP_USESTL) // C++11 + NCPP_USESTL
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -9,10 +9,14 @@ namespace ncpp {
 		void acquire(){ std::unique_lock<std::mutex> lock(mtx); while(_count == 0){ cv.wait(lock); } _count--; }
 		void release(){ std::unique_lock<std::mutex> lock(mtx); _count++; cv.notify_one(); }
 		private: std::mutex mtx; std::condition_variable cv; int _count; };
-	/*int test(){ std::vector<std::thread> threads;
+	/*int test(){ Array<std::thread> threads;
 		for(int i = 0; i < 10; ++i){ threads.emplace_back(access_database, i); } // Создаем и запускаем потоки
 		for(auto& th : threads){ th.join(); } return 0; } // Ожидаем завершения всех потоков */
-#else // C++ 98 or NO_USE_STDTHREADS
+#else // C++ 98 or !NCPP_USESTL
+
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 namespace std {
 	#ifdef _WIN32
 	struct mutex {
@@ -23,7 +27,6 @@ namespace std {
 		CRITICAL_SECTION& native_handle(){ return _mtx; }
 		private: CRITICAL_SECTION _mtx; };
 	#else
-	#include <pthread.h>
 	struct mutex {
 		mutex(){ pthread_mutex_init(&_mtx, NULL); }
 		~mutex(){ pthread_mutex_destroy(&_mtx); }
@@ -78,19 +81,19 @@ namespace std {
 		
 		bool joinable() const { return started && !joined; }
 		#ifdef _WIN32
-		void join(){ if(!joinable()){ throw std::runtime_error("thread already joined"); }
+		void join(){ if(!joinable()){ ncpp::print("(!) thread already joined"); exit(1); }
 			HANDLE handle = OpenThread(SYNCHRONIZE, FALSE, id); WaitForSingleObject(handle, INFINITE); CloseHandle(handle); joined = true; }
-		void detach(){ if(!joinable()){ throw std::runtime_error("thread not joinable"); } joined = true; }
+		void detach(){ if(!joinable()){ ncpp::print("(!) thread not joinable"); exit(1); } joined = true; }
 			
 		unsigned int get_id() const { return id; } DWORD native_handle() const { return id; }
 		static unsigned hardware_concurrency(){ SYSTEM_INFO sysinfo; GetSystemInfo(&sysinfo); return sysinfo.dwNumberOfProcessors; }
 		DWORD id; private: bool started; bool joined;
 			void start(void*(*func)(void*), void* arg=NULL){ HANDLE handle = CreateThread(NULL, _stacklim, (LPTHREAD_START_ROUTINE)func, arg, 0, &id);
-				if(handle == NULL){ throw std::runtime_error("thread create error"); } CloseHandle(handle); started = true; }
+				if(handle == NULL){ ncpp::print("(!) thread create error"); exit(1); } CloseHandle(handle); started = true; }
 		#else
-		void join(){ if(!joinable()){ throw std::runtime_error("thread is not joinable"); }
+		void join(){ if(!joinable()){ ncpp::print("(!) thread is not joinable"); exit(1); }
 			pthread_join(id, NULL); joined = true; }
-		void detach(){ if (!joinable()){ throw std::runtime_error("thread detach is not avalaible"); }
+		void detach(){ if(!joinable()){ ncpp::print("(!) thread detach is not avalaible"); exit(1); }
 			pthread_detach(id); joined = true; }
 			
 		unsigned int get_id() const { return id; } pthread_t native_handle() const { return id; }
@@ -98,7 +101,7 @@ namespace std {
 		pthread_t id; private: bool started; bool joined;
 		    void start(void*(*func)(void*), void* arg=NULL){ bool ok=false; if(_stacklim<=0){ ok=pthread_create(&id, NULL, func, arg)==0; }
 				else{ pthread_attr_t attr; pthread_attr_init(&attr); pthread_attr_setstacksize(&attr, _stacklim); ok=pthread_create(&id, &attr, func, arg)==0; }
-				if(!ok){ throw std::runtime_error("pthread: Create thread error."); } started = true; }
+				if(!ok){ ncpp::print("(!) pthread: Create thread error."); exit(1); } started = true; }
 		#endif
 			//void _prokladka(){}
 			//struct _Args { T arg1, T arg2, T arg3 };
@@ -201,7 +204,7 @@ namespace ncpp {
 	
 	
 	namespace Timers { bool _run=false; std::thread _TimerThr; static void _handler();
-		struct Timer { void(*func)(void*); long long msec; Date last; bool once; void* arg; }; std::vector<Timer> List;
+		struct Timer { void(*func)(void*); long long msec; Date last; bool once; void* arg; }; Array<Timer> List;
 		template<typename F>
 		void add(F func, int msec, bool once=false, void* arg=NULL){ Timer timer; timer.func=(void(*)(void*))func; 
 			timer.arg=(void*)arg; timer.msec=msec; timer.last=Date::now(); timer.once=once; bool empty=List.empty();
@@ -214,7 +217,7 @@ namespace ncpp {
 					if(timeLeft < minTime){ minTime = timeLeft; } }
 				
 				if(minTime > 0){ Sleep((int)minTime); } now = Date::now();
-				for(std::vector<Timer>::iterator it = List.begin(); it != List.end(); ){ if(!_run){ List.clear(); break; } Timer& timer = *it;
+				for(Array<Timer>::iterator it = List.begin(); it != List.end(); ){ if(!_run){ List.clear(); break; } Timer& timer = *it;
 					if((now-timer.last) >= timer.msec){ timer.func(timer.arg); timer.last += timer.msec;
 						if(timer.once){ it = List.erase(it); continue; } } ++it; } 
 			} }

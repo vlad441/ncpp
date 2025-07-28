@@ -3,13 +3,16 @@
 #include <dirent.h> //opendir/readdir/closedir
 #include <pwd.h>
 #include <grp.h>
+#include <stdio.h> //for ::rename() (Его нет в unistd.h? WTF?!)
 #endif
+
+#define DEF_SIZE 16384
 namespace ncpp{
 
 /*struct EventEmitter { 
-	void on(std::string event, void (*callback)());
-	void once(std::string event, void (*callback)());
-	void emit(std::string event);
+	void on(String event, void (*callback)());
+	void once(String event, void (*callback)());
+	void emit(String event);
     void (*OnData)(Buffer data);
 };*/
 	
@@ -33,39 +36,112 @@ struct Stream { bool destroyed;
 		void _onDestroy(){}
 };
 
+struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestroy;
+    FStream() : autodestroy(true){}
+	FStream(const CString& fpath, char mode) : autodestroy(true){ open(fpath, mode); }
+	FStream(const FStream& other) : autodestroy(true){ _fd=other._fd; }
+	~FStream(){ if(_fd>0&&autodestroy) close(); }
+	FStream& own(bool en=true){ autodestroy=en; return *this; }
+#ifdef _WIN32
+    HANDLE _fd; size_t getfd(){ return (size_t)_fd; } 
+	FStream(size_t fd) : autodestroy(true){ _fd=(HANDLE)fd; }
+	bool open(const CString& fpath, char mode){ DWORD dwDesiredAccess = GENERIC_READ; DWORD dwCreationDisposition = OPEN_EXISTING; //IO_READ
+		if(mode == IO_WRITE){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = CREATE_ALWAYS; }
+		else if(mode == IO_APPEND){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = OPEN_ALWAYS; }
+		_fd = CreateFileW(_toWStr(fpath).c_str(), dwDesiredAccess, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
+		if(_fd == INVALID_HANDLE_VALUE){ _fd=0; destroy(); return false; }
+		else if(mode == IO_APPEND){ SetFilePointer(_fd, 0, NULL, FILE_END); } return true; }
+	
+	size_t pos(){ LARGE_INTEGER currPos; currPos.QuadPart = 0; LARGE_INTEGER offset; offset.QuadPart = 0;
+		if(SetFilePointerEx(_fd, offset, &currPos, FILE_CURRENT)){ return (size_t)currPos.QuadPart; } return NPOS; }
+	void setPos(size_t pos){ LARGE_INTEGER newPos; newPos.QuadPart = pos; SetFilePointerEx(_fd, newPos, NULL, FILE_BEGIN); }
+	size_t size(){ LARGE_INTEGER fileSize; if(!GetFileSizeEx(_fd, &fileSize)) return NPOS; return fileSize.QuadPart; }
+	void close(){ CloseHandle(_fd); _fd=0; }
+	
+	int read(char* ptr, size_t size){ DWORD bytesRead; if(ReadFile(_fd, ptr, (DWORD)size, &bytesRead, NULL)){ return (int)bytesRead; } return -1; }
+	void write(const char* ptr, size_t size){ DWORD wrbytes; WriteFile(_fd, ptr, (DWORD)size, &wrbytes, NULL); }
+#else
+	int _fd; size_t getfd(){ return _fd; } 
+	FStream(size_t fd) : autodestroy(true){ _fd=fd; }
+	bool open(const CString& fpath, char mode){ int flags = 0; mode_t perms = 0744; // O_CREAT
+		if(mode == IO_READ){ flags = O_RDONLY; } else if(mode == IO_WRITE){ flags = O_WRONLY | O_CREAT | O_TRUNC; }
+		else if(mode == IO_APPEND){ flags = O_WRONLY | O_CREAT | O_APPEND; }
+		_fd = ::open(fpath.c_str(), flags, perms); if(_fd==-1){ destroy(); return false; } return true; }
+	
+	size_t pos(){ return (size_t)lseek(_fd, 0, SEEK_CUR); }
+	void setPos(size_t pos){ lseek(_fd, (off_t)pos, SEEK_SET); }
+	size_t size(){ struct stat st; if(fstat(_fd, &st)==-1) return NPOS; return (size_t)st.st_size; }
+	void close(){ ::close(_fd); _fd=-1; }
+	
+	int read(char* ptr, size_t size){ return ::read(_fd, ptr, size); }
+	void write(const char* ptr, size_t size){ ::write(_fd, ptr, size); }
+#endif	
+    bool is_open(){ return _fd>0?true:false; }
+	bool isOpen(){ return _fd>0?true:false; }
+	size_t tellg(){ return pos(); }
+	void seekg(size_t pos){ setPos(pos); }
+	
+	int read(Buffer* rbuff){ int rbytes = read((char*)rbuff->data(), rbuff->size()); rbuff->resize(rbytes); return rbytes; }
+	Buffer read(){ size_t fsize=size(); if(fsize==NPOS){ return readEOF(); } Buffer rbuff(fsize-pos()); read(&rbuff); return rbuff; }
+    Buffer read(int len){ Buffer rbuff(len); int rbytes=read(&rbuff); print("FStream::read() rbytes: "); print(rbytes); print("\n"); if(rbytes<len){ rbuff.resize(rbytes); } return rbuff; }
+	template <typename V>
+	V _readEOF(){ V data; char _buff[DEF_SIZE]; int rbytes=0;
+		while((rbytes=read(_buff, sizeof(_buff)))>0){ data.push(_buff, rbytes); } return data; }
+	Buffer readEOF(){ return _readEOF<Buffer>(); }
+	
+	bool readline(String& line, bool once=false){ line.clear(); char _b[512]; String buff; buff.stack(_b); int rbytes=0; bool ok=false;
+		while((rbytes = read(_b, sizeof(_b)))>0){ ok=true; size_t nidx = buff.indexOf('\n');
+			if(nidx==NPOS){ line.push(_b, rbytes); if(line.back()=='\r') line.pop(); continue; }
+			int loffset=0; if(rbytes>1&&_b[nidx-1]=='\r') ++loffset;
+			line.push(_b, nidx-loffset); if(!once) setPos(pos()-rbytes+nidx+1); return true; } return ok; }
+	
+	void write(const char* c){ write(c, strlen(c)); }
+    void write(const Buffer& wrbuff){ write((const char*)wrbuff.data(), wrbuff.size()); }
+	
+	FStream& operator<<(const char* c){ write(c); return *this; }
+	template <typename T, typename D>
+	FStream& operator<<(const BaseString<T, D>& s){ write((const char*)s.data(), s.size()); return *this; }
+};
+
 namespace fs{
-bool _writeFile(const std::string& path, const Buffer& data, std::ios_base::openmode mode=std::ios::binary){ std::ofstream f(path.c_str(), mode); 
-	if(!f.is_open()){ print("writeFile: Open file error."); print("\n"); return false; }
-	if(data.size()<=0){ f.close(); return true; } f.write((const char*)&data[0], data.size()); f.close(); return true; }
-bool writeFile(const std::string& path, const Buffer& data){ return _writeFile(path,data); }
-bool appendFile(const std::string& path, const Buffer& data){ return _writeFile(path,data,std::ios::binary|std::ios::app); }
+FStream createReadStream(const CString& path){ return FStream(path, FStream::IO_READ).own(false); }
+FStream createWriteStream(const CString& path){ return FStream(path, FStream::IO_WRITE).own(false); }
 
-Buffer readFile(const std::string& path){ std::ifstream f(path.c_str(), std::ios::binary);
-	if(!f.is_open()){ print("readFile: Open file error.\n"); return Buffer(); }
-    f.seekg(0, std::ios::end); std::streampos fileSize = f.tellg(); 
-    if(fileSize<=0){ print("readFile: Invalid file size: "); print(dtos(fileSize)); print("\n"); return Buffer(); } 
-	f.seekg(0, std::ios::beg); Buffer data(fileSize); if(f.read((char*)&data[0], fileSize)){ return data; }
-	else{ print("readFile: Read file error.\n"); } f.close(); return Buffer(); }
-	
-Array<String> readLines(const std::string& path){ std::ifstream f(path.c_str()); Array<String> lines;
-	if(!f.is_open()){ print("readLines: Open file error.\n"); return lines; }
-	std::string line; while(std::getline(f, line)){ lines.push(line); } f.close(); return lines; }
-	
-String readLine(const std::string& path){ std::ifstream f(path.c_str()); 
-	if(!f.is_open()){ print("readLine: Open file error.\n"); return ""; } 
-	std::string line; std::getline(f, line); f.close(); return line; }
+bool _writeFile(const CString& path, const Buffer& data, char mode=FStream::IO_WRITE){ if(data.size()<=0){ return false; }
+	FStream f(path, mode); if(!f.isOpen()){ print("(!) writeFile: Open file error.\n"); return false; } f.write(data); f.close(); return true; }
+bool writeFile(const CString& path, const Buffer& data){ return _writeFile(path,data); }
+bool appendFile(const CString& path, const Buffer& data){ return _writeFile(path,data,FStream::IO_APPEND); }
 
-StringMap ConfigRead(const std::string& path, bool unescape=false, std::string delim="="){ Array<String> lines=readLines(path);
+template <typename V>
+V _readFile(const CString& path){ FStream f(path, FStream::IO_READ); if(!f.isOpen()){ print("(!) fs::_readFile(): Open file error.\n"); return V(); } 
+	size_t fsize = f.size(); if(fsize==0){ return f._readEOF<V>(); }else if(fsize==NPOS){ print("(!) fs::_readFile(): fail get file size.\n"); }
+	V data(fsize); f.read((char*)data.data(), data.size()); f.close(); return data; }
+Buffer readFile(const CString& path){ return _readFile<Buffer>(path); }
+	
+Array<String> readLines(const CString& path){ Array<String> lines; FStream f(path, FStream::IO_READ);
+	if(!f.isOpen()){ print("(!) fs::readLines(): Open file error.\n"); return lines; }
+    char _b[DEF_SIZE]; int rbytes = 0; String line;
+    while((rbytes = f.read(_b, sizeof(_b)))>0){ int idx=0;
+        for(int i=0; i<rbytes; ++i){ 
+            if(_b[i] == '\n'){ int loffset=0; if(i>0&&_b[i-1]=='\r') ++loffset;
+				lines.push(String()).back().push(line).push(_b+idx, i-idx-loffset); idx=i+1; line.clear(); } }
+		line.push(_b+idx, rbytes-idx); if(line.back()=='\r') line.pop();
+    } lines.push(line); f.close(); return lines; }
+	
+String readFstLine(const CString& path){ FStream f(path, FStream::IO_READ); if(!f.isOpen()){ print("fs::readFirstLine(): Open file error.\n"); return ""; }  
+	String line; f.readline(line, true); return line; }
+
+StringMap ConfigRead(const CString& path, bool unescape=false, const CString& delim="="){ Array<String> lines=readLines(path);
 	StringMap config; for(size_t i=0;i<lines.size();i++){ if(lines[i].size()<3||lines[i].startsWith("#")) continue; Array<String> line = lines[i].split(delim); 
 		config[line[0]]=line.slice(1).join(delim); if(unescape&&config[line[0]][0]=='"'&&config[line[0]].back()=='"'){ config[line[0]]=config[line[0]].slice(1,-1); } } return config; }
-bool ConfigWrite(const std::string& path, StringMap config, std::string delim="="){ Buffer data; std::string endl="\n";
+bool ConfigWrite(const CString& path, StringMap config, String delim="="){ Buffer data; String endl="\n";
 	for(StringMap::const_iterator it = config.begin(); it != config.end(); ++it){ data+=it->first+delim+it->second+endl; } return writeFile(path, data); }
-//bool ConfigWriteEx(Object config){}??
+//bool ConfigWriteEx(Object config){}?
 
-DoubleMap stat(const std::string& path){ DoubleMap stinfo;
+DoubleMap stat(const CString& path){ DoubleMap stinfo;
 	#ifdef _WIN32
 	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-    if(GetFileAttributesEx(path.c_str(), GetFileExInfoStandard, &fileInfo) == 0){ print("stat: get file attributes fail.\n"); return stinfo; }
+    if(GetFileAttributesExW(_toWStr(path).c_str(), GetFileExInfoStandard, &fileInfo) == 0){ print("(!) stat: get file attributes fail.\n"); return stinfo; }
     LARGE_INTEGER fileSize; fileSize.LowPart = fileInfo.nFileSizeLow; fileSize.HighPart = fileInfo.nFileSizeHigh;
 	stinfo["mode"] = (double)fileInfo.dwFileAttributes; stinfo["size"] = (double)fileSize.QuadPart; 
 	stinfo["blocks"] = stinfo["size"]/512.0; stinfo["atime"] = (double)_FtToUnixTime(fileInfo.ftLastAccessTime);
@@ -80,16 +156,16 @@ DoubleMap stat(const std::string& path){ DoubleMap stinfo;
 	
 #ifdef _WIN32
 bool isDir(const DoubleMap& stat){ return ((int)stat.at("mode") & FILE_ATTRIBUTE_DIRECTORY)!=0?true:false; }
-bool copy(const std::string& src, const std::string& dst){ return CopyFileW(_toWStr(src).c_str(), _toWStr(dst).c_str(), false); }
-bool rename(const std::string& oldpath, const std::string& newpath){ return MoveFileW(_toWStr(oldpath).c_str(), _toWStr(newpath).c_str()); }
-bool unlink(const std::string& path){ return DeleteFileW(_toWStr(path).c_str()); }
-bool mkdir(const std::string& path){ return CreateDirectoryW(_toWStr(path).c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS; }
-bool rmdir(const std::string& path){ return RemoveDirectoryW(_toWStr(path).c_str()); }
-bool chmod(const std::string& path, int mode){ return false; }
+bool copy(const CString& src, const CString& dst){ return CopyFileW(_toWStr(src).c_str(), _toWStr(dst).c_str(), false); }
+bool rename(const CString& oldpath, const CString& newpath){ return MoveFileW(_toWStr(oldpath).c_str(), _toWStr(newpath).c_str()); }
+bool unlink(const CString& path){ return DeleteFileW(_toWStr(path).c_str()); }
+bool mkdir(const CString& path){ return CreateDirectoryW(_toWStr(path).c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS; }
+bool rmdir(const CString& path){ return RemoveDirectoryW(_toWStr(path).c_str()); }
+bool chmod(const CString& path, int mode){ return false; }
 #include <aclapi.h>
-bool chown(const std::string& path, const std::string& uowner, const std::string& ugroup=""){
-    std::wstring wpath = _toWStr(path); std::wstring wuser = _toWStr(uowner); Buffer sidbuff; 
-	DWORD sidSize = 0; DWORD domainSize = 0; SID_NAME_USE sidType; std::wstring domainName;
+bool chown(const CString& path, const CString& uowner, const CString& ugroup=""){
+    _WString wpath = _toWStr(path); _WString wuser = _toWStr(uowner); Buffer sidbuff; 
+	DWORD sidSize = 0; DWORD domainSize = 0; SID_NAME_USE sidType; _WString domainName;
     LookupAccountNameW(NULL, wuser.c_str(), NULL, &sidSize, NULL, &domainSize, &sidType);
     if(GetLastError() != ERROR_INSUFFICIENT_BUFFER){ return false; } sidbuff.resize(sidSize); domainName.resize(domainSize);
     if(!LookupAccountNameW(NULL, wuser.c_str(), &sidbuff[0], &sidSize, &domainName[0], &domainSize, &sidType)){ return false; }
@@ -97,72 +173,37 @@ bool chown(const std::string& path, const std::string& uowner, const std::string
     if(result != ERROR_SUCCESS){ return false; } return true; }
 #else
 bool isDir(const DoubleMap& stat){ return S_ISDIR((int)stat.at("mode"))?true:false; }
-bool copy(const std::string& src, const std::string& dst){ std::ifstream fsrc(src.c_str(), std::ios::binary);
-    std::ofstream fdst(dst.c_str(), std::ios::binary); if(!fsrc.is_open() || !fdst.is_open()){ return false; } fdst << fsrc.rdbuf(); return true; }
-bool rename(const std::string& oldpath, const std::string& newpath){ return ::rename(oldpath.c_str(), newpath.c_str()) == 0; }
-bool unlink(const std::string& path){ return ::unlink(path.c_str()) == 0; }
-bool mkdir(const std::string& path){ return ::mkdir(path.c_str(), 0755) == 0 || errno == EEXIST; }
-bool rmdir(const std::string& path){ return ::rmdir(path.c_str()) == 0; }
-bool chmod(const std::string& path, int mode){ return ::chmod(path.c_str(), mode) == 0; }
-bool chown(const std::string& path, const std::string& uowner, const std::string& ugroup=""){
+bool copy(const CString& src, const CString& dst){ FStream fsrc(src, FStream::IO_READ); FStream fdst(dst, FStream::IO_WRITE); 
+	if(!fsrc.isOpen()||!fdst.isOpen()){ return false; } char _buff[DEF_SIZE]; int rbytes=0;
+	while((rbytes=fsrc.read((char*)_buff, sizeof(_buff)))>0){ fdst.write(_buff, rbytes); } return true; }
+bool rename(const CString& oldpath, const CString& newpath){ return ::rename(oldpath.c_str(), newpath.c_str()) == 0; }
+bool unlink(const CString& path){ return ::unlink(path.c_str()) == 0; }
+bool mkdir(const CString& path){ return ::mkdir(path.c_str(), 0755) == 0 || errno == EEXIST; }
+bool rmdir(const CString& path){ return ::rmdir(path.c_str()) == 0; }
+bool chmod(const CString& path, int mode){ return ::chmod(path.c_str(), mode) == 0; }
+bool chown(const CString& path, const CString& uowner, const CString& ugroup=""){
     struct passwd* pw = getpwnam(uowner.c_str()); if(!pw){ return false; } uid_t uid = pw->pw_uid; 
 	gid_t gid; struct group* gr = getgrnam(ugroup.c_str()); if(gr){ gid = gr->gr_gid; }else{ gid = pw->pw_gid; }
 	return ::chown(path.c_str(), uid, gid)!=0; }
 #endif
-bool exists(const std::string& path){ return stat(path).has("size"); }
-bool isDir(const std::string& path){ return isDir(stat(path)); }
-bool rm(const std::string& path){ return unlink(path); }
+bool exists(const CString& path){ return stat(path).has("size"); }
+bool isDir(const CString& path){ return isDir(stat(path)); }
+bool rm(const CString& path){ return unlink(path); }
 
-Array<String> readDir(const std::string& path){ Array<String> files;
+Array<String> readDir(const CString& path){ Array<String> files;
 #ifdef _WIN32
     WIN32_FIND_DATAW findFileData; HANDLE hF=FindFirstFileW(_toWStr(path+"\\*").c_str(), &findFileData);
-    if(hF==INVALID_HANDLE_VALUE){ print("Failed to open directory: "); print(path); print("\n"); return files; }
-    do { std::string name=_toUTF8(findFileData.cFileName); files.push(name); }while(FindNextFileW(hF, &findFileData) != 0); FindClose(hF);
+    if(hF==INVALID_HANDLE_VALUE){ print("(!) Failed to open directory: "); print(path); print("\n"); return files; }
+    do { files.push(_toUTF8(findFileData.cFileName)); }while(FindNextFileW(hF, &findFileData) != 0); FindClose(hF);
 #else
-    DIR* dir = opendir(path.c_str()); if(dir==NULL){ print("Failed to open directory: "); print(path); print("\n"); return files; }
-    struct dirent* entry; while((entry = readdir(dir)) != NULL){ std::string name=entry->d_name; files.push(name); } closedir(dir);
+    DIR* dir = opendir(path.c_str()); if(dir==NULL){ print("(!) Failed to open directory: "); print(path); print("\n"); return files; }
+    struct dirent* entry; while((entry = readdir(dir)) != NULL){ String name=entry->d_name; files.push(name); } closedir(dir);
 #endif
 	return files; }
+//struct FileInfo {};
+//Array<String> readDirEx(const CString& path);
 	
-std::string dirname(const std::string& path){ size_t pos = path.find_last_of("/\\");  
-	if(pos==std::string::npos){ return "."; } return path.substr(0, pos); }
-
-struct FStream : Stream {
-    FStream(const std::string& path, std::ios_base::openmode mode)
-		: _file(path.c_str(), mode), fpath(path), fmode(mode)
-		{ _createStream(); _file.seekg(0, std::ios::end); fileSize = _file.tellg(); _file.seekg(0, std::ios::beg); }
-	FStream(const FStream& other) : _file(other.fpath.c_str(), other.fmode), fpath(other.fpath), fmode(other.fmode), filePos(other.filePos), fileSize(other.fileSize)
-	{ _createStream(); _file.seekg(filePos); //print("DEBUG: FStream: Destroyment and Fenix Constructor Called.\n"); 
-		} // Конструктор уничтожения и воссоздания заново(из-за сраного std::fstream).
-    ~FStream(){ if(_file.is_open()){ _file.close(); } }
-    	
-    int read(unsigned char* ptr, size_t size){ _file.read((char*)ptr, size); return _file.gcount(); }
-    int read(Buffer* rbuff){ _file.read((char*)&(*rbuff)[0], rbuff->size()); if(_file.gcount()<(int)rbuff->size()){ rbuff->resize(_file.gcount()); } return _file.gcount(); }
-    Buffer read(int size=-1){ filePos=_file.tellg(); 
-		if(size>0){ Buffer rbuff(size); _file.read((char*)&rbuff[0], rbuff.size()); if(_file.gcount()<size){ rbuff.resize(_file.gcount()); } return rbuff; }
-		else{ Buffer rbuff(fileSize-filePos); _file.read((char*)&rbuff[0], fileSize-filePos); return rbuff; } }
-	void write(const unsigned char* ptr, size_t size){ if(_file.is_open()){ _file.write((const char*)ptr, size); } }
-    void write(const Buffer& wrbuff){ if(wrbuff.size()<=0){ return; } if(_file.is_open()){ _file.write((const char*)&wrbuff[0], wrbuff.size()); } }
+String dirname(const CString& path){ size_t pos = path.find_last_of("/\\");  
+	if(pos==NPOS){ return "."; } return path.substr(0, pos); }
 	
-	template<typename T>
-    static void _swap(T& a, T& b){ T tmp(a); a = b; b = tmp; }
-    static FStream createReadStream(const std::string& path){ return FStream(path, std::ios::in | std::ios::binary); }
-    static FStream createWriteStream(const std::string& path){ return FStream(path, std::ios::out | std::ios::binary); }
-
-protected:
-    //void _onWrite(const Buffer& wrbuff){ if(_file.is_open()){ _file.write((const char*)&wrbuff[0], wrbuff.size()); } }
-    //void _onRead(const Buffer& rbuff){ if(_file.is_open()){ _file.read(reinterpret_cast<char*>(rbuff.data()), rbuff.size()); } }
-    void _createStream(){ if(!_file.is_open()){ print("FStream: Open file error: "); print(fpath); print("\n"); destroyed=true; return; } }
-    
-    void _onDestroy(){ if(_file.is_open()){ _file.close(); } }
-
-private:
-    std::fstream _file; std::string fpath; std::ios_base::openmode fmode; std::streampos filePos; std::streamsize fileSize;
-    //Запрещаем копирование (из-за сраного std::fstream, в котором оно приватное)
-    //FStream(const FStream&);
-    //FStream& operator=(const FStream&);
-};
-	
-FStream createReadStream(std::string path){ return FStream(path, std::ios::in | std::ios::binary); }
-FStream createWriteStream(std::string path){ return FStream(path, std::ios::out | std::ios::binary); }
 } }

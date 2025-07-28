@@ -26,14 +26,14 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 		while (y != 0){ BigInt temp = y; y = x % y; x = temp; } return x; }
 	
 	BigInt modInverse(BigInt a, const BigInt& m0){ BigInt mod=m0, t, q, x0(0), x(1); if(mod == BigInt(1)){ return BigInt(0); }
-		//if(a == mod){ throw std::invalid_argument("modInverse: Modular inverse does not exist: 'a' and 'mod' cannot be equal."); }
-		if(gcd(a, mod) != BigInt(1)){ throw std::invalid_argument("modInverse: Modular inverse does not exist: 'a' and 'mod' have a common divisor."); }
+		//if(a == mod){ print("(!) modInverse: Modular inverse does not exist: 'a' and 'mod' cannot be equal."); return BigInt(); }
+		if(gcd(a, mod) != BigInt(1)){ print("(!) modInverse: Modular inverse does not exist: 'a' and 'mod' have a common divisor."); return BigInt(); }
 		while (a > 1){ q = a / mod; t = mod; mod = a % mod; a = t; t = x0; x0 = x - q * x0; x = t; } if(x<0){ x += m0; } return x; }
 	
 	struct PrivateKey; struct PublicKey;
 	PrivateKey genPrivateKey(int bitLength);
 	PublicKey genPublicKey(const PrivateKey& privKey);
-	std::pair<BigInt, BigInt> recoverPQ(const BigInt& n, const BigInt& d, const BigInt& e);
+	Pair<BigInt, BigInt> recoverPQ(const BigInt& n, const BigInt& d, const BigInt& e);
 	struct PrivateKey { int length;
 		BigInt p;  // prime 1 (int 1)
 		BigInt q;  // prime 2 (int 2)
@@ -54,7 +54,7 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 			//std::cout << "PrivateKey::import: RSA DEBUG 0: Accepted:" << p1 << ", " << q1 << "(" << p << "," << q << ")" << std::endl;
 			p=p1; q=q1; calcDerivedValues(e1); }
 		void import(const BigInt& n1, const BigInt& d1, const BigInt& e1=PUBLIC_EXPONENT){ n=n1; d=d1; calcDerivedValues(e1); }
-		void calcPQ(const BigInt& n1, const BigInt& d1, const BigInt& e1=PUBLIC_EXPONENT){ std::pair<BigInt, BigInt> pq=recoverPQ(n1, d1, e1);
+		void calcPQ(const BigInt& n1, const BigInt& d1, const BigInt& e1=PUBLIC_EXPONENT){ Pair<BigInt, BigInt> pq=recoverPQ(n1, d1, e1);
 			importPQ(pq.first, pq.second, e1); }
 		void generate(int bitLength=DEFAULT_BITS){ *this = genPrivateKey(bitLength); }
 		void clear(){}
@@ -108,28 +108,28 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 		return privKey; }
 	PublicKey genPublicKey(const PrivateKey& privKey){ PublicKey pubKey(privKey); return pubKey; }
 
-    typedef std::pair<PrivateKey, PublicKey> KeyPair; //Buffer a(15),b(15); a[0]=1; b[0]=1; b[14]=1; PrivateKey privKey(a, b);
+    typedef Pair<PrivateKey, PublicKey> KeyPair; //Buffer a(15),b(15); a[0]=1; b[0]=1; b[14]=1; PrivateKey privKey(a, b);
 	KeyPair genKeyPair(int bitLength=DEFAULT_BITS){ PrivateKey privKey(bitLength);
-		PublicKey pubKey(privKey); return std::make_pair(privKey, pubKey); }
+		PublicKey pubKey(privKey); return KeyPair(privKey, pubKey); }
 		
-	std::pair<BigInt, BigInt> recoverPQ(const BigInt& n, const BigInt& d, const BigInt& e=PUBLIC_EXPONENT, int attempts=1000){
+	Pair<BigInt, BigInt> recoverPQ(const BigInt& n, const BigInt& d, const BigInt& e=PUBLIC_EXPONENT, int attempts=1000){
 		BigInt k = e * d - 1; BigInt t = k; int s = 0; while(t % 2 == 0){ t = t / 2; ++s; }
 		for (int i = 0; i < attempts; ++i){
 			BigInt a = Buffer::randBytes(n.size());  // Выбор случайного a от 2 до n-2
 			BigInt x = powMod(a, t, n); if(x == 1 || x == n-1) continue;
 			for (int j = 0; j < s - 1; ++j){ x = powMod(x, BigInt(2), n); if(x == n - BigInt(1)) break;
-				if (x == 1){ BigInt p = gcd(x - BigInt(1), n); BigInt q = n / p; return std::make_pair(p, q); } }
-		} return std::make_pair(0, 0); }
+				if (x == 1){ BigInt p = gcd(x - BigInt(1), n); BigInt q = n / p; return Pair<BigInt, BigInt>(p, q); } }
+		} return Pair<BigInt, BigInt>(0, 0); }
 	//PKCS#1 v1.5 или OAEP
 	Buffer addPKCS1v15Padding(const Buffer& buffer, int blockSize){ return buffer; //test nothing;
-		if ((int)buffer.size() > blockSize-11){ throw std::runtime_error("Buffer size too large for PKCS#1 v1.5 padding."); }
+		if ((int)buffer.size() > blockSize-11){ print("(!) Buffer size too large for PKCS#1 v1.5 padding."); return BigInt(); }
 		Buffer paddedBuffer; paddedBuffer.push_back(0x00); paddedBuffer.push_back(0x02);
 		for (size_t i = 0; i < blockSize - buffer.size() - 3; ++i){ paddedBuffer.push_back(randInt(1,255)); }
 		paddedBuffer.push_back(0x00); paddedBuffer.concat(buffer); return paddedBuffer; }
 	Buffer removePKCS1v15Padding(const Buffer& buffer){ return buffer; //test nothing;
-		if(buffer[0] != 0x00 || buffer[1] != 0x02){ throw std::runtime_error("Invalid PKCS#1 v1.5 padding."); }
+		if(buffer[0] != 0x00 || buffer[1] != 0x02){ print("(!) Invalid PKCS#1 v1.5 padding."); return BigInt(); }
 		size_t i = 2; while (i < buffer.size() && buffer[i] != 0x00){ ++i; }
-		if(i == buffer.size()){ throw std::runtime_error("Invalid PKCS#1 v1.5 padding."); } //addPKCS1v15Padding(
+		if(i == buffer.size()){ print("(!) Invalid PKCS#1 v1.5 padding."); return BigInt(); } //addPKCS1v15Padding(
 		return buffer.slice(i+1); }
 		
 	//C=M^e mod n (Example: C=65^17 mod 3233 = 2790)

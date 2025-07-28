@@ -6,7 +6,7 @@ struct Keccak { uint64_t state[25]; unsigned char buffer[200];
 	Keccak(size_t rateBits=1088, size_t capacity=512, size_t bitlen=256)
 		: rate(rateBits/8), capacity(capacity/8), outLen(bitlen/8), bufferSize(0), delim(0x06){ reset(); }
 		
-	void reset(){ std::memset(state, 0, sizeof(uint64_t)*25); bufferSize=0; }
+	void reset(){ memset(state, 0, sizeof(uint64_t)*25); bufferSize=0; }
 
 	void update(const unsigned char* input, size_t len){
 		for(size_t i = 0; i < len; ++i){ buffer[bufferSize++] = input[i];

@@ -6,6 +6,7 @@
 #include <windows.h>
 	void print(const char *cptr, size_t len){ WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), cptr, (DWORD)len, NULL, NULL); }
 #else
+#include <unistd.h>
 	void print(const char *cptr, size_t len){ write(STDOUT_FILENO, cptr, len); }
 #endif
 	void print(const char *cstr){ print(cstr, strlen(cstr)); }
@@ -24,24 +25,20 @@ void cpp_version(){ print("[");
 #else
 	print("c++98");
 #endif
-	//print("] UTF-8 кирилица にも含み ("); print(__cplusplus); print(")\n");
-	print("] UTF-8 кирилица にも含み\n"); print(" - \\n NewStr Test\n"); print(" - __VERSION__ = "); print(__VERSION__); print("\n");
+	print("] UTF-8 кирилица にも含み\n");
 };
 
-/*void gcc_version(){ print("[Compiller] ");
+void gcc_version(){ print("[Compiller] ");
 #if defined(__clang__)
-	print("Clang "); print(__clang_major__); print("."); print(__clang_minor__); print("."); print(__clang_patchlevel__); print("\n");
+	print("Clang "); print(__VERSION__); print("\n"); //std::cout << "Clang " << __clang_major__ << "." << __clang_minor__ << "." <<  __clang_patchlevel__ << std::endl;
 #elif defined(__GNUC__)
-	print("GCC "); print(__GNUC__); print("."); print(__GNUC_MINOR__); print("."); print(__GNUC_PATCHLEVEL__); print("\n");
+	print("GCC "); print(__VERSION__); print("\n"); //std::cout << "GCC " << __GNUC__ << "." << __GNUC_MINOR__ << "." <<  __GNUC_PATCHLEVEL__ << std::endl;
 #elif defined(_MSC_VER)
-	print("MSVC?\n");
+	print("MSVC? WTF?\n");
+#else
+	print("(Unknown)\n");
 #endif
-};*/
+};
 
 //void __attribute__((naked)) _start(){
-void _start(){
-    const char msg[] = "Hello!\n";
-    HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    WriteFile(hStdOut, msg, sizeof(msg)-1, NULL, NULL);
-    ExitProcess(0);
-}
+void _start(){ print("Hello, no-CRT\n"); ExitProcess(0); }

@@ -1,9 +1,5 @@
 namespace ncpp { namespace GUI { struct App; App* mainApp=NULL; typedef HWND WndID;
-	#if __cplusplus >= 201103L
-	typedef std::unordered_map<HWND, HANDLER_PAIR_TYPE> EventMap;
-	#else
-	typedef std::map<HWND, HANDLER_PAIR_TYPE> EventMap;
-	#endif
+	typedef HashMap<HWND, HANDLER_PAIR_TYPE> EventMap;
     LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	
 	struct App { HINSTANCE hInstance; WNDCLASSEX wc0; MSG Msg;
@@ -25,7 +21,7 @@ namespace ncpp { namespace GUI { struct App; App* mainApp=NULL; typedef HWND Wnd
         
         void run(){ while(GetMessage(&Msg, NULL, 0, 0) > 0){ TranslateMessage(&Msg); DispatchMessage(&Msg); } }
         
-        void setEventHandler(HWND hwnd, std::string type, HANDLER_PTR){ eventHandlers[hwnd] = std::make_pair(type, handler); }
+        void setEventHandler(HWND hwnd, const CString& type, HANDLER_PTR){ eventHandlers[hwnd] = HANDLER_PAIR_TYPE(type, handler); }
 		void clearAllHandlers(){ eventHandlers.clear(); }
 		EventMap eventHandlers;	
 		//void regWnd(Window* wnd){}
@@ -39,11 +35,11 @@ namespace ncpp { namespace GUI { struct App; App* mainApp=NULL; typedef HWND Wnd
 		Window(const char* name, int x=DEF_HWND_X, int y=DEF_HWND_Y, int width=DEF_HWND_WIDTH, int height=DEF_HWND_HEIGHT){ createWindow(mainApp, name, x, y, width, height); }
 		~Window(){ destroy(); }
 		
-		void setTitle(const std::string& title){ if(wndID==NULL) return; SetWindowText(wndID, title.c_str()); }
-		std::string getText(){ if(wndID==NULL) return ""; int len = GetWindowTextLength(wndID)+1; 
-			std::vector<char> txt(len); GetWindowText(wndID, &txt[0], len); return std::string(&txt[0]); }
-		void setText(const std::string& text){ if(wndID==NULL) return; SetWindowText(wndID, text.c_str()); }
-		void onEvent(std::string type, HANDLER_PTR){ app->setEventHandler(wndID, type, handler); }
+		void setTitle(const CString& title){ if(wndID==NULL) return; SetWindowText(wndID, title.c_str()); }
+		String getText(){ if(wndID==NULL) return ""; int len = GetWindowTextLength(wndID)+1; 
+			String txt(len); GetWindowText(wndID, &txt[0], len); return txt; }
+		void setText(const CString& text){ if(wndID==NULL) return; SetWindowText(wndID, text.c_str()); }
+		void onEvent(const CString& type, HANDLER_PTR){ app->setEventHandler(wndID, type, handler); }
 		void onClick(HANDLER_PTR){ onEvent("click", handler); }
 		void getSize(int& width, int& height){ if(wndID == 0) return; RECT rect;
 			if(GetWindowRect(wndID, &rect)){ width = rect.right - rect.left; height = rect.bottom - rect.top; } }
@@ -53,7 +49,7 @@ namespace ncpp { namespace GUI { struct App; App* mainApp=NULL; typedef HWND Wnd
 		void Show(){ ShowWindow(wndID, SW_SHOW); } void Hide(){ ShowWindow(wndID, SW_HIDE); }
 		void setVisible(bool visible=true){ if(wndID == NULL) return; ShowWindow(wndID, visible ? SW_SHOW : SW_HIDE); }
 		void setDisabled(bool disabled=true){ if(wndID == NULL) return; EnableWindow(wndID, disabled ? FALSE : TRUE); }
-		std::string getClass(){ char clName[32]; GetClassName(wndID, clName, 32); return clName; }
+		String getClass(){ char clName[32]; GetClassName(wndID, clName, 32); return clName; }
 
 		void Update(){ UpdateWindow(wndID); }
 		bool destroy(){ if(wndID==NULL) return false; DestroyWindow(wndID); wndID = NULL; return true; }
@@ -134,12 +130,12 @@ namespace ncpp { namespace GUI { struct App; App* mainApp=NULL; typedef HWND Wnd
 				HWND hElem = (HWND)lParam; if(lParam==0){ hElem=hWnd; }
 			    // Вывод всех элементов eventHandlers
 				for(EventMap::const_iterator it1 = mainApp->eventHandlers.begin(); it1 != mainApp->eventHandlers.end(); ++it1){
-					std::cout << it1->first << " = (" << it1->second.first << ", " << reinterpret_cast<void*>(it1->second.second) << "); "; }
-					std::cout << std::endl;
+					//std::cout << it1->first << " = (" << it1->second.first << ", " << reinterpret_cast<void*>(it1->second.second) << "); "; 
+				}	//std::cout << std::endl;
 					
-				char clName[32]; GetClassName(hElem, clName, 32); std::string cName(clName); std::cout << "cName: " << cName << std::endl;
+				char clName[32]; GetClassName(hElem, clName, 32); String cName(clName); //std::cout << "cName: " << cName << std::endl;
 				EventMap::iterator it = mainApp->eventHandlers.find(hElem); if(it == mainApp->eventHandlers.end()){ break; }
-				std::string event="other";
+				String event="other";
 				if(cName=="Edit"){ switch(wmEvent){
 					case EN_CHANGE: event = "change"; break;
 					case EN_UPDATE: event = "update"; break;

@@ -1,23 +1,18 @@
 namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
     typedef XID XWindowID; struct Window; typedef XWindowID WndID;
-    #if __cplusplus >= 201103L
-	typedef std::unordered_map<XWindowID, HANDLER_PAIR_TYPE> EventMap;
-	typedef std::unordered_map<XWindowID, Window*> WndList;
-	#else
-	typedef std::map<XWindowID, HANDLER_PAIR_TYPE> EventMap;
-	typedef std::map<XWindowID, Window*> WndList;
-	#endif
+	typedef HashMap<XWindowID, HANDLER_PAIR_TYPE> EventMap;
+	typedef HashMap<XWindowID, Window*> WndList;
 	
 	enum WndClass { NONE, BUTTON, LABEL, INPUT, CHECKBOX };
 	
 	struct Event {
 		Window* wnd;
-		std::string type;
+		String type;
 		void (*func)(Event); };
 	
-	void _RedrawWindow(Window*, std::string);
+	void _RedrawWindow(Window*, String);
     struct App { Display *display; int screen; XWindowID rootID; GC gc;
-        App() { display = XOpenDisplay(NULL); if(display == NULL){ std::cerr << "Cannot open display!" << std::endl; exit(1); }
+        App() { display = XOpenDisplay(NULL); if(display == NULL){ print("(!) Cannot open display!\n"); exit(1); }
             screen = DefaultScreen(display); rootID = RootWindow(display, screen); gc = XCreateGC(display, rootID, 0, NULL); mainApp = this; }
 
         ~App(){ XFreeGC(display, gc); XCloseDisplay(display); }
@@ -26,7 +21,7 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 
         void run(){ XEvent event; while(true){ XNextEvent(display, &event); if(event.type == DestroyNotify) break; handleEvent(event); } }
 
-        void setEventHandler(XWindowID xwdID, std::string type, HANDLER_PTR){ eventHandlers[xwdID] = std::make_pair(type, handler); }
+        void setEventHandler(XWindowID xwdID, const CString& type, HANDLER_PTR){ eventHandlers[xwdID] = HANDLER_PAIR_TYPE(type, handler); }
         void clearAllHandlers(){ eventHandlers.clear(); }
         EventMap eventHandlers; WndList wndlist;
         void regWnd(Window* wnd);
@@ -37,10 +32,10 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
         void handleEvent(XEvent& event){ XWindowID wndID = event.xany.window; WndList::iterator wit = wndlist.find(wndID);
 			if(wit!=wndlist.end()){ _RedrawWindow(wit->second, _EventDecode(event)); }
 					
-			EventMap::iterator it = eventHandlers.find(wndID); if(it != eventHandlers.end()){ std::string eventType = _EventDecode(event);
+			EventMap::iterator it = eventHandlers.find(wndID); if(it != eventHandlers.end()){ String eventType = _EventDecode(event);
 				if(eventType == it->second.first || it->second.first == "" || it->second.first == "all"){ it->second.second(eventType); } }
         }
-        std::string _EventDecode(XEvent& xevent){ std::string event="other";
+        String _EventDecode(XEvent& xevent){ String event="other";
 			switch(xevent.type){
 				case Expose: event = "expose"; break;
 				case ButtonPress: event = "click"; break;
@@ -68,11 +63,11 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 		Window(const char* name, int x=DEF_HWND_X, int y=DEF_HWND_Y, int width=DEF_HWND_WIDTH, int height=DEF_HWND_HEIGHT){ createWindow(mainApp, name, x, y, width, height); }
 		~Window(){ destroy(); }
 
-        void setTitle(const std::string& text){ XStoreName(app->display, wndID, text.c_str()); XClearWindow(app->display, wndID); XFlush(app->display); }
-		std::string getText(){ if(wndID == 0) return ""; char* name = NULL; std::string result;
+        void setTitle(const CString& text){ XStoreName(app->display, wndID, text.c_str()); XClearWindow(app->display, wndID); XFlush(app->display); }
+		String getText(){ if(wndID == 0) return ""; char* name = NULL; String result;
 			if(XFetchName(app->display, wndID, &name) > 0 && name != NULL){ result = name; XFree(name); } return result; }
-		void setText(const std::string& text){ setTitle(text); }
-        void onEvent(std::string type, HANDLER_PTR){ app->setEventHandler(wndID, type, handler); }
+		void setText(const CString& text){ setTitle(text); }
+        void onEvent(const CString& type, HANDLER_PTR){ app->setEventHandler(wndID, type, handler); }
         void onClick(HANDLER_PTR){ onEvent("click", handler); }
         void getSize(int& width, int& height){ if(wndID == 0) return; XWindowAttributes attr; XGetWindowAttributes(app->display, wndID, &attr); width = attr.width; height = attr.height; }
         void resize(int width, int height) {if(wndID == 0) return; XResizeWindow(app->display, wndID, width, height); //XFlush(app->display); // Сбрасываем очередь команд
@@ -85,11 +80,11 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 		void setDisabled(bool disabled = true){ if(wndID == 0) return;
 			long mask = disabled ? NoEventMask : (ExposureMask | KeyPressMask | ButtonPressMask | StructureNotifyMask);
 			XSelectInput(app->display, wndID, mask); }
-		std::string getClass(){ return ""; }
+		String getClass(){ return ""; }
 		void Update(){ if(wndID == 0) return; XClearWindow(app->display, wndID); XFlush(app->display); }
 		bool destroy(){ if(wndID == 0) return false; XDestroyWindow(app->display, wndID); wndID = 0; app->delWnd(this); return true; }
 
-		//protected: std::string text;
+		//protected: String text;
 		private:
 			void createWindow(App* app1, const char* name="", int x=DEF_HWND_X, int y=DEF_HWND_Y, int width=DEF_HWND_WIDTH, int height=DEF_HWND_HEIGHT, XWindowID wIDParent=0){ app = app1;
 				wndID = XCreateSimpleWindow(app->display, app->rootID, x, y, width, height, 1, BlackPixel(app->display, app->screen), WhitePixel(app->display, app->screen));
@@ -107,7 +102,7 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
         void createButton(Window* parent, const char* text, int x, int y, int width, int height, int id){ app = parent->app;
             wndID = XCreateSimpleWindow(app->display, parent->wndID, x, y, width, height, 1, BlackPixel(app->display, app->screen), WhitePixel(app->display, app->screen));
             XStoreName(app->display, wndID, text); XSelectInput(app->display, wndID, ExposureMask | ButtonPressMask); cls=BUTTON; app->regWnd(this); XClearWindow(app->display, wndID); Show(); }
-        public: void draw(){ std::string name = getText();
+        public: void draw(){ String name = getText();
 			XClearWindow(app->display, wndID);
 			XDrawRectangle(app->display, wndID, app->gc, 0, 0, 99, 24); // рамка
 			XDrawString(app->display, wndID, app->gc, 10, 17, name.c_str(), name.length());
@@ -118,11 +113,11 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 		Label(Window* parent, const char* txt = "", int x = 0, int y = 0, int width = 100, int height = 20){
 			text = txt; createLabel(parent, x, y, width, height); }
 		
-		void setTitle(const std::string& txt){ setText(txt); }
-		std::string getText() const { return text; }	
-		void setText(const std::string& txt){ text = txt; XClearWindow(app->display, wndID); draw(); }
+		void setTitle(const CString& txt){ setText(txt); }
+		String getText() const { return text; }	
+		void setText(const CString& txt){ text = txt; XClearWindow(app->display, wndID); draw(); }
 
-		private: std::string text;
+		private: String text;
 		void createLabel(Window* parent, int x, int y, int width, int height){
 			app = parent->app; wndID = XCreateSimpleWindow(app->display, parent->wndID, 
 				x, y, width, height, 0, BlackPixel(app->display, app->screen), WhitePixel(app->display, app->screen));
@@ -134,15 +129,15 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 		Input(Window* parent, const char* txt = "", int x = 0, int y = 0, int width = 120, int height = 24){
 			text = txt; createInput(parent, x, y, width, height); }
 
-		std::string getText() const { return text; }	
-		void setText(const std::string& txt){ text = txt; XClearWindow(app->display, wndID); draw(); }
+		String getText() const { return text; }	
+		void setText(const CString& txt){ text = txt; XClearWindow(app->display, wndID); draw(); }
 
-		private: std::string text;
+		private: String text;
 		void createInput(Window* parent, int x, int y, int width, int height){
 			app = parent->app; wndID = XCreateSimpleWindow(app->display, parent->wndID, 
 				x, y, width, height, 1, BlackPixel(app->display, app->screen), WhitePixel(app->display, app->screen));
 			XSelectInput(app->display, wndID, ExposureMask | KeyPressMask); cls=INPUT; app->regWnd(this); Show(); }
-		public: void draw(std::string ev=""){ 
+		public: void draw(const CString& ev=""){ 
 			if(ev == "key_down"){ XEvent event; XPeekEvent(app->display, &event);
 				if(event.type == KeyPress){
 					KeySym key; char buffer[8];
@@ -158,7 +153,7 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 	struct TextArea : Window {  
 		TextArea(Window* parent, const char* txt = "", int x = 0, int y = 0, int width = 200, 
 			int height = 100){ createInput(parent, x, y, width, height); } 
-		private: std::string text;
+		private: String text;
 			void createInput(Window* parent, int x, int y, int width, int height){
 			app = parent->app; wndID = XCreateSimpleWindow(app->display, parent->wndID, 
 				x, y, width, height, 1, BlackPixel(app->display, app->screen), WhitePixel(app->display, app->screen));
@@ -172,13 +167,13 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 		bool isChecked() const { return checked; }
 		void setChecked(bool val){ checked = val; XClearWindow(app->display, wndID); }
 
-		private: bool checked; std::string label;
+		private: bool checked; String label;
 		void createCheckBox(Window* parent, const char* text, int x, int y, int width, int height){
 			app = parent->app; wndID = XCreateSimpleWindow(app->display, parent->wndID, x, y, width, height, 0,
 				BlackPixel(app->display, app->screen), WhitePixel(app->display, app->screen));
 			XStoreName(app->display, wndID, text); XSelectInput(app->display, wndID, ExposureMask | ButtonPressMask); cls=CHECKBOX; app->regWnd(this); Show();
 		}
-		public: void draw(bool clicked=false){ std::string name = getText();
+		public: void draw(bool clicked=false){ String name = getText();
 			XClearWindow(app->display, wndID); XDrawRectangle(app->display, wndID, app->gc, 3, 3, 12, 12);
 			if(clicked){ checked = !checked; }
 			if(checked){
@@ -190,8 +185,8 @@ namespace ncpp { namespace GUI { struct App; App* mainApp = NULL;
 		
 	void _DrawCheckBox(CheckBox* wnd, bool clicked=false){}
 		
-	void _RedrawWindow(Window* wnd, std::string ev){ if(wnd==NULL) return;
-		std::cout << "_RedrawWindow: cls = " << wnd->cls << " | wndID: " << wnd->wndID << std::endl;
+	void _RedrawWindow(Window* wnd, const CString& ev){ if(wnd==NULL) return;
+		//std::cout << "_RedrawWindow: cls = " << wnd->cls << " | wndID: " << wnd->wndID << std::endl;
 		switch(wnd->cls){ case NONE: { break; } case BUTTON: ((Button*)wnd)->draw(); break;
 			case LABEL: ((Label*)wnd)->draw(); break;
 			case INPUT: ((Input*)wnd)->draw(ev); break;  //(Input*)

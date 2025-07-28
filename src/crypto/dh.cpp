@@ -8,13 +8,13 @@ const BigInt DEFAULT_P = Buffer("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD
     "F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF", "hex");
 const BigInt DEFAULT_G = 2;
 
-typedef std::pair<BigInt, BigInt> KeyPair;
+typedef Pair<BigInt, BigInt> KeyPair;
 
 // Генерация пары ключей
 KeyPair generateKeyPair(const BigInt& p = DEFAULT_P, const BigInt& g = DEFAULT_G, int privBits = 256){
     BigInt priv = BigInt(crypto::randomBytes(privBits / 8));
     BigInt pub = BigInt::powMod(g, priv, p);
-    return std::make_pair(priv, pub); }
+    return KeyPair(priv, pub); }
 
 // Вычисление общего секрета
 BigInt computeSecret(const BigInt& otherPublicKey, const BigInt& privateKey, const BigInt& p = DEFAULT_P){

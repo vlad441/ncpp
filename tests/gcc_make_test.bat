@@ -11,9 +11,10 @@ set lnk_flags=-static -s -m32 -lws2_32 -lpsapi -liphlpapi
 ::set lnk_flags=-static -s -m32 -lws2_32 -lpsapi -liphlpapi -lopengl32
 
 if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)
-g++ -Wall %cppfile% -o %exefile% %gcc_flags% %lnk_flags%
+g++ -Wall %cppfile% -o %exefile% %gcc_flags% %lnk_flags% -fno-rtti -fno-exceptions
 ::g++ -Wall %cppfile% -o %exefile% %gcc_flags% -static -s -m32 -L"%currpath%\..\lib" -lncpp
 ::g++ -O3 -std=c++98 -march=native -flto -funroll-loops -ffast-math -funsafe-math-optimizations -fno-trapping-math -fno-math-errno -fomit-frame-pointer %cppfile% -o %exefile%
+
 cd /d "%currpath%"
 
 :: === Time calc ===

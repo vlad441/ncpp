@@ -23,3 +23,5 @@ unsigned long long xorshift128plus() {
 double random() {
     return (xorshift128plus() & ((1ULL << 53) - 1)) * (1.0 / (1ULL << 53));
 }
+
+RtlGenRandom (aka SystemFunction036)

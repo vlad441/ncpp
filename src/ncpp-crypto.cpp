@@ -5,13 +5,12 @@ namespace ncpp{ namespace crypto{
 	Buffer randomBytes(size_t length){ Buffer bytes(length); 
 	#ifdef _WIN32
 		HCRYPTPROV hProvider = 0;
-		if(!CryptAcquireContext(&hProvider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)){ throw std::runtime_error("CryptAcquireContext failed"); }
+		if(!CryptAcquireContext(&hProvider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)){ print("(!) CryptAcquireContext failed"); return Buffer(); }
 		if(!CryptGenRandom(hProvider, length, &bytes[0])){ CryptReleaseContext(hProvider, 0); 
-			throw std::runtime_error("CryptGenRandom failed: "+dtos(GetLastError())); } CryptReleaseContext(hProvider, 0);
+			print("(!) CryptGenRandom failed: "+dtos(GetLastError())); return Buffer(); } CryptReleaseContext(hProvider, 0);
 	#else
-		std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
-		if(!urandom){ throw std::runtime_error("Failed to open /dev/urandom"); }
-		urandom.read((char*)&bytes[0], length); if(!urandom){ throw std::runtime_error("Failed to read from /dev/urandom"); }
+		FStream urand("/dev/urandom", FStream::IO_READ); if(!urand.isOpen()){ print("(!) Failed to open /dev/urandom"); return Buffer(); }
+		if(urand.read((char*)&bytes[0], length)<=0){ print("(!) Failed to read from /dev/urandom"); return Buffer(); }
 	#endif
 	return bytes; }
 
@@ -37,8 +36,8 @@ namespace ncpp{ namespace crypto{
 
 namespace ncpp{ namespace crypto{
 	template <typename T>
-	Buffer checksum(T& algo, const String& path){ algo.reset(); fs::FStream f = fs::createReadStream(path);
-		if(f.destroyed){ throw Err("checksum: open file err: "+path); return Buffer(); } 
+	Buffer checksum(T& algo, const String& path){ algo.reset(); FStream f(path, FStream::IO_READ);
+		if(!f.isOpen()){ print("(!) crypto::checksum: open file err: "); print(path); print("\n"); return Buffer(); }
 		Buffer buff(65536); while(f.read(&buff)>0){ algo.update(buff); } f.close(); return algo.digest(); }
 			
 	template <typename T>

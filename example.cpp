@@ -16,8 +16,7 @@ void cpp_version(){ print("[");
 #else
 	print("c++98");
 #endif
-	print("] UTF-8 кирилица にも含み\n");
-};
+	print("] UTF-8 кирилица にも含み\n"); }
 
 void gcc_version(){ print("[Compiller] ");
 #if defined(__clang__)
@@ -29,7 +28,7 @@ void gcc_version(){ print("[Compiller] ");
 #else
 	print("(Unknown)\n");
 #endif
-};
+} void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); print("\n"); _ncpp_check_ver(); }
 
 //#include <typeinfo>
 
@@ -38,7 +37,7 @@ void gcc_version(){ print("[Compiller] ");
 
 //void timer_test(Thread::Signal* sgn1){ (*sgn1).notify(); }
 
-int main(int argc, char* argv[]){ cpp_version(); gcc_version();
+int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version();
 
 	/*Buffer buff("Hi, ncpp");
 	std::cout << "buff.toString(): " << buff.toString() << std::endl;

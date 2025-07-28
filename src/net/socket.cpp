@@ -26,20 +26,21 @@ const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
 #endif
 #else
 #include <netinet/ip_icmp.h>
+#include <netinet/tcp.h> // Keep-Alive: TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
 #endif
 
 namespace ncpp{ 
 #define DEF_BUFF_SIZE 16384
-	struct BindInfo { std::string ip; int port; std::string family; std::string type; };
-	struct IPAddr { std::string ip; int port; char ipver;
-		IPAddr(const std::string& ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){} 
-		std::string toString() const { if(ipver==4){ return ip+":"+dtos(port); }else{ return "["+ip+"]:"+dtos(port); } }
-	}; std::ostream& operator<<(std::ostream& os, const IPAddr& addr){ os << addr.toString(); return os; } // Перегрузка std::cout для IPAddr
+	struct BindInfo { String ip; int port; String family; String type; };
+	struct IPAddr { String ip; int port; char ipver;
+		IPAddr(CString ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){} 
+		String toString() const { if(ipver==4){ return ip+":"+dtos(port); }else{ return "["+ip+"]:"+dtos(port); } }
+	};
 	
 	struct Socket { int sockfd; bool connected; bool isbind; enum Type { NONE, TCP, UDP, UNIX } _type;
 		IPAddr destAddr; bool autodestroy; int errcode; int buffsize; //Object* data;
         Socket() : sockfd(-1), connected(false), isbind(false), _type(TCP), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){}
-		Socket(const std::string& ip, int port, Type type=TCP) : sockfd(-1), connected(false), isbind(false), _type(type), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){ destAddr.ip=ip; destAddr.port=port; }
+		Socket(CString ip, int port, Type type=TCP) : sockfd(-1), connected(false), isbind(false), _type(type), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){ destAddr.ip=ip; destAddr.port=port; }
 		Socket(int sockfd) : sockfd(sockfd), connected(true), isbind(false), _type(TCP), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){}
         ~Socket(){ if(autodestroy) destroy(); }
 		
@@ -60,7 +61,7 @@ namespace ncpp{
 		Socket& own(bool en=true){ autodestroy=en; return *this; }
 		inline static int create(char ipver=4, int type=TCP){ return socket(ipver==4?AF_INET:AF_INET6, type==TCP?SOCK_STREAM:SOCK_DGRAM, 0); }
 		
-		bool connect(const std::string& ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
+		bool connect(CString ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
             struct addrinfo hints, *res, *p; memset(&hints, 0, sizeof(hints)); hints.ai_family = AF_UNSPEC; // AF_INET или AF_INET6 для IPv4 или IPv6
             if(_type==TCP){ hints.ai_socktype = SOCK_STREAM; }else{ hints.ai_socktype = SOCK_DGRAM; } // SOCK_STREAM, SOCK_DGRAM
             
@@ -75,7 +76,7 @@ namespace ncpp{
 		bool connect(const IPAddr& a){ return connect(a.ip, a.port); };
 		bool connect(){ return connect(destAddr.ip, destAddr.port); };
             
-        bool connect4(const std::string& ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
+        bool connect4(CString ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
 			struct sockaddr_in addr; memset(&addr, 0, sizeof(addr)); addr.sin_family = AF_INET; addr.sin_port = htons(port);
 			if (inet_addr(ip.c_str())!=INADDR_NONE){ addr.sin_addr.s_addr = inet_addr(ip.c_str()); } 
 			else{ struct hostent *hst; hst = gethostbyname(ip.c_str()); if(hst){ addr.sin_addr = *(struct in_addr*)hst->h_addr; }
@@ -87,7 +88,7 @@ namespace ncpp{
 			connected = true; destAddr = _from_sockaddr_in(&addr); return true; }
 		bool connect4(){ return connect4(destAddr.ip, destAddr.port); };
 			
-		bool bind(int port = 0, const std::string& bindip = "::"){ WIN_WSAinit(); errcode=0;
+		bool bind(int port = 0, CString bindip = "::"){ WIN_WSAinit(); errcode=0;
 			struct addrinfo hints, *res, *p; memset(&hints, 0, sizeof(hints)); hints.ai_family = AF_UNSPEC;
 			if(_type==TCP){ hints.ai_socktype = SOCK_STREAM; }else{ hints.ai_socktype = SOCK_DGRAM; } hints.ai_flags = AI_PASSIVE;  // Используем для сокетов сервера
 
@@ -106,7 +107,7 @@ namespace ncpp{
 			if(getnameinfo((sockaddr*)&addr, addrLen, host, NI_MAXHOST, port_str, NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV) != 0){ 
 				print("Socket.address: getnameinfo failed.\n"); return addrInfo; }
 
-			addrInfo.ip = host; addrInfo.port = stodn(std::string(port_str));
+			addrInfo.ip = host; addrInfo.port = stodn(String(port_str));
 			if (addr.ss_family == AF_INET){ addrInfo.family = "IPv4"; }else if(addr.ss_family == AF_INET6){ addrInfo.family = "IPv6"; }else{ addrInfo.family = "(Unknown)"; }
 
 			int sockType; socklen_t optLen = sizeof(sockType);
@@ -144,7 +145,23 @@ namespace ncpp{
 		#endif
 		}
 		inline void setNonBlocking(bool nb_mode=true){ return setNonBlocking(sockfd, nb_mode); }
-		std::string type(){ if(_type==TCP){ return "TCP"; }else if(_type==UDP){ return "UDP"; }else if(_type==UNIX){ return "UNIX"; }else{ return "(Unspec protocol)"; } }
+		
+		static bool setKeepAlive(int sockfd1, bool en, int idle_time=720, int interval=5, int cnt=5){
+		#ifdef _WIN32
+			int bOptLen = sizeof(en); if(setsockopt(sockfd1, SOL_SOCKET, SO_KEEPALIVE, (char*)&en, bOptLen) == SOCKET_ERROR){ print("setsockopt (SO_KEEPALIVE) failed"); return false; }
+			if(!en||idle_time<=0) return true; tcp_keepalive ka; DWORD bytesReturned; ka.onoff = 1; ka.keepalivetime = (ULONG)idle_time; ka.keepaliveinterval = (ULONG)interval;
+			if(WSAIoctl(sockfd1, SIO_KEEPALIVE_VALS, &ka, sizeof(ka), NULL, 0, &bytesReturned, NULL, NULL) == SOCKET_ERROR){ print("WSAIoctl (SIO_KEEPALIVE_VALS) failed"); return false; }
+		#else
+			int optval = en; socklen_t optlen = sizeof(optval); if(setsockopt(sockfd1, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen) < 0){ perror("setsockopt(SO_KEEPALIVE) failed"); return false; }
+			if(!en||idle_time<=0) return true; optval = idle_time;
+			if(setsockopt(sockfd1, IPPROTO_TCP, TCP_KEEPIDLE, &optval, optlen) < 0){ perror("setsockopt (TCP_KEEPIDLE) failed"); return false; }
+			optval = interval; if(setsockopt(sockfd1, IPPROTO_TCP, TCP_KEEPINTVL, &optval, optlen) < 0) { perror("setsockopt (TCP_KEEPINTVL) failed"); return false; }
+			optval = cnt; if(setsockopt(sockfd1, IPPROTO_TCP, TCP_KEEPCNT, &optval, optlen) < 0){ perror("setsockopt (TCP_KEEPCNT) failed"); return false; }
+		#endif
+			return true; }
+		inline bool setKeepAlive(bool en=true, int idle_time=720, int interval=5, int cnt=5){ return setKeepAlive(sockfd, en, idle_time, interval, cnt); }
+		
+		String type(){ if(_type==TCP){ return "TCP"; }else if(_type==UDP){ return "UDP"; }else if(_type==UNIX){ return "UNIX"; }else{ return "(Unspec protocol)"; } }
         
         // lo-lvl address translation
         static IPAddr _from_sockaddr_in(const sockaddr_in* addr4){ IPAddr result; char ipstr[INET_ADDRSTRLEN]; result.port = ntohs(addr4->sin_port); 
@@ -171,19 +188,19 @@ namespace ncpp{
 	
     struct TCPSocket : Socket {  
 		TCPSocket(){}
-		TCPSocket(const std::string& ip, int port, bool toconn=false) : Socket(ip, port, Socket::TCP){ if(toconn) connect(); }
+		TCPSocket(CString ip, int port, bool toconn=false) : Socket(ip, port, Socket::TCP){ if(toconn) connect(); }
 		TCPSocket(const IPAddr& addr, bool toconn=false) : Socket(addr.ip, addr.port, Socket::TCP){ if(toconn) connect(); }
 		TCPSocket(int sockfd1) : Socket(sockfd1){}
 		TCPSocket(Socket sock) : Socket(sock){}
 		
-		int send(const Buffer& buff){ return ::send(sockfd, (const char*)&buff[0], buff.size(), 0); }
+		int send(const Buffer& buff){ return ::send(sockfd, (const char*)buff.data(), buff.size(), 0); }
 		int send(const char* cptr, int len){ return ::send(sockfd, cptr, len, 0); }
-		int send(const char* cstr){ return ::send(sockfd, cstr, std::strlen(cstr), 0); }
+		int send(const char* cstr){ return ::send(sockfd, cstr, strlen(cstr), 0); }
 		
 		int recv(char* ptr, int len){ rsetErr(); int bytesRead = ::recv(sockfd, ptr, len, 0);
 			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
 		int recv(Buffer* buff){ buff->resize(buffsize); rsetErr(); 
-			int bytesRead = ::recv(sockfd, (char*)&(*buff)[0], buff->size(), 0);
+			int bytesRead = ::recv(sockfd, (char*)buff->data(), buff->size(), 0);
 			if(bytesRead<=0){ buff->resize(0); destroy(); if(bytesRead<0) GetErr(); }
 			else{ buff->resize(bytesRead); } return bytesRead; }
 		Buffer recv(){ Buffer buff(buffsize); recv(&buff); return buff; }
@@ -200,7 +217,7 @@ namespace ncpp{
     
 	struct UDPSocket : Socket { 
 		UDPSocket(){ _type=UDP; }
-		UDPSocket(const std::string& ip, int port, bool toconn=false) : Socket(ip, port, Socket::UDP){ if(toconn) connect(); }
+		UDPSocket(CString ip, int port, bool toconn=false) : Socket(ip, port, Socket::UDP){ if(toconn) connect(); }
 		UDPSocket(const IPAddr& addr, bool toconn=false) : Socket(addr.ip, addr.port, Socket::UDP){ if(toconn) connect(); }
 		UDPSocket(int sockfd1) : Socket(sockfd1){ _type=UDP; }
 		UDPSocket(Socket sock) : Socket(sock){ _type=UDP; }
@@ -208,11 +225,11 @@ namespace ncpp{
 		int send(const IPAddr& addr, const char* cstr, int len){ struct sockaddr_storage dest_addr = _to_sockaddr_storage(addr);
 			return ::sendto(sockfd, cstr, len, 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr)); }
 		int send(const IPAddr& addr, const Buffer& buffer){ struct sockaddr_storage dest_addr = _to_sockaddr_storage(addr);
-			return ::sendto(sockfd, (const char*)&buffer[0], buffer.size(), 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr)); }
-		inline int send(const IPAddr& addr, const char* cstr){ return send(addr, cstr, std::strlen(cstr)); }
+			return ::sendto(sockfd, (const char*)buffer.data(), buffer.size(), 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr)); }
+		inline int send(const IPAddr& addr, const char* cstr){ return send(addr, cstr, strlen(cstr)); }
 		inline int send(const Buffer& buff){ return send(destAddr, buff); }
 		inline int send(const char* cstr, int len){ return send(destAddr, cstr, len); }
-		inline int send(const char* cstr){ return send(destAddr, cstr, std::strlen(cstr)); }
+		inline int send(const char* cstr){ return send(destAddr, cstr, strlen(cstr)); }
 	
 		int recv(char* ptr, int len, IPAddr* rinfo=NULL){ rsetErr(); int bytesRead;
 			if(rinfo!=NULL){ sockaddr_storage dest_addr; socklen_t addrlen = sizeof(dest_addr); 
@@ -221,20 +238,20 @@ namespace ncpp{
 			else{ bytesRead = ::recvfrom(sockfd, ptr, len, 0, NULL, NULL); }
 			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
 		int recv(Buffer* buff, IPAddr* rinfo=NULL){ buff->resize(buffsize); rsetErr(); 
-			return recv((char*)&(*buff)[0], buff->size(), rinfo); }
+			return recv((char*)buff->data(), buff->size(), rinfo); }
 		Buffer recv(){ Buffer buff(buffsize); recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
 	};
 	
 	//struct UnixSocket {}
 	struct ICMPSocket {
-		static double ping4(const std::string& ip){ 
+		static double ping4(CString ip){ 
 		#ifdef _WIN32
 			HANDLE hIcmpFile; char sendData[32] = "Data for ICMP packet"; hIcmpFile = IcmpCreateFile();
 			if (hIcmpFile == INVALID_HANDLE_VALUE){ print("ICMPSocket: Create ICMP handle fail: "); print(dtos(GetLastError())); return -1; }
 			Buffer rbuff(sizeof(ICMP_ECHO_REPLY)+sizeof(sendData));
-			DWORD dwRetVal = IcmpSendEcho(hIcmpFile, inet_addr(ip.c_str()), sendData, sizeof(sendData), NULL, (void*)&rbuff[0], rbuff.size(), 2000);
-			if(dwRetVal != 0){ PICMP_ECHO_REPLY pEchoReply = (PICMP_ECHO_REPLY)&rbuff[0]; IcmpCloseHandle(hIcmpFile); return pEchoReply->RoundTripTime; }
+			DWORD dwRetVal = IcmpSendEcho(hIcmpFile, inet_addr(ip.c_str()), sendData, sizeof(sendData), NULL, (void*)rbuff.data(), rbuff.size(), 2000);
+			if(dwRetVal != 0){ PICMP_ECHO_REPLY pEchoReply = (PICMP_ECHO_REPLY)rbuff.data(); IcmpCloseHandle(hIcmpFile); return pEchoReply->RoundTripTime; }
 			else{ print("Ping failed. Error: "); print(dtos(GetLastError())); print("\n"); IcmpCloseHandle(hIcmpFile); return -1; }
 		#else           
 			int sockfd = ::socket(AF_INET, SOCK_RAW, IPPROTO_ICMP); if(sockfd < 0){ print("ICMPSocket: Creation failed.\n"); return -1; }

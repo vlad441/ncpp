@@ -18,11 +18,11 @@ namespace ncpp{
 			if (insert && carry != 0){ while(carry != 0){ buffer.insert(buffer.begin(), carry & 0xFF); carry >>= 8; } } }
 
 		static unsigned int divide_single(Buffer& buffer, unsigned int value, bool erase = true){
-			if(value == 0){ throw std::invalid_argument("Matan rule 0: Never divide by zero :)"); } unsigned int remainder = 0;
+			if(value == 0){ print("(!) Matan rule 0: Never divide by zero :)"); return 0; } unsigned int remainder = 0;
 			for(size_t i = 0; i < buffer.size(); ++i){ unsigned int current = (remainder << 8) | buffer[i]; buffer[i] = current / value; remainder = current % value; }
 			if(erase){ removeLeadingZeros(buffer); } return remainder; }
 			
-		static Buffer add(const Buffer& a, const Buffer& b, bool resize = true){ Buffer result(std::max(a.size(),b.size())); unsigned int carry = 0;
+		static Buffer add(const Buffer& a, const Buffer& b, bool resize = true){ Buffer result(max(a.size(),b.size())); unsigned int carry = 0;
 			for(size_t i = 0; i < result.size(); ++i){ unsigned int sum = carry;
 				if(i < a.size()){ sum += a[a.size() - 1 - i]; } if (i < b.size()){ sum += b[b.size() - 1 - i]; } result[result.size() - 1 - i] = sum & 0xFF; carry = sum >> 8; }
 			if(resize){ while(carry != 0){ result.insert(result.begin(), carry & 0xFF); carry >>= 8; } } return result; }
@@ -65,14 +65,14 @@ namespace ncpp{
 			} return 0; }
 		
 		// Бинарный алгоритм деления через удвоение
-		static std::pair<Buffer, Buffer> binary_divmod(const Buffer& a, const Buffer& b){ Buffer q, r = a;
-			if(b.size()<=4){ q=a; r=Buffer::from(divide_single(q, b.toInt())); return std::make_pair(q, r); }
+		static Pair<Buffer, Buffer> binary_divmod(const Buffer& a, const Buffer& b){ Buffer q, r = a;
+			if(b.size()<=4){ q=a; r=Buffer::from(divide_single(q, b.toInt())); return Pair<Buffer, Buffer>(q, r); }
 			while (compare(r, b) >= 0){ Buffer temp = b, cmp_tmp = b, multiple(1, 1); multiply_single(cmp_tmp, 2);
 				while(compare(r, cmp_tmp) >= 0){
 					multiply_single(temp, 2); multiply_single(multiple, 2);
 					cmp_tmp=temp; multiply_single(cmp_tmp, 2); }
 				r = subtract(r, temp); q = add(q, multiple);
-			} return std::make_pair(q, r); }	
+			} return Pair<Buffer, Buffer>(q, r); }
 		// === advanced mathan ===
 		static Buffer pow(Buffer base, Buffer exp){ Buffer result(1, 1); //std::cout << "Buffer::pow compare(exp,Buffer((size_t)0) " << compare(exp,Buffer((size_t)0)) << ", exp=" << exp << std::endl;
 			while(compare(exp,Buffer((size_t)0))==1){
@@ -105,13 +105,13 @@ namespace ncpp{
 		static Buffer karatsuba_multiply(const Buffer& a, const Buffer& b){
 			if(a.empty() || b.empty()){ return Buffer(); }
 			if(a.size() <= 16 || b.size() <= 16){ return multiply(a, b); } // Если числа маленькие, используем обычное умножение
-			size_t half = std::max(a.size(), b.size()) / 2; // Находим половину длины большего числа
+			size_t half = max(a.size(), b.size()) / 2; // Находим половину длины большего числа
 
 			// Разделяем числа на две части
-			Buffer a_high(a.begin(), a.begin() + std::min(half, a.size()));
-			Buffer a_low(a.begin() + std::min(half, a.size()), a.end());
-			Buffer b_high(b.begin(), b.begin() + std::min(half, b.size()));
-			Buffer b_low(b.begin() + std::min(half, b.size()), b.end());
+			Buffer a_high(a.begin(), a.begin() + min(half, a.size()));
+			Buffer a_low(a.begin() + min(half, a.size()), a.end());
+			Buffer b_high(b.begin(), b.begin() + min(half, b.size()));
+			Buffer b_low(b.begin() + min(half, b.size()), b.end());
 
 			// Рекурсивно вычисляем три произведения
 			Buffer z0 = karatsuba_multiply(a_low, b_low);
@@ -135,18 +135,18 @@ namespace ncpp{
 	struct BigInt : Buffer { bool positive;
 		BigInt() : Buffer(), positive(true){}
 		~BigInt(){} // Деструктор
-        BigInt(std::string value, std::string type="dec") : positive(true){ if(type=="hex"){ fromHex(value); }else{ fromIntString(value); } }
-        explicit BigInt(const char* cstr) : positive(true){ fromIntString(std::string(cstr)); }
+        BigInt(const CString& value, const CString& type="dec") : positive(true){ if(type=="hex"){ fromHex(value); }else{ fromIntString(value); } }
+        explicit BigInt(const char* cstr) : positive(true){ fromIntString(String(cstr)); }
         BigInt(int value){ fromInt64(value); }
         BigInt(unsigned int value){ fromInt64(value); }
 		BigInt(long long value){ fromInt64(value); }
 		BigInt(const Buffer& other) : Buffer(other), positive(true){}
 		
-		void fromIntString(const std::string& str){ String str1=str; if(str[0]=='-'){ positive = false; str1=str1.slice(1); }else{ positive = true; } Buffer::_fromIntString(str1); }
-		void fromHex(const std::string& str){ String str1=str; if(str[0]=='-'){ positive = false; str1=str1.slice(1); }else{ positive = true; } Buffer::fromHex(str1); }
+		void fromIntString(const CString& str){ String str1=str; if(str[0]=='-'){ positive = false; str1=str1.slice(1); }else{ positive = true; } Buffer::_fromIntString(str1); }
+		void fromHex(const CString& str){ String str1=str; if(str[0]=='-'){ positive = false; str1=str1.slice(1); }else{ positive = true; } Buffer::fromHex(str1); }
 		void fromInt64(long long value){ if(value>=0){ *this=Buffer::from(value); positive=true; }else{ *this=Buffer::from(::abs(value)); positive=false; } }
-		std::string toIntString() const { if(positive){ return Buffer::toIntString(); }else{ return "-"+Buffer::toIntString(); } }
-		std::string toHexString() const { if(positive){ return Buffer::toHexString(); }else{ return "-"+Buffer::toHexString(); } }
+		String toIntString() const { if(positive){ return Buffer::toIntString(); }else{ return "-"+Buffer::toIntString(); } }
+		String toHexString() const { if(positive){ return Buffer::toHexString(); }else{ return "-"+Buffer::toHexString(); } }
 		bool IsEven(){ return (this->back() & 1) == 0; }
 		void negate(){ positive?positive=false:positive=true; }
 		void trim(){ Buffer::removeLeadingZeros(*this); }
@@ -159,7 +159,7 @@ namespace ncpp{
 				base = (base * base) % mod; exp /= 2; } return result; }
 		// Вывод
 		String toString() const { return toIntString(); }
-		String toString(std::string type) const { if(type=="hex"){ return toHexString(); }
+		String toString(const CString& type) const { if(type=="hex"){ return toHexString(); }
 			else if(type=="int"||type=="number"||type=="dec"){ return toIntString(); }
 			else if(type=="raw"||type=="buff"){ return cout(); }else{ return toIntString(); } }
 		// Перегрузки
@@ -210,6 +210,4 @@ namespace ncpp{
 		bool operator==(const BigInt& other) const { return positive == other.positive && Buffer::Math::compare(*this, other) == 0; }
 		bool operator!=(const BigInt& other) const { return !(*this == other); }
 	};
-	// Перегрузки операторов для BigInt
-	std::ostream& operator<<(std::ostream& os, const BigInt& bigint){ os << bigint.toIntString(); return os; }
 }

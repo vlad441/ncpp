@@ -2,8 +2,8 @@
 #gccpath="~/gcc-4.9.2/bin"
 #clangpath="~/clang-3.5.2/bin"
 currCD=$(pwd)
-cppfile="$currCD/../test.cpp"
-exefile="$currCD/../test"
+cppfile="$currCD/../example.cpp"
+exefile="$currCD/../example"
 start_time=$(date +%s)
 
 gcc_flags="-O2 -std=c++98"

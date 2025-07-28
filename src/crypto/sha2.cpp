@@ -10,21 +10,21 @@ struct SHA256 { static const uint32_t H0[8]; static const uint32_t K[64];
 
 	SHA256& update(const Buffer& input){ length += input.size() * 8; size_t index = 0;
 		while (index < input.size()){
-			size_t toCopy = std::min(input.size() - index, static_cast<size_t>(64 - bufferSize));
-			std::memcpy(buffer + bufferSize, &input[index], toCopy); bufferSize += toCopy; index += toCopy;
+			size_t toCopy = min(input.size() - index, static_cast<size_t>(64 - bufferSize));
+			memcpy(buffer + bufferSize, &input[index], toCopy); bufferSize += toCopy; index += toCopy;
 			if(bufferSize == 64){ processBlock(buffer); bufferSize = 0; } } return *this; }
 
-	Buffer digest(){ size_t padSize = 0; unsigned char block[64]; std::memcpy(block, buffer, bufferSize); 
+	Buffer digest(){ size_t padSize = 0; unsigned char block[64]; memcpy(block, buffer, bufferSize); 
 		block[bufferSize] = 0x80; padSize = 1; size_t totalLen = bufferSize + 1 + 8; // текущие данные + 0x80 + длина
 		size_t zeroPad = (totalLen % 64 == 0) ? 0 : 64 - (totalLen % 64);
 
 		if(bufferSize + padSize + 8 <= 64){ // Один блок
-			std::memset(block + bufferSize + padSize, 0, zeroPad);
+			memset(block + bufferSize + padSize, 0, zeroPad);
 			for(int i = 0; i < 8; ++i){ block[64 - 8 + i] = (unsigned char)((length >> (56 - 8 * i)) & 0xFF); }
 			processBlock(block); }
 		else{ // Два блока
-			std::memset(block + bufferSize + padSize, 0, 64 - (bufferSize + padSize));
-			processBlock(block); std::memset(block, 0, 64); // Второй блок: нули + длина
+			memset(block + bufferSize + padSize, 0, 64 - (bufferSize + padSize));
+			processBlock(block); memset(block, 0, 64); // Второй блок: нули + длина
 			for(int i = 0; i < 8; ++i){ block[64 - 8 + i] = (unsigned char)((length >> (56 - 8 * i)) & 0xFF); }
 			processBlock(block); } Buffer result(32);
 		for(int i = 0; i < 8; ++i){
@@ -79,8 +79,8 @@ struct SHA512 { static const uint64_t H0_512[8]; static const uint64_t H0_384[8]
 
 	SHA512& update(const Buffer& input){ length += input.size() * 8; size_t index = 0;
 		while (index < input.size()){
-			size_t toCopy = std::min(input.size() - index, static_cast<size_t>(128 - bufferSize));
-			std::memcpy(buffer + bufferSize, &input[index], toCopy); bufferSize += toCopy; index += toCopy;
+			size_t toCopy = min(input.size() - index, static_cast<size_t>(128 - bufferSize));
+			memcpy(buffer + bufferSize, &input[index], toCopy); bufferSize += toCopy; index += toCopy;
 			if (bufferSize == 128){ processBlock(buffer); bufferSize = 0; }
 		} return *this; }
 
@@ -154,6 +154,5 @@ const uint64_t SHA512::K[80] = {
     0x28db77f523047d84ULL, 0x32caab7b40c72493ULL, 0x3c9ebe0a15c9bebcULL, 0x431d67c49c100d4cULL,
     0x4cc5d4becb3e42b6ULL, 0x597f299cfc657e2aULL, 0x5fcb6fab3ad6faecULL, 0x6c44198c4a475817ULL
 };
-
 
 } }

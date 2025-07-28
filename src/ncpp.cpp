@@ -1,5 +1,7 @@
 // ncpp pre-v0.0.0-0; Primary entry point for direct compilation with gcc/clang.
 // PD: No rights reserved; Released into the public domain.
+#ifndef NCPP_CPP
+#define NCPP_CPP
 #include "ncpp.cpp.h"
 
 // ======== Direct Include Sources ========
@@ -14,6 +16,7 @@
 #include "ncpp-object.cpp"
 #include "ncpp-bigint.cpp"
 
+#include "system/Console.cpp"
 //#include "experimantal/ncpp-bigint_v2.cpp"
 #include "ncpp-crypto.cpp"
 
@@ -21,3 +24,4 @@
 //#include "gui/gui.cpp"
 #endif
 
+#endif

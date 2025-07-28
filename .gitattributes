@@ -1,0 +1,4 @@
+*.bat text eol=crlf
+*.sh text eol=lf
+# Default
+* text=auto eol=lf

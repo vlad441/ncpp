@@ -133,7 +133,7 @@ namespace ncpp{
 				if(firstNonZero > 0){ buff.erase(buff.begin(), buff.begin() + firstNonZero); } }
 	};
 	
-	struct BigInt : std::vector<unsigned int> { bool positive;
+	struct BigInt : Array<unsigned int> { bool positive;
 		BigInt() : positive(true){}
 		~BigInt(){} // Деструктор
         BigInt(std::string value, std::string type="dec") : positive(true){ if(type=="hex"){ fromHex(value); }else{ fromIntString(value); } }

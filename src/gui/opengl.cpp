@@ -19,12 +19,12 @@ namespace ncpp { namespace GUI {
 			if(pixelFormat == 0){ MessageBox(NULL, "ChoosePixelFormat Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; }
 			if(!SetPixelFormat(hDC, pixelFormat, &pfd)){ MessageBox(NULL, "SetPixelFormat Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; }
 			glCTX = wglCreateContext(hDC); if(!glCTX){ MessageBox(NULL, "wglCreateContext Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; }
-			if(setContext()){ std::cerr << "createGLContext() successful." << std::endl; }
+			if(setContext()){ print("(#) createGLContext() successful.\n"); }
 			// glewInit(); Инициализация GLEW или другой библиотеки загрузки функций OpenGL, если используется
 		}
 		void destroyGLContext(){ if(glCTX){ wglMakeCurrent(NULL, NULL); wglDeleteContext(glCTX); glCTX = NULL; } if(hDC && wndID){ ReleaseDC(wndID, hDC); hDC = NULL; } }
-		bool setContext(){ if(!glCTX){ std::cerr << "setContext(): glContext not created" << std::endl; return false; }
-			if(!wglMakeCurrent(hDC, glCTX)){ std::cerr << "setContext(): wglMakeCurrent OpenGL set context current failed." << std::endl; return false; } return true; }
+		bool setContext(){ if(!glCTX){ print("(!) setContext(): glContext not created\n"); return false; }
+			if(!wglMakeCurrent(hDC, glCTX)){ print("(!) setContext(): wglMakeCurrent OpenGL set context current failed.\n"); return false; } return true; }
 		void resetContext(){ wglMakeCurrent(NULL, NULL); }
 				
 		void swapBuffers(){ SwapBuffers(hDC); }
@@ -36,25 +36,25 @@ namespace ncpp { namespace GUI {
         
         void createGLContext(bool useDoubleBuff=false){ GLint attr[] = { GLX_X_RENDERABLE, True, GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, GLX_RENDER_TYPE, GLX_RGBA_BIT, GLX_DOUBLEBUFFER, (useDoubleBuff)?True:False, None };
 			useDoubleBuff?bmode=2:bmode=1; int fbConfigCount; GLXFBConfig* fbConfigs = glXChooseFBConfig(app->display, DefaultScreen(app->display), attr, &fbConfigCount);
-			if(fbConfigs == NULL || fbConfigCount == 0){ std::cerr << "createGLContext: No appropriate GLXFBConfig found" << std::endl; return; }
-			glCTX = glXCreateNewContext(app->display, fbConfigs[0], GLX_RGBA_TYPE, NULL, True); if(glCTX == NULL){ std::cerr << "Failed to create GL context" << std::endl; return; }
-			if(setContext()){ std::cout << "X11 createGLContext() successful." << std::endl; }
+			if(fbConfigs == NULL || fbConfigCount == 0){ print("(!) createGLContext: No appropriate GLXFBConfig found\n"); return; }
+			glCTX = glXCreateNewContext(app->display, fbConfigs[0], GLX_RGBA_TYPE, NULL, True); if(glCTX == NULL){ print("(!) Failed to create GL context.\n"); return; }
+			if(setContext()){ print("(#) X11 createGLContext() successful.\n"); }
 			
 			int dflag; glXGetFBConfigAttrib(app->display, fbConfigs[0], GLX_DOUBLEBUFFER, &dflag);
-			if(dflag){ bmode=2; std::cout << "# Double buffering is enabled." << std::endl; }else{ bmode=1; std::cout << "# Double buffering is not enabled." << std::endl; } XFree(fbConfigs);
+			if(dflag){ bmode=2; print("(#) Double buffering is enabled.\n"); }else{ bmode=1; print("(#) Double buffering is not enabled.\n"); } XFree(fbConfigs);
 		}
 
         /*void createGLContext(){ GLint attr[] = { GLX_X_RENDERABLE, True, GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, GLX_RENDER_TYPE, GLX_RGBA_BIT, None };
-			XVisualInfo* vi = glXChooseVisual(app->display, app->screen, attr); if(vi == NULL) { std::cerr << "createGLContext: No appropriate visual found" << std::endl; return; }
-			glCTX = glXCreateContext(app->display, vi, NULL, True); if(glCTX == NULL){ std::cerr << "Failed to create OpenGL context" << std::endl; return; }
-			if(setContext()){ std::cout << "X11 createGLContext() successful." << std::endl; }
+			XVisualInfo* vi = glXChooseVisual(app->display, app->screen, attr); if(vi == NULL) { print("(!) createGLContext: No appropriate visual found\n"); return; }
+			glCTX = glXCreateContext(app->display, vi, NULL, True); if(glCTX == NULL){ print("(!) Failed to create OpenGL context\n"); return; }
+			if(setContext()){ print("(#) X11 createGLContext() successful.\n"); }
 			
-			int dflag; if(glXGetConfig(app->display, vi, GLX_DOUBLEBUFFER, &dflag)) { std::cerr << "Error querying GLX configuration" << std::endl; return; }
-			if(dflag){ bmode=2; std::cout << "Double buffering is enabled." << std::endl; }else{ bmode=1; std::cout << "Double buffering is not enabled." << std::endl; } XFree(vi);
+			int dflag; if(glXGetConfig(app->display, vi, GLX_DOUBLEBUFFER, &dflag)) { print("(!) Error querying GLX configuration\n"); return; }
+			if(dflag){ bmode=2; print("(#) Double buffering is enabled.\n"); }else{ bmode=1; print("(#) Double buffering is not enabled.\n"); } XFree(vi);
 		}*/
 		void destroyGLContext(){ if(glCTX){ glXMakeCurrent(app->display, None, NULL); glXDestroyContext(app->display, glCTX); glCTX = NULL; } }
-		bool setContext(){ if(!glCTX){ std::cerr << "setContext(): glContext not created" << std::endl; return false; }
-			if(!glXMakeCurrent(app->display, wndID, glCTX)){ std::cerr << "setContext(): glXMakeCurrent OpenGL context current failed." << std::endl; return false; } return true; }
+		bool setContext(){ if(!glCTX){ print("(!) setContext(): glContext not created\n"); return false; }
+			if(!glXMakeCurrent(app->display, wndID, glCTX)){ print("(!) setContext(): glXMakeCurrent OpenGL context current failed.\n"); return false; } return true; }
 		void resetContext(){ glXMakeCurrent(app->display, None, NULL); }
 
         void swapBuffers(){ glXSwapBuffers(app->display, wndID); }

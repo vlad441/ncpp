@@ -9,5 +9,5 @@ $gccbin -Wall "$cppfile" -o "$exefile" $gcc_flags $lnk_flags
 #g++4.9 -Wall "$cppfile" -o "$exefile" $gcc_flags $lnk_flags
 [ -z "$gccpath" ] && gccbin=g++ || cd "$currCD"
 
-# === Time ===
+# ======= Time calc =======
 echo "Build time: $(($(date +%s) - start_time)) sec."

@@ -237,6 +237,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 	Buffer operator+(unsigned char c) const { Buffer nbuff(_len+1); nbuff.write(*this); nbuff[_len]=c;  return nbuff; }
 	template <typename T, typename D>
 	Buffer operator+(const BaseString<T, D>& s) const { Buffer nbuff(*this); return nbuff+=s; }
+	Buffer& operator<<(const Buffer& b){ push(b.data(), b.size()); return *this; }
 	
 	String toString() const { return (empty())?String():String((const char*)_ptr, _len); }
 	String toString(const CString& type) const {
@@ -286,7 +287,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 			_msize=len<_MIN_ALLOC?_MIN_ALLOC:len; unsigned char* ptr0=_ptr; _ptr=(unsigned char*)malloc(_msize);
 			if(_ptr==NULL){ print("ncpp::Buffer malloc error: Out of memory"); exit(1); } if(copy&&ptr0!=NULL){ memcpy(_ptr, ptr0, _len); } _mode=HEAP; }
 			
-		void _set(const void* ptr, size_t len){ resize(len); memcpy(_ptr, ptr, len); }
+		void _set(const void* ptr, size_t len){ if(len<=0){ _len=0; return; } resize(len); memcpy(_ptr, ptr, len); }
 		//== ==
 		static bool is_base64(unsigned char c){ return (isalnum(c) || (c == '+') || (c == '/')); }
 }; 

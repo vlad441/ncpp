@@ -6,7 +6,7 @@
 
 ## Введение
 
-Документация по **ncpp** (Node C++) — введение. Модули:
+Документация по **ncpp** v0.0.0-0 (Node C++) — введение. Модули:
 
 - [ncpp-base](ncpp-base.md)
 - [ncpp-system](ncpp-system.md)

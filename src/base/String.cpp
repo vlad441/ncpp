@@ -171,7 +171,7 @@ struct CString : BaseString<const char, CString>{
 };
 
 #define _SSO_LEN 7
-struct String : BaseString<char, String>{
+struct String : BaseString<char, String>{ //String ≈ std::string
 	String(){ _init(0); }
 	String(const char* ptr, size_t len){ _init(len); _set(ptr, len); }
 	String(const char* cptr){ _init(strlen(cptr)); _set(cptr, _len); }
@@ -184,19 +184,11 @@ struct String : BaseString<char, String>{
 	String(const char* begin, const char* end){ size_t len = (end > begin)?(end-begin) : 0; _init(len); _set(begin, len); }
 	template <size_t N>
 	String(const char (&arr)[N]){ _init(strnlen(arr, N)); _set(arr, _len); } //char arr[];
-	~String(){ if(_mode==HEAP&&!_isSso()){ free(_ptr);
-		/*print(" ~String::destructor called: "); _printNum((size_t)_ptr); print("\n");
-		print(" (IsSSO: "); _printNum(_isSso());
-		print(" | size: "); _printNum(_len);
-		print(" | capacity: ");  _printNum(_len);
-		print(" | _ptr==_sso: "); _printNum(_ptr==_sso);
-		print(" | txt: "); print((const char*)_ptr); print(")\n"); 
-		free(_ptr);*/
-		} }
+	~String(){ if(_mode==HEAP&&_ptr!=NULL) free(_ptr); }
 	// == STL similar api ===
 	const char* c_str() const { return _ptr; }
 	
-	String& reserve(size_t sz){ if(sz<=_msize||sz<=_SSO_LEN) return *this; if(_isSso()||_mode!=HEAP){ _alloc(sz, true); return *this; }
+	String& reserve(size_t sz){ if(sz<=_msize||sz<=_SSO_LEN) return *this; if(_mode!=HEAP){ _alloc(sz, true); return *this; }
 		_msize=(sz<_msize*2)?_msize*2:sz; _ptr=(char*)realloc(_ptr, _msize);
 		if(_ptr==NULL){ print("ncpp::String realloc error: Out of memory"); exit(1); } return *this; }
 	String& resize(size_t len){ reserve(len+1); _len=len; _ptr[len]='\0'; return *this; }
@@ -205,7 +197,7 @@ struct String : BaseString<char, String>{
 	void pop_back(){ resize(--_len); }
 	
 	void clear(){ _len=0; }
-	void shrink_to_fit(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP||_isSso()) return; _ptr=(char*)realloc(_ptr, _msize=_len);
+	void shrink_to_fit(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP||_isSSO()) return; _ptr=(char*)realloc(_ptr, _msize=_len);
 		if(_ptr==NULL){ print("ncpp::Buffer shrink mem error"); exit(1); } }
 	void shrink(){ shrink_to_fit(); }
 	// == ==
@@ -274,18 +266,17 @@ struct String : BaseString<char, String>{
 		
 	operator Array<char>() const { return Array<char>((char*)_ptr, (char*)_ptr+_len); }
 		
-	bool _isSso(){ return _ptr==_sso||_ptr==NULL; }
+	bool _isSSO(){ return _ptr==_sso; }
 	private: char _sso[_SSO_LEN];
 		// == allocator
-		// == TODO: Fix SSO mem usage, _msize=0 -> _msize=_SSO_LEN; _mode=HEAP -> _mode=STACK
-		void _init(size_t len){ _mode=HEAP; _len=len++; if(_len<_SSO_LEN){ _ptr=_sso; _sso[_len]='\0'; _msize=0; }else{ _alloc(len); } }
+		void _init(size_t len){ _len=len++; if(_len<_SSO_LEN){ _mode=STACK; _ptr=_sso; _sso[_len]='\0'; _msize=_SSO_LEN; }else{ _mode=HEAP; _alloc(len); } }
 		
 		void _alloc(size_t sz, bool copy=false){ if(_mode==STACK_ONLY){ print("(!) ncpp::String malloc error: mode=STACK_ONLY"); exit(1); }
 			_msize=sz<_SSO_LEN*2?_SSO_LEN*2:sz; char* ptr0=_ptr; _ptr=(char*)malloc(_msize);
 			if(_ptr==NULL){ print("(!) ncpp::String malloc error: Out of memory"); exit(1); }
-			if(copy){ if(_mode==HEAP){ ptr0=_sso; _len=_SSO_LEN; } memcpy(_ptr, ptr0, _len); } _mode=HEAP; }
+			if(copy){ memcpy(_ptr, ptr0, _len); } _mode=HEAP; }
 			
-		void _set(const char* ptr, size_t len){ resize(len); memcpy(_ptr, ptr, len); }
+		void _set(const char* ptr, size_t len){ if(len<=0){ _len=0; return; } resize(len); memcpy(_ptr, ptr, len); }
 		
 		void _append(const char* ptr, size_t len){ size_t len0=_len; resize(_len+len); memcpy(_ptr+len0, ptr, len); _ptr[_len]='\0'; }
 		void _append(char c){ resize(_len+1); _ptr[_len-1]=c; }

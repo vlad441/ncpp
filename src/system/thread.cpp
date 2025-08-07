@@ -196,7 +196,7 @@ namespace ncpp {
 		}
 		//Bug 58909 - C++11's condition variables fail with static linking (-static -pthread)
 		//https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58909 
-		struct Signal { std::condition_variable cv; std::mutex mtx; bool signaled;
+		struct Signal { std::condition_variable cv; std::mutex mtx; bool signaled; //as std::condition_variable
 			Signal() : signaled(false){}
 			void wait(){ if(!signaled){ std::unique_lock<std::mutex> lock(mtx); cv.wait(lock); } signaled = false; }
 			void notify(){ signaled = true; cv.notify_one(); } };
@@ -204,19 +204,19 @@ namespace ncpp {
 	
 	
 	namespace Timers { bool _run=false; std::thread _TimerThr; static void _handler();
-		struct Timer { void(*func)(void*); long long msec; Date last; bool once; void* arg; }; Array<Timer> List;
+		struct Timer { void(*func)(void*); long long msec; long long last; bool once; void* arg; }; Array<Timer> List;
 		template<typename F>
 		void add(F func, int msec, bool once=false, void* arg=NULL){ Timer timer; timer.func=(void(*)(void*))func; 
-			timer.arg=(void*)arg; timer.msec=msec; timer.last=Date::now(); timer.once=once; bool empty=List.empty();
+			timer.arg=(void*)arg; timer.msec=msec; timer.last=GetTimestamp('m'); timer.once=once; bool empty=List.empty();
 			List.push_back(timer); if(empty){ _TimerThr=std::thread(_handler); _TimerThr.detach(); } }
 		
 		static void _handler(){ _run=true; //std::cout << "Timers debug: Thread created." << std::endl;
 			//if(List.size()>=1){ std::cout << "; List[0].msec=" << List[0].msec << "; List[0].once=" << List[0].once << std::endl; }else{ std::cout << std::endl; }
-			while(!List.empty()){ long long minTime = 9223372036854775807LL; Date now = Date::now(); 
+			while(!List.empty()){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m'); 
 				for(size_t i=0; i<List.size(); ++i){ long long timeLeft = List[i].msec-(now-List[i].last);
 					if(timeLeft < minTime){ minTime = timeLeft; } }
 				
-				if(minTime > 0){ Sleep((int)minTime); } now = Date::now();
+				if(minTime > 0){ Sleep((int)minTime); } now = GetTimestamp('m');
 				for(Array<Timer>::iterator it = List.begin(); it != List.end(); ){ if(!_run){ List.clear(); break; } Timer& timer = *it;
 					if((now-timer.last) >= timer.msec){ timer.func(timer.arg); timer.last += timer.msec;
 						if(timer.once){ it = List.erase(it); continue; } } ++it; } 

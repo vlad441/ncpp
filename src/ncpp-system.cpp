@@ -52,8 +52,9 @@ namespace ncpp{
 			str = fs::_readFile<String>("/etc/redhat-release"); if(str!=""){ sinfo["OS"]=str; sinfo["Package Manager"]="yum"; return sinfo; } return sinfo; }
 		#endif
 		
-		String getUptimeStr(){ String str; size_t uptime=getUptime('s'); str=dtos(uptime/86400)+" Days, "; 
-			uptime-=uptime/86400*86400; str+=dtos(uptime/3600)+" Hours, "; uptime-=uptime/3600*3600; str+=dtos(uptime/60)+" Mins"; return str; }
+		String getUptimeStr(){ String ss; size_t uptime=getUptime('s'); ss << dtos(uptime/86400) << " days, ";
+			uptime %= 86400; int tmp = uptime/3600; ss<<(tmp<10?"0":"")<<tmp<<":"; uptime-=tmp*3600; tmp=uptime/60; ss<<(tmp<10?"0":"")<<tmp; 
+			uptime-=tmp*60; ss<<":"<<(uptime<10?"0":"")<<uptime; return ss; }
 		
 		namespace CPU {
 			StringMap info(){ StringMap cpuinfo;

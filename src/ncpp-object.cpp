@@ -227,6 +227,7 @@ namespace JSON { Object parse(String jsonstr); }
 		for(Object::const_iterator it = this->begin(); it != this->end(); ++it){ ss << "\n"+Buffer(bias, 0x20).toString()+"\"" << it->first << "\": ";
 			if(depth>1&&it->second.isObj()){ ss << it->second.asObj().cout(depth-1, bias+2); }
 			else{ ss << it->second.toString(); } ss << ", "; } ss << "}"; return ss; }
+	Console& operator<<(Console& os, const Object& obj){ os << obj.cout(); return os; }
 	//std::ostream& operator<<(std::ostream& os, const Object& obj){ os << obj.cout(); return os; }
 	
 namespace JSON{ //TODO: экранирование \\\" и прочего

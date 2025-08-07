@@ -9,4 +9,7 @@ namespace ncpp { const char* version(){ return NCPP_VER; } }
 #include "base/Buffer.cpp"
 #include "base/HashMap.cpp"
 #include "base/utils.cpp"
-//#include "base/ostream.h"
+
+#ifdef NCPP_USESTL
+#include "base/ostream.h"
+#endif

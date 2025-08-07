@@ -1,3 +1,4 @@
+// C stdlib implementation example
 #include <stdint.h>
 void* memcpy(void* dst, void* src, size_t size){
 	char* dst8 = (char*)dst; char* src8 = (char*)src;

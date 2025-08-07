@@ -6,7 +6,7 @@ uint32_t Fnv1a(const char* data, size_t len){ uint32_t hash = 2166136261u;
 uint64_t Fnv1a_64(const char* data, size_t len){ uint64_t hash = 14695981039346656037ULL;
     for(size_t i = 0; i < len; ++i){ hash ^= (uint8_t)data[i]; hash *= 1099511628211ULL; } return hash; }
 
-template <typename T> uint32_t hash(T num){ return (uint32_t)num; }
+template <typename T> uint32_t hash(T num){ return (uint32_t)num; } //return (uint32_t)(num ^ (num >> 16) ^ (num >> 32) ^ (num >> 48)); // Простой бит-миксинг
 template <typename T> uint32_t hash(T* num){ return (size_t)num; }
 uint32_t hash(const char* c){ return Fnv1a(c, strlen(c)); }
 uint32_t hash(const String& s){ return Fnv1a(s.c_str(), s.size()); }
@@ -48,27 +48,29 @@ class _HashTable {
             insert(temp.data.key(), temp.data.value());
             next = (next + 1) % table.size(); } }
     
-    template <typename ValT, typename ArrEntryT>
+    template <typename ValT, typename ArrEntryT, typename IterDerived>
     struct _Iter { size_t idx; ArrEntryT* tbl;
 		_Iter(ArrEntryT* table, size_t idx1=0) : idx(idx1), tbl(table){}
 
 		ValT& operator*() const { return (*tbl)[idx].data; }
 		ValT* operator->() const { return &(*tbl)[idx].data; }
 		
-		bool operator==(const _Iter& other) const { return idx == other.idx; }
-		bool operator!=(const _Iter& other) const { return idx != other.idx; }
+		bool operator==(const _Iter& other) const { return idx == other.idx && tbl == other.tbl; }
+		bool operator!=(const _Iter& other) const { return idx != other.idx || tbl != other.tbl; }
 
-		_Iter& operator++(){ do{ ++idx; }while(idx < tbl->size() && !(*tbl)[idx].occupied); return *this; }
-		_Iter& operator--(){ if(idx == 0) return *this; do { --idx; }while(idx > 0 && !(*tbl)[idx].occupied); return *this; }
+		IterDerived& operator++(){ do{ ++idx; }while(idx < tbl->size() && !(*tbl)[idx].occupied); return (IterDerived&)*this; }
+		IterDerived& operator--(){ if(idx == 0) return *this; do { --idx; }while(idx > 0 && !(*tbl)[idx].occupied); return (IterDerived&)*this; }
 	};
 
 public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> MapT; //Для использования внутри зависимого шаблона полная специализация не требуется.
 	// == STL similar api ===
     _HashTable() : _size(0){ table.resize(8); }
     
-    typedef _Iter<const KVData, const Array<Entry> > ConstIter;
-    struct Iter : _Iter<KVData, Array<Entry> > {
-		Iter(Array<Entry>* table, size_t idx1=0) : _Iter<KVData, Array<Entry> >(table, idx1){}
+    //typedef _Iter<const KVData, const Array<Entry>> ConstIter;
+	struct ConstIter : _Iter<const KVData, const Array<Entry>, ConstIter> {
+		ConstIter(const Array<Entry>* table, size_t idx1=0) : _Iter<const KVData, const Array<Entry>, ConstIter>(table, idx1){} };
+    struct Iter : _Iter<KVData, Array<Entry>, Iter> {
+		Iter(Array<Entry>* table, size_t idx1=0) : _Iter<KVData, Array<Entry>, Iter>(table, idx1){}
 		operator ConstIter() const { return ConstIter(this->tbl, this->idx); } };
 	typedef Iter iterator; typedef ConstIter const_iterator;
     
@@ -100,10 +102,13 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
     bool erase(const K& key){
 		size_t idx = _hash(key) % table.size(); size_t start = idx;
         while(table[idx].occupied){
-            if(table[idx].data.key() == key){
-                table[idx].occupied = false; --_size; _del_reinsert(idx); return true; }
+            if(table[idx].data.key() == key){ table[idx].occupied = false; --_size; _del_reinsert(idx); return true; }
             idx = (idx + 1) % table.size();
             if (idx == start) break; } return false; }
+	
+	Iter erase(Iter pos){ if(pos == end() || pos.tbl != &table) return end(); 
+		size_t idx = pos.idx; if(!table[idx].occupied) return ++pos;
+		table[idx].occupied = false; --_size; _del_reinsert(idx); return ++pos; }
     
 	V& operator[](const K& key){ Iter it = find(key); if(it!=end()) return it->value(); return insert(key, V()).first->value(); }
 	// == ==
@@ -126,7 +131,7 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
 	//const V& operator[](const K& key) const;
 };
 
-template <typename K, typename V>
+template <typename K, typename V> //HashMap ≈ std::unordered_map
 struct HashMap : _HashTable<K, V, Pair<K,V>, HashMap<K,V> >{ HashMap() : _HashTable<K, V, Pair<K,V>, HashMap<K,V> >(){} 
 	HashMap(const HashMap& m) : _HashTable<K, V, Pair<K,V>, HashMap<K,V> >(m){} };
 template <typename K>

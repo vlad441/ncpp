@@ -1,7 +1,7 @@
 // ncpp: tech header file. Entry point for compilation from object files. Using only for direct compilation or build libs.
 #ifndef NCPP_H
 #define NCPP_H
-#define NCPP_VER "v0.0.1-0-rev0"
+#define NCPP_VER "v0.0.1-0-rev1"
 namespace ncpp { void print(const char *cptr); const char* version(); } //Only declaration.
 
 /*#ifdef _WIN32_WINNT
@@ -36,7 +36,8 @@ namespace ncpp { void print(const char *cptr); const char* version(); } //Only d
 #include <spawn.h> // for posix_spawn
 #include <signal.h> // signals kill, etc.
 #include <sys/time.h> // time api: gettimeofday
-#include <fcntl.h> // for socket descryptor settings(non-bloking mode, etc).
+#include <fcntl.h> // for socket descryptor settings (non-bloking mode, etc).
+#include <limits.h> //PATH_MAX constant
 #endif
 
 // === polyfills ===
@@ -51,7 +52,8 @@ namespace ncpp { void print(const char *cptr); const char* version(); } //Only d
 #ifdef NCPP_USESTL
 #include <new> //WTF? placement new без него никак?
 #else
-void* operator new(size_t size, void* ptr) noexcept { return ptr; } //Объявление сигнатуры для placement new
+void* operator new(size_t size, void* ptr) noexcept { return ptr; } //Определение сигнатуры для placement new
+//#include "stdcpp/libsupc.cpp"
 #endif
 
 #if defined(_WIN32) && defined(__GNUC__) && __GNUC__ < 4

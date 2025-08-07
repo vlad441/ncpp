@@ -1,4 +1,4 @@
-// ncpp pre-v0.0.0-0; Primary entry point for direct compilation with gcc/clang.
+// ncpp pre-v0.0.1-0-rev1; Primary entry point for direct compilation with gcc/clang.
 // PD: No rights reserved; Released into the public domain.
 #ifndef NCPP_CPP
 #define NCPP_CPP
@@ -13,11 +13,11 @@
 #include "net/http.cpp"
 #include "system/thread.cpp"
 #include "net/server.cpp"
+#include "system/Console.cpp"
 #include "ncpp-object.cpp"
 #include "ncpp-bigint.cpp"
-
-#include "system/Console.cpp"
 //#include "experimantal/ncpp-bigint_v2.cpp"
+//#include "experimantal/SlabAllocator.cpp"
 #include "ncpp-crypto.cpp"
 
 #if defined(_WIN32) || defined(USE_GUI)

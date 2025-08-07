@@ -112,20 +112,22 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		private: int epfd;
 	#endif
 		public: bool addSocket(int sockfd){ return addSocket(new TCPSocket(sockfd)); }
-		inline void removeSocket(Socket* socket){ removeSocket(socket->sockfd); sockets.erase_ptr(socket); }
-		void _runSelect(int timeout=-1){ Array<Socket> sockets; Buffer buff; buff.reserve(DEF_BUFF_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
+		inline void removeSocket(Socket* socket){ removeSocket(socket->sockfd); } //sockets.erase_ptr(socket);
+		void _runSelect(int timeout=-1){ Buffer buff; buff.reserve(DEF_BUFF_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
 			TCPSocket servsock(servfd); struct timeval tv; tv.tv_sec = timeout; tv.tv_usec = 0;
 			while(true){ fd_set read_fds; FD_ZERO(&read_fds); FD_SET(servfd, &read_fds); int max_sd = servfd;
-				for(size_t i=0;i<sockets.size();i++){ FD_SET(sockets[i].sockfd, &read_fds); if(sockets[i].sockfd > max_sd) max_sd = sockets[i].sockfd; }
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end(); ++it){ Socket& socket = **it;
+					if(socket.sockfd==-1){ delete &socket; sockets.erase(it); continue; }
+					FD_SET(socket.sockfd, &read_fds); if(socket.sockfd > max_sd) max_sd = socket.sockfd; }
 				int activity = ::select(max_sd+1, &read_fds, NULL, NULL, timeout>0?&tv:NULL);
 				if(activity<0){ int err1=Socket::GetLastErr(); print("(!) SelectPool: select error: "); print(err1); print("\n"); if(err1==EINTR) return; }
-				if(FD_ISSET(servfd, &read_fds)){ TCPSocket socket = servsock._accept().own(false); if(socket.sockfd<0){ print("(!) select: Accept error: "); print(dtos(socket.GetErr())); print("\n"); break; }
-					sockets.push_back((Socket)socket.own(false)); _onConnect(socket); }
-				for(Array<Socket>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = *it; if(!FD_ISSET(socket.sockfd, &read_fds)){ ++it; continue; }
-					buff.resize(DEF_BUFF_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)&buff[0], DEF_BUFF_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
+				if(FD_ISSET(servfd, &read_fds)){ TCPSocket& socket = *servsock.accept(); if(socket.sockfd<0){ print("(!) select: Accept error: "); print(dtos(socket.GetErr())); print("\n"); break; }
+					sockets.insert((Socket*)&socket); _onConnect(socket); }
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = **it; if(!FD_ISSET(socket.sockfd, &read_fds)){ ++it; continue; }
+					buff.resize(DEF_BUFF_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)buff.data(), DEF_BUFF_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
 					if(bytesRead<=0){ if(bytesRead<0){ socket.GetErr(); if(onError!=NULL) onError((TCPSocket&)socket); } _onClose((TCPSocket&)socket); 
-						socket.destroy(); it = sockets.erase(it); continue; } buff.resize(bytesRead); _onData((TCPSocket&)socket, buff); ++it; }
-				//std::cout << "DEBUG: Select Array<Socket> size: " << sockets.size() << std::endl; 
+						socket.destroy(); delete &socket; it = sockets.erase(it); continue; } buff.resize(bytesRead); _onData((TCPSocket&)socket, buff); ++it; }
+				//print("DEBUG: Select HashSet<Socket*> size: "); print(sockets.size()); print("\n");
 			} }
 		void (*onConnect)(TCPSocket& socket);
 		void (*onData)(TCPSocket& socket, const Buffer& data);
@@ -138,7 +140,11 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 	
 	struct TCPServer : SocketPool, TCPSocket { //threads
 		TCPServer(){}
-		TCPServer(int port, const CString& bindip="::"){ init(port, bindip); }
+		TCPServer(int port, const CString& bindip="::"){ init(port, bindip); 
+			#ifndef _WIN32
+			signal(SIGPIPE, SIG_IGN);
+			#endif
+		}
 		#if __cplusplus >= 201103L
 		//TCPServer(TCPServer&& other){ _move(other); }
 		TCPServer& operator=(TCPServer&& other){ _move(other); return *this; }
@@ -151,7 +157,7 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		~TCPServer(){ if(autodestroy) close(); }
 		//TODO: (TCPSocket*)(Socket*)*it -> (TCPSocket*)*it
 		void broadcast(const Buffer& buff){ for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();++it){ ((TCPSocket*)(Socket*)*it)->send(buff); } }
-		void run(){ servfd=sockfd; _runSelect();
+		void run(){ _runSelect();
 			//addServSocket((Socket*)this); sockets.erase((Socket*)this); waitAndProcess(); 
 		}
 		void close(){}
@@ -160,7 +166,7 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		
 		void init(int port, const CString& bindip="::"){
 			if(!bind(port, bindip)){ print("[Error] TCPServer: bind failed on port: "+dtos(port)); exit(1); }
-			if(!listen()){ print("[Error] TCPServer: listen failed on port: "+dtos(port)); exit(1); } }
+			if(!listen()){ print("[Error] TCPServer: listen failed on port: "+dtos(port)); exit(1); } servfd=sockfd; }
 	};
 	
 	struct ReqCache { bool bodywait; Buffer rbuff; };
@@ -168,16 +174,19 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		HTTPServer() : TCPServer(), onRequest(NULL){ _initSets(); }
 		HTTPServer(int port, const CString& bindip="::") : TCPServer(port, bindip), onRequest(NULL){ _initSets(); }
 		
-		void (*onRequest)(http::Req req, http::Res res);
+		void (*onRequest)(http::Req& req, http::Res& res);
 		private: void _initSets(){ if(http::ErrCodes.size()==0){ http::_initErrCodes(); }
 			max_headersize=8*1024; max_bodysize=4*1048576; max_sockets=1000; }
 		void _onConnect(TCPSocket& socket){ if(onConnect!=NULL) onConnect(socket); }
 		void _onData(TCPSocket& socket, const Buffer& data){ if(onData!=NULL) onData(socket, data); if(onRequest==NULL) return; rcache[&socket]+=data;
-			if(rcache[&socket].size()>max_headersize){ http::Res res_err(socket); res_err.SendErr(431); return; }
-			size_t hEnd = rcache[&socket].indexOf("\r\n\r\n"); if(hEnd==NPOS||hEnd==0){ return; }
-			http::Req req=http::ReqParse(rcache[&socket]); http::Res res(socket); 
+			if(rcache[&socket].size()>max_headersize){ http::Res res_err(socket); res_err.SendErr(431); rcache.erase(&socket); 
+				print("(#DEBUG) 431 error responsed."); return; }
+			if(rcache[&socket].indexOf("\r\n\r\n")==NPOS){ return; }
+			http::Req req=http::ReqParse(rcache[&socket]); http::Res res(socket); rcache[&socket].clear(); //res.hver=req.hver;
+			if(req.bad){ res.SendErr(400); rcache.erase(&socket); 
+				print("(#DEBUG) 400 Bad Req responsed.\n"); return; }
 			if(req.headers.has("connection")){ res.headers["connection"]=req.headers["connection"]; }
-			onRequest(req, res); rcache[&socket].clear(); }
+			if(onRequest!=NULL) onRequest(req, res); if(res.headers["connection"]=="close"){ rcache.erase(&socket); } }
 		void _onClose(TCPSocket& socket){ if(onClose!=NULL) onClose(socket); rcache.erase(&socket); }
 	};
 }

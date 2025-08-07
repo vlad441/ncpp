@@ -1,15 +1,18 @@
 namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 	void _initErrCodes(){ ErrCodes[200]="OK"; ErrCodes[301]="Moved Permanently"; ErrCodes[302]="Moved Temporarily"; 
-		ErrCodes[403]="Forbidden"; ErrCodes[404]="Not Found"; ErrCodes[413]="Payload Too Large"; ErrCodes[431]="Request Header Fields Too Large"; 
+		ErrCodes[400]="Bad Request"; ErrCodes[403]="Forbidden"; ErrCodes[404]="Not Found";
+		ErrCodes[413]="Payload Too Large"; ErrCodes[431]="Request Header Fields Too Large"; 
 		ErrCodes[500]="Internal Server Error"; ErrCodes[501]="Not Implemented"; ErrCodes[504]="Gateway Timeout"; }
-	struct Res; Buffer RespComposer(Res& opts);
+	struct Res; Buffer RespComposer(Res& opts, const CString& codeDescr="");
 	struct HttpMsg { StringMap headers; Buffer body; };
-	struct Req : HttpMsg { float hver; String method; String url; bool nobody; Req() : hver(1.1), url("/"), nobody(false){}
-		String cout() const { String ss; ss << "Request: " << this->url << "\nMethod: " << method
+	struct Req : HttpMsg { float hver; String method; String url; bool nobody; bool bad; Req() : hver(1.1), url("/"), nobody(false), bad(false){}
+		bool hasLength(){ return headers.has("content-length")||headers.has("transfer-encoding"); }
+		String cout() const { String ss; ss << "Request: " << method << " " << this->url
 			<< "\n  === Headers ===  " << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
 	};
 	struct Res : HttpMsg { float hver; int status; TCPSocket* socket; bool ttfb; Res() : hver(1.1), status(0), socket(NULL), ttfb(false){}
 		Res(TCPSocket& sock) : hver(1.1), status(0), socket(&sock), ttfb(false){}
+		//~Res(){ socket.is_busy=false; } //Или использовать TCPSocket**
 		void write(const char* ptr, size_t len){ if(socket==NULL) return; if(!ttfb){ socket->send(RespComposer(*this)); ttfb=true; } socket->send(ptr, len); }
 		void write(const char* ptr){ write(ptr, strlen(ptr)); }
 		void write(const Buffer& data){ write((const char*)data.data(), data.size()); }
@@ -19,7 +22,8 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		bool ok(){ return status < 300 && status >= 200; }
 		bool hasLength(){ return headers.has("content-length")||headers.has("transfer-encoding"); }
 		void Redirect(const CString& url){ status=301; headers["location"]=url; end(); }
-		void SendErr(int status1){ status=status1; end(); }
+		void SendCode(int status1, const CString& codeDescr=""){ status=status1; socket->send(RespComposer(*this, codeDescr)); }
+		void SendErr(int status1, const CString& errDescr=""){ SendCode(status1, errDescr); socket->destroy(); }
 		String cout() const { String ss("Response Headers:"); ss << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
 	};
 	
@@ -39,29 +43,32 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 				currKey = hline.slice(0, dPos).toLowerCase(); parsed.headers[currKey] = hline.slice(dPos+2); } } pos = lineEnd + 2;
 		} parsed.body = rawreq.slice(pos+2); return parsed; }
 			
-	Req ReqParse(const Buffer& rawreq){ Req parsed; size_t lineEnd = rawreq.indexOf("\r\n"); if(lineEnd==NPOS) return parsed;
-		Array<String> statusLn = String((char*)rawreq.data(), lineEnd).splitTokens(3);
-		parsed.method = statusLn[0]; parsed.url = statusLn[1]; parsed.hver=stofn(statusLn[2].split('/')[1]);
+	Req ReqParse(const Buffer& rawreq){ Req parsed; size_t lineEnd = rawreq.indexOf("\r\n"); if(lineEnd==NPOS){ parsed.bad=true; return parsed; }
+		Array<String> statusLn = String((char*)rawreq.data(), lineEnd).splitTokens(3); if(statusLn.size()<3){ parsed.bad=true; return parsed; }
+		parsed.method = statusLn[0]; parsed.url = statusLn[1]; if(parsed.url[0]!='/'){ parsed.bad=true; return parsed; }
+		statusLn = statusLn[2].split('/'); if(statusLn.size()>1){ parsed.hver=stofn(statusLn[1]); }else{ parsed.hver=1; }
 		HttpMsg msg = HttpParse(rawreq, lineEnd+2); parsed.headers=msg.headers; parsed.body=msg.body; return parsed; }
 			
 	Res RespParse(const Buffer& rawreq){ Res parsed; size_t lineEnd = rawreq.indexOf("\r\n"); if(lineEnd==NPOS) return parsed; 
-		Array<String> statusLn = String((char*)rawreq.data(), lineEnd).splitTokens(3);
+		Array<String> statusLn = String((char*)rawreq.data(), lineEnd).splitTokens(3); if(statusLn.size()<3) return parsed;
 		parsed.hver=stofn(statusLn[0].split('/')[1]); parsed.status = stoin(statusLn[1]);
 		HttpMsg msg = HttpParse(rawreq, lineEnd+2); parsed.headers=msg.headers; parsed.body=msg.body; return parsed; }
 	
-	Buffer QueryComposer(const CString& host, const Req& opts){ Buffer query; String headers; headers << (opts.method.empty() ? "GET" : opts.method)
-			<<" "<< opts.url <<" HTTP/"<<dtos(opts.hver, 1)<<"\r\n"; if(!host.empty()){ headers << "Host: " << host << "\r\n"; }
-		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ headers << it->first + ": " + it->second + "\r\n"; }
-		if(!opts.headers.has("accept")){ headers<<"Accept: */*\r\n"; } if(!opts.headers.has("accept-encoding")){ headers<<"Accept-Encoding: identity\r\n"; }
-		if(!opts.headers.has("user-agent")){ headers<<"User-Agent: Mozilla/5.0\r\n"; } if(!opts.headers.has("connection")){ headers<<"Connection: close\r\n"; } headers << "\r\n";
-		query=headers; if(!opts.body.empty()){ query.concat(opts.body); } return query; }
+	Buffer QueryComposer(const CString& host, const Req& opts){ Buffer query; String th; th << (opts.method.empty() ? "GET" : opts.method)
+			<<" "<< opts.url <<" HTTP/"<<dtos(opts.hver, 1)<<"\r\n"; if(!host.empty()){ th << "Host: " << host << "\r\n"; }
+		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ th << it->first + ": " + it->second + "\r\n"; }
+		if(!opts.headers.has("accept")){ th <<"Accept: */*\r\n"; } if(!opts.headers.has("accept-encoding")){ th <<"Accept-Encoding: identity\r\n"; }
+		if(!opts.headers.has("user-agent")){ th <<"User-Agent: Mozilla/5.0 (tipa compatibility :)\r\n"; }
+		if(!opts.headers.has("connection")){ th <<"Connection: close\r\n"; } th << "\r\n";
+		query=th; if(!opts.body.empty()){ query.concat(opts.body); } return query; }
 		
-	Buffer RespComposer(Res& opts){ if(opts.status<=0) opts.status=200; String headers; headers <<"HTTP/"<<dtos(opts.hver, 1)<< " " << opts.status
-			<< " " << (ErrCodes.has(opts.status)?ErrCodes[opts.status]:"Code") << "\r\n";
-		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ headers << it->first + ": " + it->second + "\r\n"; }
-		if(!opts.headers.has("content-type")){ headers<<"Content-Type: text/html\r\n"; }
-		if(!opts.hasLength()){ headers<<"Content-Length: "<<opts.body.size()<<"\r\n"; }
-		if(!opts.headers.has("connection")){ headers<<"Connection: close\r\n"; } headers<<"\r\n"; Buffer resp=headers; 
+	Buffer RespComposer(Res& opts, const CString& codeDescr){ if(opts.status<=0) opts.status=200; String th; 
+		th <<"HTTP/"<<dtos(opts.hver, 1)<< " " << opts.status << " "; if(!codeDescr.empty()){ th << codeDescr; }
+			else{ th << (ErrCodes.has(opts.status)?ErrCodes[opts.status]:"Code"); } th << "\r\n";
+		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ th << it->first + ": " + it->second + "\r\n"; }
+		if(!opts.headers.has("content-type")){ th <<"Content-Type: text/html\r\n"; }
+		if(!opts.hasLength()){ th <<"Content-Length: "<<opts.body.size()<<"\r\n"; }
+		if(!opts.headers.has("connection")){ th <<"Connection: close\r\n"; } th <<"\r\n"; Buffer resp=th;
 		if(opts.body.size()>0) resp+=opts.body; return resp; }
 		
 	Buffer chunkedStreamParser(Buffer& rawbuff, unsigned int& chunkSize, bool& is_end){ Buffer chunk;
@@ -121,6 +128,8 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 			else if(str[i] == '+'){ decoded.push(' '); }
 			else{ decoded.push(str[i]); } } return decoded; }
 			
+	String urlEncoder(const CString& str);
+			
 	String GetMIMEType(const CString& ext){
 		if(ext=="html"||ext=="css"||ext=="xml"||ext=="csv"||ext=="htm") return "text/"+ext; if(ext=="txt") return "text/plain"; //text
 		if(ext=="js"||ext=="mjs") return "text/javascript"; if(ext=="svg") return "image/svg+xml";
@@ -131,6 +140,11 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		if(ext=="json"||ext=="zip"||ext=="pdf"||ext=="rtf"||ext=="xml"||ext=="ogx") return "application/"+ext; //application
 		if(ext=="gz") return "application/gzip"; if(ext=="tar") return "application/x-tar"; if(ext=="rar") return "application/vnd.rar";
 		return "application/octet-stream"; }
+		
+	Buffer getbodyreq(Req& req, Res& res){ res.socket->recvTimeout(3000);
+		char _buff[DEF_BUFF_SIZE]; size_t bodylen=0; int rbytes=0; Buffer resp(req.body); if(!req.hasLength()) return Buffer();
+		if(req.headers.has("content-length")){ bodylen=stolln(req.headers["content-length"]); }else{ return Buffer(); } if(resp.size()>=bodylen) return resp;
+		while((rbytes=res.socket->recv(_buff, sizeof(_buff)))>0){ resp.push(_buff, rbytes); if(resp.size()>=bodylen) return resp; }; return Buffer(); }
 			
 	void SendFile(const CString& fpath, Res& res){ String fext = fpath.slice(fpath.lastIndexOf('.')+1); 
 		res.headers["content-type"]=GetMIMEType(fext)+"; charset=utf-8";

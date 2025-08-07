@@ -33,14 +33,14 @@ namespace ncpp{
 #define DEF_BUFF_SIZE 16384
 	struct BindInfo { String ip; int port; String family; String type; };
 	struct IPAddr { String ip; int port; char ipver;
-		IPAddr(CString ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){} 
+		IPAddr(const CString& ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){} 
 		String toString() const { if(ipver==4){ return ip+":"+dtos(port); }else{ return "["+ip+"]:"+dtos(port); } }
 	};
 	
 	struct Socket { int sockfd; bool connected; bool isbind; enum Type { NONE, TCP, UDP, UNIX } _type;
 		IPAddr destAddr; bool autodestroy; int errcode; int buffsize; //Object* data;
         Socket() : sockfd(-1), connected(false), isbind(false), _type(TCP), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){}
-		Socket(CString ip, int port, Type type=TCP) : sockfd(-1), connected(false), isbind(false), _type(type), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){ destAddr.ip=ip; destAddr.port=port; }
+		Socket(const CString& ip, int port, Type type=TCP) : sockfd(-1), connected(false), isbind(false), _type(type), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){ destAddr.ip=ip; destAddr.port=port; }
 		Socket(int sockfd) : sockfd(sockfd), connected(true), isbind(false), _type(TCP), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){}
         ~Socket(){ if(autodestroy) destroy(); }
 		
@@ -61,7 +61,7 @@ namespace ncpp{
 		Socket& own(bool en=true){ autodestroy=en; return *this; }
 		inline static int create(char ipver=4, int type=TCP){ return socket(ipver==4?AF_INET:AF_INET6, type==TCP?SOCK_STREAM:SOCK_DGRAM, 0); }
 		
-		bool connect(CString ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
+		bool connect(const CString& ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
             struct addrinfo hints, *res, *p; memset(&hints, 0, sizeof(hints)); hints.ai_family = AF_UNSPEC; // AF_INET или AF_INET6 для IPv4 или IPv6
             if(_type==TCP){ hints.ai_socktype = SOCK_STREAM; }else{ hints.ai_socktype = SOCK_DGRAM; } // SOCK_STREAM, SOCK_DGRAM
             
@@ -76,7 +76,7 @@ namespace ncpp{
 		bool connect(const IPAddr& a){ return connect(a.ip, a.port); };
 		bool connect(){ return connect(destAddr.ip, destAddr.port); };
             
-        bool connect4(CString ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
+        bool connect4(const CString& ip, int port){ if(connected){ return false; } WIN_WSAinit(); errcode=0;
 			struct sockaddr_in addr; memset(&addr, 0, sizeof(addr)); addr.sin_family = AF_INET; addr.sin_port = htons(port);
 			if (inet_addr(ip.c_str())!=INADDR_NONE){ addr.sin_addr.s_addr = inet_addr(ip.c_str()); } 
 			else{ struct hostent *hst; hst = gethostbyname(ip.c_str()); if(hst){ addr.sin_addr = *(struct in_addr*)hst->h_addr; }
@@ -88,7 +88,7 @@ namespace ncpp{
 			connected = true; destAddr = _from_sockaddr_in(&addr); return true; }
 		bool connect4(){ return connect4(destAddr.ip, destAddr.port); };
 			
-		bool bind(int port = 0, CString bindip = "::"){ WIN_WSAinit(); errcode=0;
+		bool bind(int port = 0, const CString& bindip = "::"){ WIN_WSAinit(); errcode=0;
 			struct addrinfo hints, *res, *p; memset(&hints, 0, sizeof(hints)); hints.ai_family = AF_UNSPEC;
 			if(_type==TCP){ hints.ai_socktype = SOCK_STREAM; }else{ hints.ai_socktype = SOCK_DGRAM; } hints.ai_flags = AI_PASSIVE;  // Используем для сокетов сервера
 
@@ -122,10 +122,9 @@ namespace ncpp{
 			#else           
 				if(!force){ ::shutdown(sockfd1, SHUT_RDWR); } return ::close(sockfd1)==0;
 			#endif
-		}//sockfd>=0&&(connected||isbind)?
-        bool destroy(){ if(connected||isbind){ connected=false; return destroy(sockfd); } return true; }
-		inline static bool close(int sockfd1){ return destroy(sockfd1, false); }
-        bool close(){ if(connected||isbind){ connected=false; return destroy(sockfd, false); } return true; }
+		}
+        bool destroy(){ if(sockfd>=0){ int fd=sockfd; sockfd=-1; connected=false; return destroy(fd); } return true; }
+        bool close(){ if(sockfd>=0){ int fd=sockfd; sockfd=-1; connected=false; return destroy(fd, false); } return true; }
 				
 		bool recvTimeout(int msecs){
 		#ifdef _WIN32
@@ -188,7 +187,7 @@ namespace ncpp{
 	
     struct TCPSocket : Socket {  
 		TCPSocket(){}
-		TCPSocket(CString ip, int port, bool toconn=false) : Socket(ip, port, Socket::TCP){ if(toconn) connect(); }
+		TCPSocket(const CString& ip, int port, bool toconn=false) : Socket(ip, port, Socket::TCP){ if(toconn) connect(); }
 		TCPSocket(const IPAddr& addr, bool toconn=false) : Socket(addr.ip, addr.port, Socket::TCP){ if(toconn) connect(); }
 		TCPSocket(int sockfd1) : Socket(sockfd1){}
 		TCPSocket(Socket sock) : Socket(sock){}
@@ -206,6 +205,10 @@ namespace ncpp{
 		Buffer recv(){ Buffer buff(buffsize); recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
 		
+		int acceptFd() const { return ::accept(sockfd, NULL, NULL); }
+		int acceptFd(IPAddr* addr) const { sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr); 
+			int fd = ::accept(sockfd, (sockaddr*)&client_addr, &addrlen); *addr = _from_sockaddr_storage(&client_addr); return fd; }
+		
 		TCPSocket* accept() const { sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr);
 			TCPSocket* clsock = new TCPSocket(::accept(sockfd, (sockaddr*)&client_addr, &addrlen));
 			clsock->destAddr = _from_sockaddr_storage(&client_addr); return clsock; }
@@ -217,7 +220,7 @@ namespace ncpp{
     
 	struct UDPSocket : Socket { 
 		UDPSocket(){ _type=UDP; }
-		UDPSocket(CString ip, int port, bool toconn=false) : Socket(ip, port, Socket::UDP){ if(toconn) connect(); }
+		UDPSocket(const CString& ip, int port, bool toconn=false) : Socket(ip, port, Socket::UDP){ if(toconn) connect(); }
 		UDPSocket(const IPAddr& addr, bool toconn=false) : Socket(addr.ip, addr.port, Socket::UDP){ if(toconn) connect(); }
 		UDPSocket(int sockfd1) : Socket(sockfd1){ _type=UDP; }
 		UDPSocket(Socket sock) : Socket(sock){ _type=UDP; }
@@ -245,7 +248,7 @@ namespace ncpp{
 	
 	//struct UnixSocket {}
 	struct ICMPSocket {
-		static double ping4(CString ip){ 
+		static double ping4(const CString& ip){ 
 		#ifdef _WIN32
 			HANDLE hIcmpFile; char sendData[32] = "Data for ICMP packet"; hIcmpFile = IcmpCreateFile();
 			if (hIcmpFile == INVALID_HANDLE_VALUE){ print("ICMPSocket: Create ICMP handle fail: "); print(dtos(GetLastError())); return -1; }

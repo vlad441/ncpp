@@ -3,8 +3,8 @@ TODO v0.0.1:
 - DoubleMap -> Int64Map? UllMap? (ncpp-system)? Или может структурку сделать?
 -- Не разбрасываться noexept
 - HTTP: вспомогательные функции: cookie parser, qparse, etc.
--- Req: waitbody().
 - Оптимизация и разделение base: min-base(print, etc...) (+/-)
+- Производительность: Минимизация вызовов malloc/free, SSO, SlabAllocator?
 
 - Stream
 -- Socket
@@ -17,12 +17,14 @@ TODO v0.0.1:
 -- File Async
 -- TCP Server (+/-)
 --- HTTP (+/-)
+---- HTTPServer
+----- Res: socket ownership transfer
 ---- WebSocket
 -- Promise?
 - System
 -- CPU getCoresTime()
 -- Disk (wmic -> WinApi)
-- Date
+- Date (!)
 - Threads (+/-)
 -- Thread (Event) Pool?
 -- ncpp::Thread::Signal.emit() (EventEmiter?) (condition_variable)?

@@ -36,7 +36,7 @@ struct Stream { bool destroyed;
 		void _onDestroy(){}
 };
 
-struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestroy;
+struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestroy; //FStream ≈ std::fstream
     FStream() : autodestroy(true){}
 	FStream(const CString& fpath, char mode) : autodestroy(true){ open(fpath, mode); }
 	FStream(const FStream& other) : autodestroy(true){ _fd=other._fd; }
@@ -147,7 +147,7 @@ DoubleMap stat(const CString& path){ DoubleMap stinfo;
 	stinfo["blocks"] = stinfo["size"]/512.0; stinfo["atime"] = (double)_FtToUnixTime(fileInfo.ftLastAccessTime);
 	stinfo["mtime"] = (double)_FtToUnixTime(fileInfo.ftLastWriteTime); stinfo["ctime"] = (double)_FtToUnixTime(fileInfo.ftCreationTime);
 	#else
-	struct stat statbuf; if(::stat(path.c_str(), &statbuf)!=0){ print("stat: get stat fail.\n"); return stinfo; }
+	struct stat statbuf; if(::stat(path.c_str(), &statbuf)!=0){ print("(!) stat: get stat fail.\n"); return stinfo; }
 	stinfo["dev"]=statbuf.st_dev; stinfo["mode"]=statbuf.st_mode; stinfo["size"]=statbuf.st_size; stinfo["blocks"]=statbuf.st_blocks;
 	stinfo["ino"]=statbuf.st_ino; stinfo["nlink"]=statbuf.st_nlink; stinfo["uid"]=statbuf.st_uid; stinfo["gid"]=statbuf.st_gid;
 	stinfo["atime"]=statbuf.st_atime; stinfo["mtime"]=statbuf.st_mtime; stinfo["ctime"]=statbuf.st_ctime;

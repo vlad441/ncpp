@@ -16,7 +16,7 @@ char _dtos(char str[27], I num, char sep) noexcept { if(sizeof(I)>8) return 0; /
 void _printNum(long long val){ char num[27]; _dtos(num, val, 0); print(num); }
 
 struct String;
-template <typename T>
+template <typename T> //Array<T> ≈ std::vector<T>
 struct Array { enum Mode { HEAP, STACK, STACK_ONLY }; typedef T* Iter; typedef const T* ConstIter;
 	typedef Iter iterator; typedef ConstIter const_iterator;
 	Array(size_t n=0, const T& val=T()) : _ptr(NULL), _len(0), _msize(0), _mode(HEAP){ assign(n, val); }
@@ -42,7 +42,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY }; typedef T* Iter; typedef c
 	size_t size() const { return _len; }
 	size_t capacity() const { return _msize; }
 	
-	void reserve(size_t len){ if(len<=_msize) return; if(_ptr==NULL||_mode!=HEAP){ _alloc(len); return; } _reallocT((len<_msize*2)?_msize*2:len); }
+	void reserve(size_t len){ if(len<=_msize) return; if(_ptr==NULL||_mode!=HEAP){ _alloc(len); return; } _realloc((len<_msize*2)?_msize*2:len); }
 	void resize(size_t len, const T& val=T()){ if(_len==len) return;
 		if(len>_len){ reserve(len); for(size_t i=_len;i<len;i++){ new (_ptr+i) T(val); } }
 		else{ for(size_t i=_len; i-- > len; ){ _ptr[i].~T(); } } _len=len; }
@@ -137,7 +137,8 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY }; typedef T* Iter; typedef c
 			
 		void _reallocPOD(size_t nsize){ _msize=nsize; _ptr=(T*)realloc(_ptr, _msize*sizeof(T));
 			if(_ptr==NULL){ print("(!) ncpp::Array realloc error: Out of memory"); exit(1); } }
-		//void _reallocT(size_t nsize){ _reallocPOD(nsize); }
+		//void _realloc(size_t nsize){ _reallocPOD(nsize); }
+		void _realloc(size_t nsize){ _reallocT(nsize); }
 			
 		void _reallocT(size_t nsize){ //print("(#DEBUG) ncpp::Array _reallocT called: nsize="); _printNum(nsize); print("\n");
 			T* nptr = (T*)malloc(nsize*sizeof(T)); if(nptr == NULL){ print("(!) ncpp::Array _reallocT error: Out of memory\n"); exit(1); }
@@ -145,6 +146,10 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY }; typedef T* Iter; typedef c
 			for(size_t i=0; i<_len; ++i){ _ptr[i].~T(); }
 			if(_ptr != NULL){ free(_ptr); } _ptr = nptr; _msize = nsize; }
 };
+
+//template <typename T> void Array<T*>::resize(size_t len){ reserve(len); _len=len; }
+//template <typename T> void Array<T*>::_realloc(size_t nsize){ _reallocPOD(nsize); }
+//template <typename T> void Array<T*>::_realloc(size_t nsize){ _reallocPOD(nsize); }
 
 //template<typename T, size_t N>
 //struct SArray : Array<T> { SArray(){ this->_ptr=arr; this->_len=N; this->_msize=N; this->_mode=this->STACK_ONLY; } private: T arr[N]; };

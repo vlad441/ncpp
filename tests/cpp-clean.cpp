@@ -3,7 +3,6 @@
 #include <string.h> // <cstring> for strlen, etc...
 //#include <cstdio> // for printf, std::sprintf
 //#include <iostream>
-#define NCPP_VER "v0.0.0-0"
 #ifdef _WIN32
 #include <windows.h>
 	void print(const char *cptr, size_t len){ WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), cptr, (DWORD)len, NULL, NULL); }
@@ -42,14 +41,15 @@ void gcc_version(){ print("[Compiller] ");
 #endif
 };
 
-class TestC { int v1; };
+class TestClass { int v1; };
 
 int main(){ cpp_version(); gcc_version(); 
-	print(NCPP_VER); print("\n"); //printf(NCPP_VER);
+	print("print() cpp-clean test"); print("\n"); //printf("printf() cpp-clean test");
 	//std::cout << "std::cout" << std::endl;
-	
-	TestC t1; print("TestC t1\n");
-}
+	TestClass t1; print("TestClass t1\n"); }
+
+//GCC 3.4.2 - Windows 32bit .exe file size:
+//only print() - 5 632 bytes
 
 //GCC 4.9.2 - Windows 32bit .exe file size:
 //only print() - 11 776 bytes
@@ -65,8 +65,8 @@ int main(){ cpp_version(); gcc_version();
 
 //GCC 4.9.2 glibc - Linux 64bit file size:
 //only print() -  735 816 bytes
-//+printf() - 735784 байт
-//+<iostream> - 1 465 768 байт
+//+printf() - 735 784 bytes
+//+<iostream> - 1 465 768 bytes
 
 //GCC 4.9.2 musl - Linux 64bit file size:
 //musl-gcc print();

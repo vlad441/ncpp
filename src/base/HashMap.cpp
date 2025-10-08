@@ -6,7 +6,7 @@ uint32_t Fnv1a(const char* data, size_t len){ uint32_t hash = 2166136261u;
 uint64_t Fnv1a_64(const char* data, size_t len){ uint64_t hash = 14695981039346656037ULL;
     for(size_t i = 0; i < len; ++i){ hash ^= (uint8_t)data[i]; hash *= 1099511628211ULL; } return hash; }
 
-template <typename T> uint32_t hash(T num){ return (uint32_t)num; } //return (uint32_t)(num ^ (num >> 16) ^ (num >> 32) ^ (num >> 48)); // Простой бит-миксинг
+template <typename T> uint32_t hash(T num){ return (uint32_t)num; } //return (uint32_t)(num ^ (num >> 13)); //Пример бит-миксинга.
 template <typename T> uint32_t hash(T* num){ return (size_t)num; }
 uint32_t hash(const char* c){ return Fnv1a(c, strlen(c)); }
 uint32_t hash(const String& s){ return Fnv1a(s.c_str(), s.size()); }
@@ -58,8 +58,10 @@ class _HashTable {
 		bool operator==(const _Iter& other) const { return idx == other.idx && tbl == other.tbl; }
 		bool operator!=(const _Iter& other) const { return idx != other.idx || tbl != other.tbl; }
 
-		IterDerived& operator++(){ do{ ++idx; }while(idx < tbl->size() && !(*tbl)[idx].occupied); return (IterDerived&)*this; }
-		IterDerived& operator--(){ if(idx == 0) return *this; do { --idx; }while(idx > 0 && !(*tbl)[idx].occupied); return (IterDerived&)*this; }
+		IterDerived& operator++(){ do{ ++idx; }while(idx < tbl->size() && !(*tbl)[idx].occupied); return (IterDerived&)*this; } //prefix ++it
+		IterDerived operator++(int){ IterDerived it0=IterDerived(tbl, idx); ++(*this); return it0; } //postfix it++
+		IterDerived& operator--(){ if(idx == 0) return *this; do { --idx; }while(idx > 0 && !(*tbl)[idx].occupied); return (IterDerived&)*this; } //prefix --it
+		IterDerived operator--(int){ IterDerived it0=IterDerived(tbl, idx); --(*this); return it0; } //postfix it--
 	};
 
 public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> MapT; //Для использования внутри зависимого шаблона полная специализация не требуется.

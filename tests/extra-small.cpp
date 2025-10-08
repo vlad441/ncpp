@@ -1,9 +1,21 @@
-#include <cstdlib> // for size_t, atoi и atof, etc...
-#include <cstring>// for strlen, etc...
-//--#include <cstddef> // only typoe def? size_t, NULL, etc...
-#define NCPP_VER "v0.0.0-0"
+// ====== Minimal CRT ======
+#define NULL 0
+int main(); typedef unsigned int size_t; typedef size_t DWORD;
+extern "C" size_t strlen(const char* c){ size_t len=0; while(*c!='\0'){ len++; c++; } return len; }
 #ifdef _WIN32
-#include <windows.h>
+	//#include <windows.h>
+	#define STD_OUTPUT_HANDLE ((unsigned long)-11)
+	extern "C" __declspec(dllimport) void __stdcall ExitProcess(DWORD uExitCode) __attribute__((noreturn));
+	extern "C" __declspec(dllimport) int __stdcall WriteFile(void* hFile, const void* lpBuffer, DWORD nNumberOfBytesToWrite, DWORD* lpNumberOfBytesWritten, void* lpOverlapped );
+	extern "C" __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long nStdHandle);
+	//extern "C" __attribute__((naked)) void _start();
+	extern "C" void _start(){ ExitProcess(main()); } //WORKS ONLY 64 BIT
+	extern "C" void __main(){}
+#else
+#endif
+// ====== User-Space Code ======
+
+#ifdef _WIN32
 	void print(const char *cptr, size_t len){ WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), cptr, (DWORD)len, NULL, NULL); }
 #else
 #include <unistd.h>
@@ -40,5 +52,5 @@ void gcc_version(){ print("[Compiller] ");
 #endif
 };
 
-//void __attribute__((naked)) _start(){
-void _start(){ print("Hello, no-CRT\n"); ExitProcess(0); }
+int main(){ //cpp_version(); gcc_version();
+	print("Hello, no-CRT\n"); }

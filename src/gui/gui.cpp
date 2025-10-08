@@ -29,5 +29,7 @@ struct WParams {};
 
 #endif
 
+#include "gl-math.cpp"
+#include "opengl-loader.cpp"
 #include "opengl.cpp"
 #include "images.cpp"

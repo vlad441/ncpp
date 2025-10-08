@@ -51,6 +51,7 @@ namespace ncpp{ struct Console {
 	#else
 	Console& setColor(char color){ String ss("\033[3"); ss.push('0'+color); ss << "m"; print(ss); return *this; }
 	Console& setColorEx(unsigned char color){ String ss("\033[38;5;"); ss << dtos(color) << "m"; print(ss); return *this; }
+	//Console& setColorEx(unsigned int hex);
 	Console& setColorEx(unsigned char r, unsigned char g, unsigned char b){ String ss("\033[38;2;"); 
 		ss << dtos(r) << ";" << dtos(g) << ";" << dtos(b) << "m"; print(ss); return *this; }
 	Console& setBGColor(char color){ String ss("\033[4"); ss.push('0'+color); ss << "m"; print(ss); return *this; }

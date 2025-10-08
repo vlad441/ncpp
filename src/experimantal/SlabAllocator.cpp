@@ -1,13 +1,13 @@
 namespace ncpp{
 	template<typename T>
-	struct SlabAllocator { struct Block { Block* next; T* data; size_t offset; }; 
+	struct SlabAlloc { struct Block { Block* next; T* data; size_t offset; }; 
 		
-		SlabAllocator(size_t bsize=10) : _sizeT(sizeof(T)), blocksize(bsize), first(NULL), end(NULL){ freePtrs.reserve(bsize); }
-		SlabAllocator(size_t bsize, unsigned int sizeT) : _sizeT(sizeT), blocksize(bsize), first(NULL), end(NULL){ freePtrs.reserve(bsize); }
-		~SlabAllocator(){ clear(); }
+		SlabAlloc(size_t bsize=10) : _sizeT(sizeof(T)), blocksize(bsize), first(NULL), end(NULL){ freePtrs.reserve(bsize); }
+		SlabAlloc(size_t bsize, unsigned int sizeT) : _sizeT(sizeT), blocksize(bsize), first(NULL), end(NULL){ freePtrs.reserve(bsize); }
+		~SlabAlloc(){ clear(); }
 		
 		T* alloc(){ if(!freePtrs.empty()) freePtrs.pop(); if(!end || end->offset >= blocksize) _newblock();
-			T* ptr = (T*)((char*)end->data+end->offset*_sizeT); end->offset++;  return ptr;
+			T* ptr = (T*)((char*)end->data+end->offset*_sizeT); end->offset++; return ptr;
 			//T* ptr = end->data+end->offset++; return ptr; 
 		}
 		void dealloc(T* ptr){ freePtrs.push(ptr); }
@@ -31,15 +31,18 @@ namespace ncpp{
 
 		void* alloc(size_t size){
 			if(size <= 16){ return _pool16.alloc(); }
-			else if(size <= 32){ return _pool32.alloc(); } 
+			else if(size <= 32){ return _pool32.alloc(); }
 			else if(size <= 64){ return _pool64.alloc(); }
-			else { return malloc(size); } }
+			else{ return malloc(size); } }
 
 		void dealloc(char* p, size_t size){
-			if (size <= 16){ _pool16.dealloc(p); } 
-			else if (size <= 32){ _pool32.dealloc(p); } 
-			else if (size <= 64){ _pool64.dealloc(p); }
-			else { free(p); } }
+			if(size <= 16){ _pool16.dealloc(p); } 
+			else if(size <= 32){ _pool32.dealloc(p); }
+			else if(size <= 64){ _pool64.dealloc(p); }
+			else{ free(p); } }
 		private: SlabAllocator<char> _pool16, _pool32, _pool64;
 	};
+	
+	//template<typename T>
+	//struct SlotMap {} //Индексная карта
 }

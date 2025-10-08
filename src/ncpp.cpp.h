@@ -1,7 +1,7 @@
 // ncpp: tech header file. Entry point for compilation from object files. Using only for direct compilation or build libs.
 #ifndef NCPP_H
 #define NCPP_H
-#define NCPP_VER "v0.0.1-0-rev1"
+#define NCPP_VER "v0.0.1-0-rev2"
 namespace ncpp { void print(const char *cptr); const char* version(); } //Only declaration.
 
 /*#ifdef _WIN32_WINNT
@@ -60,7 +60,7 @@ void* operator new(size_t size, void* ptr) noexcept { return ptr; } //Опред
 #include "system/gcc3_winxpdef.h"
 #endif
 
-void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())!=0){
+void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())==0) return;
 	ncpp::print(""\
 	"█████████████████████████████████████████████████████████████████████████\n"\
 	"██                                                                   ██\n"\
@@ -83,6 +83,6 @@ void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())!=0){
 	"██                                                                   ██\n"\
 	"█████████████████████████████████████████████████████████████████████████\n");
 	// exit(1);
-} }
+}
 
 #endif // NCPP_H end

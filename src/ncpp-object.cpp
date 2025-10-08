@@ -4,7 +4,7 @@ namespace JSON { Object parse(String jsonstr); }
 #define MAX_T_SIZE3(T1, T2, T3) (MAX_T_SIZE(T1, T2) > sizeof(T3) ? MAX_T_SIZE(T1, T2) : sizeof(T3))
 #define MAX_T_SIZE4(T1, T2, T3, T4) (MAX_T_SIZE3(T1, T2, T3) > sizeof(T4) ? MAX_T_SIZE3(T1, T2, T3) : sizeof(T4))
 
-	struct ObjectValue { enum Type { DOUBLE, INT32, INT64, BOOLEAN, STRING, BUFFER, OBJECT, ARRAY, PTR, NIL, UNDEFINED }; char _type;
+	struct ObjectValue { enum Type { DOUBLE, INT8, INT16, INT32, INT64, BOOLEAN, STRING, BUFFER, OBJECT, ARRAY, PTR, NIL, UNDEFINED }; char _type;
 		union { double d; int i; long long ll; bool b; void* ptr; Object* o; char mem[MAX_T_SIZE(String, Buffer)]; } value;
 		struct { String s; Buffer bf; } edata;
 		ObjectValue() : _type(NIL){} ~ObjectValue(){ clear(); }
@@ -39,8 +39,10 @@ namespace JSON { Object parse(String jsonstr); }
 		ObjectValue& setNull(){ clear(); _type = NIL; return *this; }
 		ObjectValue& setUndefined(){ clear(); _type = UNDEFINED; return *this; }
 
+		bool isInt8() const { return _type == INT8; } bool isInt16() const { return _type == INT16; }
 		bool isInt32() const { return _type == INT32; } bool isInt64() const { return _type == INT64; }
-		bool isDouble() const { return _type == DOUBLE; } bool isNumber() const { return isDouble()||isInt32()||isInt64(); }
+		bool isDouble() const { return _type == DOUBLE; } 
+		bool isNumber() const { return _type==DOUBLE||_type==INT64||_type==INT32||_type==INT16||_type==INT8; }
 		bool isBool() const { return _type == BOOLEAN; }
 		bool isString() const { return _type == STRING; }
 		bool isBuff() const { return _type == BUFFER; }
@@ -80,6 +82,8 @@ namespace JSON { Object parse(String jsonstr); }
 		ObjectValue& operator=(const Array<T>& arr){ set(arr); return *this; }
 		ObjectValue& operator[](const String& key);
 		ObjectValue& operator[](const char* key);
+		const ObjectValue& operator[](const String& key) const;
+		const ObjectValue& operator[](const char* key) const;
 		//ObjectValue& operator[](size_t indx){ if(!isArray()){ print("(!) ObjectValue& operator[](size_t indx): is not a Array type"); exit(1); } return (*value.o)[dtos(indx)]; }
 		
 		bool operator==(const CString& s) const { return isString()&&s==edata.s; }
@@ -119,23 +123,29 @@ namespace JSON { Object parse(String jsonstr); }
 		template<typename T>
 		operator Array<T>() const;
 		
-		String type() const noexcept { switch((*this)._type){ case DOUBLE: return "double"; case INT32: return "int32"; case INT64: return "int64"; 
-			case BOOLEAN: return "boolean"; case STRING: return "string"; case BUFFER: return "buffer"; case ARRAY: return "array";
-			case OBJECT: return "object"; case NIL: return "null"; case UNDEFINED: return "undefined"; default: return "(unknown)"; } }
+		String type() const noexcept { switch((*this)._type){ case DOUBLE: return "double"; case INT64: return "int64"; case INT32: return "int32";
+			case INT16: return "int16"; case INT8: return "int8"; case BOOLEAN: return "boolean"; case STRING: return "string"; 
+			case BUFFER: return "buffer"; case ARRAY: return "array"; case OBJECT: return "object"; case NIL: return "null"; 
+			case UNDEFINED: return "undefined"; default: return "(unknown)"; } }
 		
 		String toString() const noexcept { switch((*this)._type){ case DOUBLE: return dtos((*this).value.d);
-            case INT32: return dtos((*this).value.i); case INT64: return dtos((*this).value.ll);
+            case INT64: return dtos((*this).value.ll); case INT32: case INT16: case INT8: return dtos((*this).value.i);
             case BOOLEAN: return ((*this).value.b?"true":"false"); case STRING: return (*this).edata.s;
             case BUFFER: return (*this).edata.bf.cout(); case ARRAY: return "[...]"; case OBJECT: return "{...}";
             case NIL: return "<null>"; case UNDEFINED: return "<undefined>"; default: return "<?>"; } }
 			
 		double toNumber() const noexcept { switch((*this)._type){ case DOUBLE: return (*this).value.d;
-            case INT32: return (*this).value.i; case INT64: return (*this).value.ll;
-            case BOOLEAN: return ((*this).value.b ? 1 : 0); case STRING: return stodn((*this).edata.s);
+            case INT64: return (*this).value.ll; case INT32: case INT16: case INT8: return (*this).value.i;
+            case BOOLEAN: return (*this).value.b; case STRING: return stodn((*this).edata.s);
             case BUFFER: return (*this).edata.bf.toInt(); default: return 0; } }
-        //double toDouble() const noexcept { return toNumber(); } 
-        int toInt32() const noexcept { return _type==INT32?(*this).value.i:toNumber(); } 
-		long long toInt64() const noexcept { return _type==INT64?(*this).value.ll:toNumber(); }
+		long long toInteger() const noexcept { switch((*this)._type){ case DOUBLE: return (*this).value.d;
+            case INT64: return (*this).value.ll; case INT32: case INT16: case INT8: return (*this).value.i;
+            case BOOLEAN: return (*this).value.b; case STRING: return stolln((*this).edata.s);
+            case BUFFER: return (*this).edata.bf.toInt(); default: return 0; } }
+		long long toInt64() const noexcept { return _type==INT64?(*this).value.ll:toInteger(); }
+		int toInt32() const noexcept { return _type==INT32?(*this).value.i:toInteger(); }
+		int toInt16() const noexcept { return _type==INT16?(*this).value.i:toInteger(); }
+		char toInt8() const noexcept { return _type==INT8?(*this).value.i:toInteger(); }
             
         Buffer toBuff() const noexcept { switch((*this)._type){ case BUFFER: return (*this).edata.bf;
 			case DOUBLE: { Buffer buff(8); buff.writeDoubleLE((*this).value.d); return buff; }
@@ -143,7 +153,7 @@ namespace JSON { Object parse(String jsonstr); }
 			case INT64: { Buffer buff(8); buff.writeInt64LE((*this).value.ll); return buff; }
             case STRING: return Buffer::from((*this).edata.s); default: return Buffer(); } }
 		
-		bool toBool() const noexcept { switch((*this)._type){ case DOUBLE: case INT32: case INT64: return toNumber()>0;
+		bool toBool() const noexcept { switch((*this)._type){ case DOUBLE: case INT32: case INT64: return toInteger()>0;
             case BOOLEAN: return (*this).value.b; case STRING: return (*this).edata.s!=""&&(*this).edata.s!="0";
             case BUFFER: return (*this).edata.bf.size()>0; case OBJECT: return true; default: return false; } }
 		private:
@@ -152,16 +162,14 @@ namespace JSON { Object parse(String jsonstr); }
 	
 	struct Object : HashMap<String, ObjectValue> {
 		typedef HashMap<String, ObjectValue> MapType;
-		typedef MapType::iterator iterator;
-		typedef MapType::const_iterator const_iterator;
+		//typedef MapType::iterator iterator;
+		//typedef MapType::const_iterator const_iterator;
 		Object(){} ~Object(){ clear(); }
+		Object(const Object& obj){ deepCopy(*this, obj); }
 		Object(const CString& json){ *this=JSON::parse(json); }
 		ObjectValue& operator[](const CString& key){ return MapType::operator[](key); }
 		const ObjectValue& operator[](const CString& key) const { Object::const_iterator it = find(key); 
 			if(it != end()){ return it->second; } static ObjectValue empty; return empty; }
-		//Array<String> keys() const { Array<String> keys; 
-			//for(Object::const_iterator it = this->begin(); it != this->end(); ++it){ keys.push(it->first); } return keys; }
-		//bool has(const CString& key) const { return this->find(key) != this->end(); }
 		String cout(int depth=2, int bias=2) const;
 		String toString(int depth=2) const { return cout(depth); }
 		String type(){ return "object"; }
@@ -176,16 +184,25 @@ namespace JSON { Object parse(String jsonstr); }
 			for(size_t i=0;i<path.size()-1;i++){ if(!(*obj).has(path[i])){ (*obj)[path[i]]=Object(); } obj = &(*obj)[path[i]].asObj(); } (*obj)[path[path.size()-1]] = value; }
 		void setNestedValue(Object& obj, const String& path, const ObjectValue& value){ setNestedValue(&obj, path.split("."), value); };
 		
-		struct ConstIter { bool isfirst; ConstIter(const Object& obj) : isfirst(true), it(obj.begin()), _end(obj.end()){}
+		/*struct ConstIter { bool isfirst; ConstIter(const Object& obj) : isfirst(true), it(obj.begin()), _end(obj.end()){}
 			bool next(){ if(it == _end) return false; ++it; return it != _end; }
 			bool iterate(){ if(it == _end) return false; if(isfirst){ isfirst=false; return true; } ++it; return it != _end; }
 			bool end(){ if(it == _end){ return true; } return false; }
 			const String& key() const { return it->first; }
 			const ObjectValue& value() const { return it->second; } 
-			private: const_iterator it, _end; };
+			private: const_iterator it, _end; };*/
+		
+		static void deepCopy(Object& dst, const Object& src){
+			for(Object::ConstIter it=src.begin(); it!=src.end(); ++it){
+				if(it->second.isObj()){ dst[it->first]=Object(); deepCopy(dst[it->first].asObj(), it->second.asObj()); }
+				else{ dst[it->first] = it->second; } } };
 	};
 	
-	void ObjectValue::clear(){ if(_type == OBJECT){ delete value.o; } _type = NIL; }
+	void ObjectValue::clear(){ switch(_type){
+			case OBJECT: delete value.o; value.o=NULL; break;
+			case STRING: edata.s=String(); break;
+			case BUFFER: edata.bf=Buffer(); break;
+		} _type = NIL; }
 	
 	void ObjectValue::_initObj(){ clear(); _type = OBJECT; value.o = new Object(); }
 	
@@ -213,8 +230,10 @@ namespace JSON { Object parse(String jsonstr); }
 			//else if(val1.isArray() && val2.isArray()){ return val1.asObj().toString() == val2.asObj().toString(); }
 			if(!strong){ return val1.toString() == val2.toString(); } return false; } 
 	
-	ObjectValue& ObjectValue::operator[](const String& key){ return (*value.o)[key]; }
-	ObjectValue& ObjectValue::operator[](const char* key){ return (*value.o)[String(key)]; }
+	ObjectValue& ObjectValue::operator[](const String& key){ if(!isObj()) _initObj(); return (*value.o)[key]; }
+	ObjectValue& ObjectValue::operator[](const char* key){ if(!isObj()) _initObj(); return (*value.o)[String(key)]; }
+	const ObjectValue& ObjectValue::operator[](const String& key) const { return (*value.o)[key]; }
+	const ObjectValue& ObjectValue::operator[](const char* key) const { return (*value.o)[String(key)]; }
 	
 	ObjectValue::operator Object() const { return isObj()?(*value.o):Object(); }
 	template<typename T>

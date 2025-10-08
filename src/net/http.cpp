@@ -24,7 +24,7 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		void Redirect(const CString& url){ status=301; headers["location"]=url; end(); }
 		void SendCode(int status1, const CString& codeDescr=""){ status=status1; socket->send(RespComposer(*this, codeDescr)); }
 		void SendErr(int status1, const CString& errDescr=""){ SendCode(status1, errDescr); socket->destroy(); }
-		String cout() const { String ss("Response Headers:"); ss << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
+		String cout() const { String ss("Status: "); ss << status << " | Headers:" << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
 	};
 	
 	IPAddr splitIpPort(const CString& ipstr){ IPAddr result; result.ip=""; result.port=0; size_t closingIndx = ipstr.find("]");
@@ -54,10 +54,9 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		parsed.hver=stofn(statusLn[0].split('/')[1]); parsed.status = stoin(statusLn[1]);
 		HttpMsg msg = HttpParse(rawreq, lineEnd+2); parsed.headers=msg.headers; parsed.body=msg.body; return parsed; }
 	
-	Buffer QueryComposer(const CString& host, const Req& opts){ Buffer query; String th; th << (opts.method.empty() ? "GET" : opts.method)
+	Buffer QueryComposer(const Req& opts, const CString& host="127.0.0.1"){ Buffer query; String th; th << (opts.method.empty() ? "GET" : opts.method)
 			<<" "<< opts.url <<" HTTP/"<<dtos(opts.hver, 1)<<"\r\n"; if(!host.empty()){ th << "Host: " << host << "\r\n"; }
 		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ th << it->first + ": " + it->second + "\r\n"; }
-		if(!opts.headers.has("accept")){ th <<"Accept: */*\r\n"; } if(!opts.headers.has("accept-encoding")){ th <<"Accept-Encoding: identity\r\n"; }
 		if(!opts.headers.has("user-agent")){ th <<"User-Agent: Mozilla/5.0 (tipa compatibility :)\r\n"; }
 		if(!opts.headers.has("connection")){ th <<"Connection: close\r\n"; } th << "\r\n";
 		query=th; if(!opts.body.empty()){ query.concat(opts.body); } return query; }
@@ -82,14 +81,12 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		
 	template <typename S>	
 	Res request(S& socket, const CString& host, int port, Req& params){
-		if(!socket.connected&&!socket.connect(host, port)){ Res response; response.status = 0; return response; }
-		Buffer rawreq = QueryComposer(host, params);
-		
+		if(!socket.connected&&!socket.connect(host, port)){ return Res(); } Buffer rawreq = QueryComposer(params, host);
 		socket.send(rawreq); Buffer rawresp, chunk; while(true){ chunk=socket.recv(); rawresp+=chunk;
 			if(rawresp.indexOf("\r\n\r\n")>=0||chunk.size()<=0){ break; } }
 		Res resp = RespParse(rawresp); size_t datasize[2]; datasize[0]=resp.body.size(); datasize[1]=0; bool chunked=false; if(params.nobody){ return resp; }
 		else if(resp.headers.has("content-length")){ datasize[1]=(size_t)stodn(resp.headers["content-length"]); }
-		else if(resp.headers["transfer-encoding"]=="chunked"){ chunked=true; }
+		else if(resp.headers.has("transfer-encoding")&&resp.headers["transfer-encoding"]=="chunked"){ chunked=true; }
 		struct { Buffer buff; unsigned int chunkSize; bool is_end;}ch_data; 
 		if(chunked){ ch_data.chunkSize=0; ch_data.is_end=false; ch_data.buff=resp.body; datasize[0]=0; resp.body.clear(); }
 		while(datasize[0]<datasize[1]||chunked){ chunk=socket.recv(); if(!chunked){ resp.body+=chunk; }
@@ -160,7 +157,7 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		Array<String> files = fs::readDir(path); String fileList = ""; 
 		for(size_t i=0; i<files.size(); i++){ fileList << "<li><a href=\"/" << path << "/" << files[i] << "\">" << files[i] << "</a></li>"; }
 		
-		String htmlContent = "<html><head><title>AutoIndex of "+path+"</title></head>\n<body>"\
-		"<h3>AutoIndex of "+path+"</h3><hr><pre><ul>"+fileList+"</ul><hr></pre>\nPowered by <a href=\"http://ncpp.art\">ncpp</a></body></html>"; res.end(htmlContent);
-	 }
+		String htmlContent; htmlContent << "<html><head><title>AutoIndex of " << path << "</title></head>\n<body>"\
+		"<h3>AutoIndex of " << path << "</h3><hr><pre><ul>" << fileList << "</ul><hr></pre>\nPowered by <a href=\"http://ncpp.art\">ncpp</a></body></html>"; 
+		res.end(htmlContent); }
 } }

@@ -1,6 +1,8 @@
 // C stdlib implementation example
 #include <stdint.h>
-void* memcpy(void* dst, void* src, size_t size){
+extern "C" size_t strlen(const char* c);
+
+extern "C" void* memcpy(void* dst, void* src, size_t size){
 	char* dst8 = (char*)dst; char* src8 = (char*)src;
 
 	size_t qwords = size >> 3; 

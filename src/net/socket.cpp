@@ -38,11 +38,11 @@ namespace ncpp{
 	};
 	
 	struct Socket { int sockfd; bool connected; bool isbind; enum Type { NONE, TCP, UDP, UNIX } _type;
-		IPAddr destAddr; bool autodestroy; int errcode; int buffsize; //Object* data;
+		IPAddr destAddr; bool autodestroy; int errcode; int buffsize; //void* data; volatile unsigned int ref_cnt;
         Socket() : sockfd(-1), connected(false), isbind(false), _type(TCP), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){}
 		Socket(const CString& ip, int port, Type type=TCP) : sockfd(-1), connected(false), isbind(false), _type(type), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){ destAddr.ip=ip; destAddr.port=port; }
 		Socket(int sockfd) : sockfd(sockfd), connected(true), isbind(false), _type(TCP), autodestroy(true), errcode(0), buffsize(DEF_BUFF_SIZE){}
-        ~Socket(){ if(autodestroy) destroy(); }
+        ~Socket(){ if(autodestroy) destroy(); } //if(data!=NULL){  }
 		
 		#ifdef _WIN32
 		static bool WSAinited;
@@ -114,7 +114,7 @@ namespace ncpp{
 			if (getsockopt(sockfd1, SOL_SOCKET, SO_TYPE, (char*)&sockType, &optLen) == -1){ print("Socket.address: getsockopt failed.\n"); return addrInfo; }
 
 			if (sockType == SOCK_STREAM){ addrInfo.type = "TCP"; }else if (sockType == SOCK_DGRAM){ addrInfo.type = "UDP"; }else{ addrInfo.type = "(Unspec protocol)"; } return addrInfo; }
-		inline BindInfo address(){ return address(sockfd); }
+		BindInfo address(){ return address(sockfd); }
 				
 		static bool destroy(int sockfd1, bool force=true){
 			#ifdef _WIN32
@@ -179,7 +179,8 @@ namespace ncpp{
 				addr_in6->sin6_family = AF_INET6; addr_in6->sin6_port = htons(addr.port);
 				if(inet_pton(AF_INET6, addr.ip.c_str(), (void*)&(addr_in6->sin6_addr)) <= 0){ print("Invalid IPv6 address format\n"); } }
 			return storage; }
-        protected: void _move(Socket& other){ if(this==&other) return; destroy(); sockfd=other.sockfd; autodestroy=true; other.autodestroy=false; } }; 
+        friend void move(Socket& src, Socket& dst){ if(&src==&dst) return; dst.sockfd=src.sockfd; src.sockfd=-1; dst.autodestroy=true; src.autodestroy=false; }
+		friend void swap(Socket& src, Socket& dst); };
     #ifdef _WIN32
     bool Socket::WSAinited = false;
 	#endif
@@ -190,11 +191,11 @@ namespace ncpp{
 		TCPSocket(const CString& ip, int port, bool toconn=false) : Socket(ip, port, Socket::TCP){ if(toconn) connect(); }
 		TCPSocket(const IPAddr& addr, bool toconn=false) : Socket(addr.ip, addr.port, Socket::TCP){ if(toconn) connect(); }
 		TCPSocket(int sockfd1) : Socket(sockfd1){}
-		TCPSocket(Socket sock) : Socket(sock){}
+		TCPSocket(const Socket& sock) : Socket(sock){}
 		
-		int send(const Buffer& buff){ return ::send(sockfd, (const char*)buff.data(), buff.size(), 0); }
 		int send(const char* cptr, int len){ return ::send(sockfd, cptr, len, 0); }
 		int send(const char* cstr){ return ::send(sockfd, cstr, strlen(cstr), 0); }
+		int send(const Buffer& buff){ return ::send(sockfd, (const char*)buff.data(), buff.size(), 0); }
 		
 		int recv(char* ptr, int len){ rsetErr(); int bytesRead = ::recv(sockfd, ptr, len, 0);
 			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }

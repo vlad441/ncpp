@@ -1,9 +1,7 @@
-#include <GL/gl.h>
+#include <GL/gl.h> //OpenGL v1.1
+#include <GL/glu.h> //OpenGL Utility Library (deprecated)
 #ifndef _WIN32 
 #include <GL/glx.h>
-#endif
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
 #endif
 namespace ncpp { namespace GUI {
 	struct GLWindow : Window { 
@@ -74,26 +72,30 @@ namespace ncpp { namespace GUI {
 		void draw(){ if(bmode<=1){ glFlush(); }else{ swapBuffers(); } }
 		//InvalidateRect(this->wndID, NULL, TRUE);
 		
-		void resetMatrixMode(){ glMatrixMode(GL_PROJECTION); glLoadIdentity(); glMatrixMode(GL_MODELVIEW); glLoadIdentity(); }
-		void resetOrtho(){ glMatrixMode(GL_PROJECTION); glLoadIdentity(); glMatrixMode(GL_MODELVIEW); glLoadIdentity(); }
+		void resetMatrixMode(){ glMatrixMode(GL_PROJECTION); glLoadIdentity(); glMatrixMode(GL_MODELVIEW); glLoadIdentity(); } //resetOrtho
 		void setOrtho(float x0, float x1, float y0, float y1, float zNear=-1, float zFar=1){ glMatrixMode(GL_PROJECTION); glLoadIdentity();
 			glOrtho(x0, x1, y0, y1, zNear, zFar); glMatrixMode(GL_MODELVIEW); glLoadIdentity(); }
-		void setOrthoStyle(char rotate=0){ int width=0, height=0; getSize(width, height);
-			switch(rotate){
-				case 1: setOrtho(0.0, width, height, 0.0); //слева-сверху
-				case 2: setOrtho(-width, 0.0, 0.0, -height); //справа-сверху
-				case 3: setOrtho(-width, 0.0, -height, 0.0); //справа-снизу
-				default: setOrtho(0.0, width, 0.0, height); //слева-снизу
+		void setMatrix2DPreset(char rotate=0){ int width=0, height=0; getSize(width, height);
+		switch(rotate){
+			case 1: setOrtho(0.0, width, height, 0.0); //слева-сверху
+			case 2: setOrtho(-width, 0.0, 0.0, -height); //справа-сверху
+			case 3: setOrtho(-width, 0.0, -height, 0.0); //справа-снизу
+			default: setOrtho(0.0, width, 0.0, height); //слева-снизу
 			} }
+		void setMatrix3DPreset(){ glEnable(GL_DEPTH_TEST); 
+			glMatrixMode(GL_PROJECTION); glLoadIdentity();
+			gluPerspective(45.0f, 1.0f, 0.1f, 100.0f); // Настраиваем перспективную проекцию, так как это 3D-куб
+
+			glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+			glTranslatef(0.0f, 0.0f, -5.0f); // Позиционируем камеру, чтобы видеть куб
+		}
 	};
 } }
 
-namespace ncpp { namespace GL { struct RGB { float r; float g; float b; };
-
-	RGB HexColorToFloat(unsigned int hex){ RGB rgb; rgb.r = ((hex >> 16) & 0xFF) / 255.0f; 
-		rgb.g = ((hex >> 8) & 0xFF) / 255.0f; rgb.b = (hex & 0xFF) / 255.0f; return rgb; }
+namespace ncpp { namespace GL { //ncpp::GL funcs
+	//=== Legacy OpenGL 1.1 API ===
 	void clear(float redf, float greenf, float bluef, float alphaf=1){ glClearColor(redf, greenf, bluef, alphaf); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }	
-	void clear(unsigned int hex=0, float alphaf=1){ if(hex==0){ clear(0.0f, 0.0f, 0.0f, alphaf); return; } RGB rgb=HexColorToFloat(hex); clear(rgb.r, rgb.g, rgb.b, alphaf); }
+	void clear(unsigned int hex=0, float alphaf=1){ if(hex==0){ clear(0.0f, 0.0f, 0.0f, alphaf); return; } RGB rgb=HexToRGBFloat(hex); clear(rgb.r, rgb.g, rgb.b, alphaf); }
 	void glArc(float x, float y, float radius, float startAngle=0, float endAngle=360, float lsize=1, bool fill=false, int segments=100){
 		if(segments < 1){ segments = 1; } startAngle*=M_PI / 180.0f; endAngle*=M_PI / 180.0f;
 		
@@ -107,5 +109,30 @@ namespace ncpp { namespace GL { struct RGB { float r; float g; float b; };
 			float angle = startAngle + (float)i / segments * (endAngle - startAngle); // Вычисляем угол
 			float x1 = x + radius * cosf(angle); float y1 = y + radius * sinf(angle); glVertex2f(x1, y1); } glEnd();
 	}
+	
+	//=== OpenGL 2.0 API ===
+	unsigned int vShader=0, fShader=0; //ID вершинного и фрагментного шейдеров.
+	
+	bool InitDefautShaders(){ //Использует GLSL 1.10
+		//Вершинный шейдер: Возвращает вершины без изменений
+		const char* vertexShaderSrc = "#version 110\n"\
+			"attribute vec4 in_position;\n"\
+			"void main(){ gl_Position = in_position; }";
+
+		//Фрагментный шейдер: Красит все пиксели в красный цвет
+		const char* fragmentShaderSrc = "#version 110\n"\
+			"void main(){ gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }";
+			
+		if(!glCreateShader){ if(!LoadOpenGL_2_0()){ print("(!) GL::InitDefautShaders failed: OpenGL 2.0 extensions unavailable."); return false; } 
+			if(!glCreateShader){ print("(!) GL::InitDefautShaders ERROR: glCreateShader is a NULL."); exit(1); } }
+		
+		vShader = glCreateShader(GL_VERTEX_SHADER); glShaderSource(vShader, 1, &vertexShaderSrc, NULL); glCompileShader(vShader);
+		fShader = glCreateShader(GL_FRAGMENT_SHADER); glShaderSource(fShader, 1, &fragmentShaderSrc, NULL); glCompileShader(fShader);
+		
+		if(!vShader||!fShader){ return false; } GLint isCompiled;
+		glGetShaderiv(vShader, GL_COMPILE_STATUS, &isCompiled); if(isCompiled == GL_FALSE) return false;
+		glGetShaderiv(fShader, GL_COMPILE_STATUS, &isCompiled); if(isCompiled == GL_FALSE) return false;
+		return true; }
+	
 } }
 

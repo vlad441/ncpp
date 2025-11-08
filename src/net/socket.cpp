@@ -203,7 +203,7 @@ namespace ncpp{
 			int bytesRead = ::recv(sockfd, (char*)buff->data(), buff->size(), 0);
 			if(bytesRead<=0){ buff->resize(0); destroy(); if(bytesRead<0) GetErr(); }
 			else{ buff->resize(bytesRead); } return bytesRead; }
-		Buffer recv(){ Buffer buff(buffsize); recv(&buff); return buff; }
+		Buffer recv(){ Buffer buff; recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
 		
 		int acceptFd() const { return ::accept(sockfd, NULL, NULL); }
@@ -219,21 +219,23 @@ namespace ncpp{
 			clsock.destAddr = _from_sockaddr_storage(&client_addr); return clsock; }
 	};
     
-	struct UDPSocket : Socket { 
+	struct UDPSocket : Socket {
 		UDPSocket(){ _type=UDP; }
 		UDPSocket(const CString& ip, int port, bool toconn=false) : Socket(ip, port, Socket::UDP){ if(toconn) connect(); }
 		UDPSocket(const IPAddr& addr, bool toconn=false) : Socket(addr.ip, addr.port, Socket::UDP){ if(toconn) connect(); }
 		UDPSocket(int sockfd1) : Socket(sockfd1){ _type=UDP; }
 		UDPSocket(Socket sock) : Socket(sock){ _type=UDP; }
 		
+		//UDPSocket& setAddr(const IPAddr& addr){ destAddr=addr; return *this; }
+		
 		int send(const IPAddr& addr, const char* cstr, int len){ struct sockaddr_storage dest_addr = _to_sockaddr_storage(addr);
 			return ::sendto(sockfd, cstr, len, 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr)); }
 		int send(const IPAddr& addr, const Buffer& buffer){ struct sockaddr_storage dest_addr = _to_sockaddr_storage(addr);
 			return ::sendto(sockfd, (const char*)buffer.data(), buffer.size(), 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr)); }
-		inline int send(const IPAddr& addr, const char* cstr){ return send(addr, cstr, strlen(cstr)); }
-		inline int send(const Buffer& buff){ return send(destAddr, buff); }
-		inline int send(const char* cstr, int len){ return send(destAddr, cstr, len); }
-		inline int send(const char* cstr){ return send(destAddr, cstr, strlen(cstr)); }
+		int send(const IPAddr& addr, const char* cstr){ return send(addr, cstr, strlen(cstr)); }
+		int send(const Buffer& buff){ return send(destAddr, buff); }
+		int send(const char* cstr, int len){ return send(destAddr, cstr, len); }
+		int send(const char* cstr){ return send(destAddr, cstr, strlen(cstr)); }
 	
 		int recv(char* ptr, int len, IPAddr* rinfo=NULL){ rsetErr(); int bytesRead;
 			if(rinfo!=NULL){ sockaddr_storage dest_addr; socklen_t addrlen = sizeof(dest_addr); 
@@ -241,10 +243,14 @@ namespace ncpp{
 				*rinfo=_from_sockaddr_storage(&dest_addr); }
 			else{ bytesRead = ::recvfrom(sockfd, ptr, len, 0, NULL, NULL); }
 			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
-		int recv(Buffer* buff, IPAddr* rinfo=NULL){ buff->resize(buffsize); rsetErr(); 
-			return recv((char*)buff->data(), buff->size(), rinfo); }
-		Buffer recv(){ Buffer buff(buffsize); recv(&buff); return buff; }
+		int recv(Buffer* buff, IPAddr* rinfo=NULL){ buff->resize(buffsize);
+			int rbytes = recv((char*)buff->data(), buff->size(), rinfo); buff->resize(rbytes>0?rbytes:0); return rbytes; }
+		Buffer recv(){ Buffer buff; recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
+		private:
+			bool connect(const CString& ip, int port); //"Запрещаем" connect() для UDP.
+			bool connect(const IPAddr& a);
+			bool connect();
 	};
 	
 	//struct UnixSocket {}

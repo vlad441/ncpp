@@ -22,6 +22,11 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 	size_t capacity() const { return _msize; }
 	size_t length() const { return _len; }
 	
+	T& front(){ return *_ptr; }
+	const T& front() const { return *_ptr; }
+	T& back(){ return *(_ptr+_len-1); }
+	const T& back() const { return *(_ptr+_len-1); }
+	
 	size_t find(const char* s, size_t pos = 0) const { return indexOf(s, pos); }
 	size_t find(const char* s, size_t pos, size_t n) const { return indexOf(s, n, pos); }
 	size_t find(char c, size_t pos = 0) const { return indexOf(&c, 1, pos); }
@@ -34,14 +39,12 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
     size_t find_last_of(const char* chars, size_t pos = NPOS) const {
         if (!chars || _len == 0){ return NPOS; }
         size_t start_pos = (pos == NPOS || pos >= _len) ? (_len - 1) : pos;
-
         for(size_t i = start_pos; ; --i){
             for(size_t j = 0; chars[j] != '\0'; ++j){
                 if (_ptr[i] == chars[j]){ return i; } } if (i == 0) break; } return NPOS; }	
 	size_t find_first_not_of(const char* chars, size_t pos = 0) const {
         if(!chars || _len == 0 || pos >= _len){ return NPOS; }
         for (size_t i = pos; i < _len; ++i){ bool found = false;
-            // Проходим по набору символов для сравнения
             for (size_t j = 0; chars[j] != '\0'; ++j){
                 if(_ptr[i] == chars[j]){ found = true; break; } } if(!found){ return i; } } return NPOS; }
 	size_t find_last_not_of(const char* chars, size_t pos=NPOS) const {
@@ -74,11 +77,6 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 			if(j == len){ return i; } } return -1; }
 	size_t lastIndexOf(const char* delim) const { return lastIndexOf(delim, strlen(delim)); }
 	size_t lastIndexOf(char c) const { for(size_t i=_len; i-- > 0; ){ if(_ptr[i] == c) return i; } return -1; }
-	
-	T& front(){ return *_ptr; }
-	const T& front() const { return *_ptr; }
-	T& back(){ return *(_ptr+_len-1); }
-	const T& back() const { return *(_ptr+_len-1); }
 		
 	template <typename V>
 	V _slice(int start, int end=0) const {
@@ -91,15 +89,13 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 	String substr(int start, int end=0) const;
 	
 	template <typename V>
-	Array<V> _split(const char* delim, size_t len) const { Array<V> result; //result.reserve(30); //DEBUG realloc behaivor.
-		size_t start = 0; size_t end = indexOf(delim, len, start); if(end==NPOS){ result.push(V(_ptr, _len)); return result; }
-		while(end != NPOS){ result.push(_slice<V>(start, end));
-			start = end+len;
-			end = indexOf(delim, len, start); } result.push(_slice<V>(start)); return result; }
-	template <typename V>
-	Array<V> _split(const char* delim) const { return _split<V>(delim, strlen(delim)); }
+	Array<V> _split(const char* delim, size_t len, int maxparts=-1) const { Array<V> result; result.reserve(maxparts>1?maxparts:0);
+		size_t start=0; int parts=1; size_t end = indexOf(delim, len, start); if(end==NPOS||maxparts==1){ result.push(V(_ptr, _len)); return result; }
+		while(end != NPOS&&(maxparts<=0||parts++<maxparts)){ result.push(_slice<V>(start, end));
+			start = end+len; end = indexOf(delim, len, start); } result.push(_slice<V>(start)); return result; }
+	template <typename V> Array<V> _split(const char* delim) const { return _split<V>(delim, strlen(delim)); }
 	
-	Array<String> split(const char* delim, size_t len) const { return _split<String>(delim, len); }
+	Array<String> split(const char* delim, size_t len, int maxparts=-1) const { return _split<String>(delim, len, maxparts); }
 	Array<String> split(const char* delim) const { return _split<String>(delim, strlen(delim)); }
 	Array<String> split(char delim) const { return _split<String>(&delim, 1); }
 	template <typename U, typename D> 
@@ -127,6 +123,7 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 	template <typename U, typename D>
 	bool endsWith(const BaseString<U, D>& suffix) const { return endsWith((suffix.size()>0)?(char*)&suffix[0]:NULL, suffix.size()); }
 	//void fill(T value){ std::vector<unsigned char>::assign(size(), value); }
+	bool toBool(){ return *this=="true"||*this=="1"||*this=="True"; }
 	
 	bool operator==(const char* c) const { return _len==strlen(c)&&strncmp((char*)_ptr, c, _len)==0; }
 	template <typename U, typename D>
@@ -178,6 +175,7 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	String(size_t len){ _init(len); }
 	String(size_t len, char v){ _init(len); memset(_ptr, v, _len); }
 	String(const String& s){ _init(s._len); _set(s._ptr, s._len); }
+	String& operator=(const String& s){ _set(s.c_str(), s.size()); return *this; }
 	template <typename T, typename D>
 	String(const BaseString<T, D>& s){ //print("String::BaseString init constructor called.\n"); 
 		_init(s.size()); _set(s.data(), s.size()); }
@@ -219,10 +217,10 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	String replaceAll(const CString& from, const CString& to) const { return replace(from, to, true); }
 	
 	struct RegExp; // not implemented
-	String toLowerCase() const { String result(*this); //Only for ASCII
+	String toLowerCase() const { String result(*this); //Only for ASCII ( c &= ~0x20; )?
 		for(size_t i = 0; i < result.size(); ++i){ char c = result[i]; if(c >= 'A' && c <= 'Z'){ result[i] = c+('a'-'A'); } } return result; }
 	String toUpperCase() const { String result(*this); //Only for ASCII
-		for (size_t i = 0; i < result.size(); ++i){ char c = result[i]; if(c >= 'a' && c <= 'z'){ result[i] = c-('a'-'A'); } } return result; }
+		for(size_t i = 0; i < result.size(); ++i){ char c = result[i]; if(c >= 'a' && c <= 'z'){ result[i] = c-('a'-'A'); } } return result; }
 	String trim() const { size_t first = find_first_not_of(" \t\r\n\f\v"); size_t last = find_last_not_of(" \t\r\n\f\v");
 		if(first == NPOS || last == NPOS){ return String(""); } return slice(first, last+1); }
 	
@@ -231,7 +229,6 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	char at(size_t pos) const { return (_ptr&&pos<_len)?_ptr[pos]:0; }
 	
 	String& operator=(const char* c){ _set(c, strlen(c)); return *this; }
-	String& operator=(const String& s){ _set(s.c_str(), s.size()); return *this; }
 	template <typename T, typename D>
 	String& operator=(const BaseString<T, D>& s){ _set((const char*)s.data(), s.size()); return *this; }
 	template <size_t N>
@@ -254,8 +251,7 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	template <typename T, typename D> String& operator<<(const BaseString<T, D>& s){ _append(s.data(), s.size()); return *this; }
 	String& operator<<(long long num);
 	//String& operator<<(double num){}
-	template <typename T>
-	String& operator<<(const Array<T>& buff);
+	template <typename T> String& operator<<(const Array<T>& arr){ *this+=arr.cout(); return *this; }
 	
 	friend void swap(String& a, String& b){ char* tmpc = a._ptr; a._ptr = b._ptr; b._ptr = tmpc;
 		size_t tmp = a._len; a._len = b._len; b._len = tmp;
@@ -267,10 +263,15 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	operator Array<char>() const { return Array<char>((char*)_ptr, (char*)_ptr+_len); }
 		
 	bool _isSSO(){ return _ptr==_sso; }
-	private: char _sso[_SSO_LEN];
-		// == allocator
+	private: 
+		#if _SSO_LEN > 0
+		char _sso[_SSO_LEN];
 		void _init(size_t len){ _len=len++; if(_len<_SSO_LEN){ _mode=STACK; _ptr=_sso; _sso[_len]='\0'; _msize=_SSO_LEN; }else{ _mode=HEAP; _alloc(len); } }
+		#else
+		void _init(size_t len){ _len=len; _mode=HEAP; _ptr=NULL; _msize=0; if(_len>0){ _alloc(len); } }
+		#endif
 		
+		// == allocator
 		void _alloc(size_t sz, bool copy=false){ if(_mode==STACK_ONLY){ print("(!) ncpp::String malloc error: mode=STACK_ONLY"); exit(1); }
 			_msize=sz<_SSO_LEN*2?_SSO_LEN*2:sz; char* ptr0=_ptr; _ptr=(char*)malloc(_msize);
 			if(_ptr==NULL){ print("(!) ncpp::String malloc error: Out of memory"); exit(1); }

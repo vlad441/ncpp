@@ -4,16 +4,20 @@ TODO v0.0.1:
 -- Не разбрасываться noexept
 - HTTP: вспомогательные функции: cookie parser, qparse, etc.
 - Оптимизация и разделение base: min-base(print, etc...) (+/-)
+- print(long long v) fixes: SFINAE use for numbers.
+- WebSocket::_onClose();
 
 - Stream
 -- Socket
 --- UnixStream (+/-)
 --- ICMPSocket: inet_addr() only accept IPv4.
+--- acquire/release?
 -- FileStream
 - AsyncIO
 -- StreamPool
 --- SocketPool
----- SocketPool: Sockets async write pool.
+---- Возможноть массива servfd в одном цикле событий.
+---- Sockets async write pool.
 -- File Async
 -- TCP Server (+/-)
 --- HTTP (+/-)
@@ -37,10 +41,11 @@ TODO v0.0.1:
 -- typemap(): Вернуть StringMap вида (ключ -> тип)
 - Encryption
 -- TLS
+--- KTLS (Linux)/Schannel (Windows)
 --- RSA/DH
 ---- BigInt (!)
 --- X.509/ASN.1
--- SSH?
+-- SSH
 - GUI
 -- Минимальный набор(Кнопки, Input, Label, ...);
 -- Image (Win: GDI/GDI+, X11: XPutImage/XRender(GPU?), Wayland: ?)(Cairo: example)

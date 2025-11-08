@@ -19,7 +19,7 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 	
 	struct AsyncIO { enum FDTYPE {FD_SOCK,FD_FILE}; };
 	//template <typename S = TCPSocket> struct SocketPool;
-	struct SocketPool : AsyncIO { HashSet<Socket*> sockets; int servfd; //HashSet<SharedPtr<S>>; 
+	struct SocketPool : AsyncIO { HashSet<Socket*> sockets; int servfd; //HashSet<SharedPtr<S>>; Array<int> srvfds?
 	#ifdef _WIN32
 	//#define EINTR 10004L
 		Array<Socket*> acceptSocks; LPFN_ACCEPTEX PAcceptEx;
@@ -53,10 +53,10 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		}
 		private: HANDLE hIOCP;
 		void _initIOCP(){ hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-			if(hIOCP==NULL){ print("Failed to create IOCP: "); print(dtos(WSAGetLastError())); print("\n"); exit(EXIT_FAILURE); }
-			print("Failed to create IOCP\n"); }
+			if(hIOCP==NULL){ print("(!) Failed to create IOCP: "); print(dtos(WSAGetLastError())); print("\n"); exit(EXIT_FAILURE); }
+			print("(!) Failed to create IOCP\n"); }
 		bool registerIOCP(Socket* socket){ if(CreateIoCompletionPort((HANDLE)(size_t)socket->sockfd, hIOCP, (ULONG_PTR)socket, 0) == NULL){
-				print("Failed IOCP addSocket: "); print(dtos(WSAGetLastError())); print("\n"); return false; }
+				print("(!) Failed IOCP addSocket: "); print(dtos(WSAGetLastError())); print("\n"); return false; }
 			//std::cerr << "IOCP new addSocket: " << socket->sockfd <<  std::endl; 
 			return true; }
 		bool initSockRecv(Socket* socket){ WSABUF wsabuf; IOEvent* ioctx = new IOEvent(); ZeroMemory(ioctx, sizeof(IOEvent)); 

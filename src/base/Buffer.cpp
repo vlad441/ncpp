@@ -3,6 +3,7 @@ template <typename T> struct is_pointer { static const bool V = false; }; //is_p
 template <typename T> struct is_pointer<T*> { static const bool V = true; };
 
 #define _MIN_ALLOC 16
+#define _BF_SSO_LEN 0 
 struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; typedef const unsigned char* ConstIter;
 	typedef Iter iterator; typedef ConstIter const_iterator;
 	Buffer(){ _init(0); }
@@ -11,30 +12,31 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 	Buffer(size_t len){ _init(len); }
 	Buffer(size_t len, unsigned char v){ _init(len); memset(_ptr, v, _len); }
 	Buffer(const Buffer& b){ _init(b.size()); _set(b.data(), b.size()); }
-	Buffer(const CString& str, const CString& type="str"){ _init(str, type); };
-	template <typename T, typename D>
-	Buffer(const BaseString<T, D>& s){ _init(s.size()); _set(s.data(), s.size()); }
+	Buffer& operator=(const Buffer& b){ _set(b.data(), b.size()); return *this; }
 	Buffer(const void* begin, const void* end){ _init(0); assign(begin, end); }
 	template <size_t N>
 	Buffer(const unsigned char (&arr)[N]){ _init(N); _set(arr, N); } //unsigned char arr[];
+	template <typename T, typename D>
+	Buffer(const BaseString<T, D>& s){ _init(s.size()); _set(s.data(), s.size()); }
 	~Buffer(){ if(_mode==HEAP&&_ptr!=NULL) free(_ptr); }
 	// == init
-	void _init(const CString& str, const CString& type="str"){
+	Buffer& _from(const CString& str, const CString& type="str"){
 		if(type=="hex"){ _fromHex(str.c_str(), str.size()); }else if(type=="base64"){ *this=base64_decode(str); }
-		else if(type=="int"||type=="number"){ _fromIntString(str); }else{ assign(str.begin(), str.end()); } }
-	void _fromHex(const char* hexstr, size_t len){ len/=2; if(this->size()!=len){ resize(len); }
-        for(size_t i=0;i<len;++i){ (*this)[i] = htoc(hexstr+2*i); } }
-	void _fromIntString(const CString& str){
-		this->clear(); Buffer temp(str.size()); for(size_t i = 0; i < str.size(); ++i){ temp[i] = str[i] - '0'; }
-		while (!temp.empty() && !(temp.size() == 1 && temp[0] == 0)){ unsigned int remainder = 0;
-			for(size_t i = 0; i < temp.size(); ++i){ unsigned int current = remainder * 10 + temp[i]; temp[i] = current / 256; remainder = current % 256; }
-			push_front((unsigned char)remainder); // Удаление ведущих нулей //removeLeadingZeros(*this);
-			while(!temp.empty() && temp[0] == 0){ temp.erase(temp.begin()); }
-		} }
-	static Buffer from(const CString& str, const CString& type="str"){ return Buffer(str, type); }
-	static Buffer from(unsigned long long numb){ Buffer buff(8); buff.writeInt64BE(numb); removeLeadingZeros(buff); return buff; }
-	static Buffer fromHex(const char* hexstr, size_t len){ Buffer buff; buff._fromHex(hexstr, len); return buff; }
-	static Buffer fromHex(const CString& hexstr){ Buffer buff; buff._fromHex(hexstr.c_str(), hexstr.size()); return buff; }
+		else if(type=="int"||type=="number"){ _fromIntString(str); }else{ assign(str.begin(), str.end()); } return *this; }
+	Buffer& _fromHex(const char* hexstr, size_t len){ len/=2; if(this->size()!=len){ resize(len); }
+        for(size_t i=0;i<len;++i){ (*this)[i] = htoc(hexstr+2*i); } return *this; }
+	Buffer& _fromIntString(const CString& cs){ this->clear(); size_t i=0; if(cs.size()>0&&(cs[0]=='-'||cs[0]=='+')) i=1;
+		Buffer temp(cs.size()); for(; i < cs.size(); ++i){ temp[i] = cs[i] - '0'; } size_t st = 0;
+		while(st < temp.size() && !(st == temp.size() - 1 && temp[st] == 0)){ unsigned int remainder = 0;
+			for(size_t i = st; i < temp.size(); ++i){ unsigned int current = remainder * 10 + temp[i]; temp[i] = current / 256; remainder = current % 256; }
+			push((unsigned char)remainder); while(st < temp.size() && temp[st] == 0) st++; } reverse(); return *this; }
+	static Buffer from(const CString& cs){ return Buffer(cs.data(), cs.size()); }
+	static Buffer from(const CString& str, const CString& type){ return Buffer()._from(str, type); }
+	static Buffer fromHex(const char* hex, size_t len){ return Buffer()._fromHex(hex, len); }
+	static Buffer fromHex(const CString& hex){ Buffer buff; buff._fromHex(hex.c_str(), hex.size()); return buff; }
+	static Buffer fromBase64(const CString& cs){ return Buffer(base64_decode(cs)); }
+	static Buffer fromInt(unsigned long long numb){ Buffer buff(8); buff.writeInt64BE(numb); removeLeadingZeros(buff); return buff; }
+	static Buffer fromInt(const CString& cs){ return Buffer()._fromIntString(cs); }
 	
 	// == STL similar methods ===
 	//const char* c_str() const { throw; return NULL; }
@@ -84,13 +86,14 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 	
 	Buffer slice(int start, int end=0) const { return _slice<Buffer>(start, end); }
 	
-	Array<Buffer> split(const char* delim, size_t len) const;
-	Array<Buffer> split(const char* delim) const;
-	template <typename T, typename D>
-	Array<Buffer> split(const BaseString<T, D>& s) const;
+	Array<Buffer> split(const char* delim, size_t len, int maxparts=-1) const { return _split<Buffer>(delim, len, maxparts); }
+	Array<Buffer> split(const char* delim) const { return _split<Buffer>(delim, strlen(delim)); }
+	Array<Buffer> split(char delim) const { return _split<Buffer>(&delim, 1); }
+	template <typename U, typename D> 
+	Array<Buffer> split(const BaseString<U, D>& s) const { return this->_split<Buffer>(s.data(), s.size()); }
 	
 	Buffer& fill(unsigned char v){ memset(_ptr, v, _len); return *this; }
-	Buffer& concat(const Buffer& buff2){ *this+=buff2; return *this; }
+	//Buffer& concat(const Buffer& buff2){ *this+=buff2; return *this; }
 	void reverse(){ ncpp::reverse(this->begin(), this->end()); }
 	
 	void read(void* dst, size_t size, size_t offset=0){ if(_len < offset+size){ size = _len-offset; } memcpy(dst, _ptr+offset, size); }
@@ -103,7 +106,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 	T readAny(size_t offset=0){ if(ncpp::is_pointer<T>::V){ print("(!) readAny(T&): not accept pointers type"); return T(); }
 		T data; read(&data, sizeof(data), offset); return data; }
 	template <typename T>
-	void writeAny(const T& data, size_t offset=0){ if(ncpp::is_pointer<T>::V){ print("(!) writeAny(T&): not accept pointers type"); return T(); }
+	void writeAny(const T& data, size_t offset=0){ if(ncpp::is_pointer<T>::V){ print("(!) writeAny(T&): not accept pointers type"); return; }
 		return write(&data, sizeof(data), offset); }
 	
 	Buffer BitsRead(size_t offset=0) const { return BitsRead(_ptr+offset); }
@@ -207,22 +210,45 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 			char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
 			for(j = 0; (j < i - 1); j++){ ret.push_back(char_array_3[j]); } } return ret; }
 	
-	// === ===
+	// === BE int increment/decrement ===
+	static void increment(Buffer& buff, unsigned int value=1, bool insert = false){
+		if(value==1&&!insert){ for(int j = buff.size() - 1; j >= 0; --j){ if(++buff[j] != 0) return; } return; } unsigned int carry = value;
+		for(int i = buff.size() - 1; i >= 0; --i){ unsigned int sum = buff[i] + carry; buff[i] = sum & 0xFF; carry = sum >> 8; }
+		if(insert && carry != 0){ while(carry != 0){ buff.insert(buff.begin(), carry & 0xFF); carry >>= 8; } } }
+
+	static void decrement(Buffer& buff, unsigned int value=1, bool erase = false){ unsigned int borrow = value;
+		if(value==1&&!erase){ for(int j = buff.size() - 1; j >= 0; --j){ if(--buff[j] != 0xFF) return; } return; }
+		for(int i = buff.size() - 1; i >= 0; --i){ int diff = buff[i] - (borrow & 0xFF); buff[i] = (diff + 256) & 0xFF;
+			borrow = (diff < 0) ? 1 : 0; value >>= 8; borrow += (value & 0xFF); }
+		if(erase){ if(borrow > 0){ buff.fill(0); } removeLeadingZeros(buff); } }
+		
+	static void multiply_single(Buffer& buff, unsigned int value, bool insert = true){ unsigned int carry = 0;
+		for(int i = buff.size() - 1; i >= 0; --i){ unsigned int product = buff[i] * value + carry; buff[i] = product & 0xFF; carry = product >> 8; }
+		if (insert && carry != 0){ while(carry != 0){ buff.insert(buff.begin(), carry & 0xFF); carry >>= 8; } } }
+
+	static unsigned int divide_single(Buffer& buff, unsigned int value, bool erase = true){
+		if(value == 0){ print("(!) Matan rule 0: Never divide by zero :)"); return 0; } unsigned int remainder = 0;
+		for(size_t i = 0; i < buff.size(); ++i){ unsigned int current = (remainder << 8) | buff[i]; buff[i] = current / value; remainder = current % value; }
+		if(erase){ removeLeadingZeros(buff); } return remainder; }
+	
 	static void removeLeadingZeros(Buffer& buff){ if(buff.size() <= 1) return; size_t firstNonZero = 0;
 			while(firstNonZero < buff.size()-1 && buff[firstNonZero] == 0) ++firstNonZero;
-			if(firstNonZero > 0){ buff.erase(buff.begin(), buff.begin() + firstNonZero); } }
+			if(firstNonZero > 0){ buff.erase(buff.begin(), buff.begin()+firstNonZero); } }
+	static void removeLastZeros(Buffer& buff){ while(buff.size() > 1 && buff.back() == 0) buff.pop(); }
 	struct Math; // == арифметика (implemented in ncpp-bigint.cpp)
+	// === ===
 	unsigned int toInt() const noexcept { unsigned int value = 0; size_t sz=sizeof(int); if(this->size()<sz){ sz=this->size(); }
 			for(size_t i = 0; i<sz; ++i){ value = (value << 8) | (*this)[i]; } return value; }
-	unsigned long long toInt64() const noexcept { unsigned int value = 0; size_t sz=sizeof(long long); if(this->size()<sz){ sz=this->size(); }
+	unsigned long long toInt64() const noexcept { unsigned long long value = 0; size_t sz=sizeof(long long); if(this->size()<sz){ sz=this->size(); }
 		for(size_t i = 0; i<sz; ++i){ value = (value << 8) | (*this)[i]; } return value; }
 		
 	unsigned char& operator[](size_t pos){ return _ptr[pos]; }
 	const unsigned char& operator[](size_t pos) const { return _ptr[pos]; }
 	unsigned char at(size_t pos) const { return (_ptr&&pos<_len)?_ptr[pos]:0; }
 	
+	bool operator==(const Buffer& bf) const { return _len==bf.size()&&memcmp(_ptr, bf.data(), _len)==0; }
+	
 	Buffer& operator=(const char* c){ _set((const unsigned char*)c, strlen(c)); return *this; }
-	Buffer& operator=(const Buffer& b){ _set(b.data(), b.size()); return *this; }
 	template <typename T, typename D>
 	Buffer& operator=(const BaseString<T, D>& s){ _set((const unsigned char*)s.data(), s.size()); return *this; }
 	template <size_t N>
@@ -241,12 +267,12 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 	
 	String toString() const { return (empty())?String():String((const char*)_ptr, _len); }
 	String toString(const CString& type) const {
-		if(type=="hex"){ return toHexString(); } else if(type=="base64"){ return base64_encode(_ptr, _len); }
+		if(type=="hex"){ return toHex(); } else if(type=="base64"){ return base64_encode(_ptr, _len); }
 		else if(type=="raw"||type=="buff"){ return cout(); }
 		else if(type=="int"||type=="number"||type=="dec"){ return toIntString(); }
 		else{ return toString(); } }
 
-	String toHexString() const { String out; out.reserve(_len*2); char hex[3]; hex[2]=0;
+	String toHex() const { String out; out.reserve(_len*2); char hex[3]; hex[2]=0;
 		for(size_t i = 0;i<_len;i++){ ctoh(hex, (*this)[i]); out+=hex; } return out; }
 	String toIntString() const { if(this->empty()){ return "0"; } String result; Buffer temp(*this); 
 		 if(temp.size() == 1 && temp[0] == 0){ return "0"; } Buffer newTemp; newTemp.reserve(temp.size()); 
@@ -257,18 +283,27 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 				unsigned char quotient = current / 10; remainder = current % 10;
 				if (quotient > 0 || !leading_zeros_in_newTemp){ newTemp.push_back(quotient); leading_zeros_in_newTemp = false; }
 			} result.push_back('0'+remainder); swap(temp, newTemp); newTemp.clear(); }
-		print("=== DEGUG: toIntString() complete\n");
 		ncpp::reverse(result.begin(), result.end()); if(result.empty()){ return "0"; } return result; }
 		
 	String cout(size_t osize=50) const { String out("<Buffer"); osize=_len>osize?osize:_len; char hex[3]; hex[2]=0;
 		for(size_t i = 0;i<osize;i++){ ctoh(hex, (*this)[i]); out+=" "; out+=hex; }
 		if(_len>osize){ out+=" ... "; out+=dtos(_len-osize); out+=" bytes more>"; }else{ out+=">"; } return out; }
 	
-	static unsigned char htoc(const char hex[2]){ char high = (hex[0] >= 'a' ? hex[0] - 'a' + 10 : hex[0] - '0');
-			char low = (hex[1] >= 'a' ? hex[1] - 'a' + 10 : hex[1] - '0'); return ((high << 4) | low); }
+	static unsigned char htoc(const char hex[2]){ char res[2]; memset(res, 0, 2); //high,low;
+		for(unsigned char i=0;i<2;i++){ char c = hex[i];
+			if(c >= '0' && c <= '9'){ res[i] = c - '0'; } 
+			else if(c >= 'A' && c <= 'F'){ res[i] = c - 'A' + 10; }
+			else if(c >= 'a' && c <= 'f'){ res[i] = c - 'a' + 10; } } return ((res[0] << 4) | res[1]); }
 	static void ctoh(char hex[2], unsigned char value){ char high = (value >> 4) & 0x0F; char low = value & 0x0F;
 		hex[0] = (high < 10) ? ('0' + high) : ('a' + (high - 10)); hex[1] = (low < 10) ? ('0' + low) : ('a' + (low - 10)); }
-	static unsigned int htoi(const char hexstr[4]){ return (unsigned int)strtoul(hexstr, nullptr, 16); }
+	static unsigned long long htoll(const char* hex, char len){ unsigned long long num = 0; len=len/2; if(len>8) len=8;
+		for(int i = 0; i < len; ++i){ num = (num << 8) | htoc(&hex[i*2]); } return num; }
+	static unsigned long long htoll(const char* hex){ return htoll(hex, strlen(hex)); }
+	static unsigned long long htoll(const String& str){ return htoll(str.data(), str.size()); }
+	static void lltoh(char hex[16], unsigned long long value){ for(int i = 7; i >= 0; --i){ ctoh(&hex[i*2], value & 0xFF); value >>= 8; } }
+	static String lltoh(unsigned long long value){ char hex[16]; if(!value){ return String(2, '0'); }
+		for(int i = 7; i >= 0; --i){ ctoh(&hex[i*2], value & 0xFF); value >>= 8; }
+		for(int i=0; i<16; i+=2){ if(hex[i]=='0'&&hex[i+1]=='0') continue; return String(hex+i, hex+16); } return String(hex); }
 	
 	friend void swap(Buffer& a, Buffer& b){ unsigned char* tmpc = a._ptr; a._ptr = b._ptr; b._ptr = tmpc;
 		size_t tmp = a._len; a._len = b._len; b._len = tmp;
@@ -280,9 +315,14 @@ struct Buffer : BaseString<unsigned char, Buffer>{ typedef unsigned char* Iter; 
 	operator Array<char>() const { return Array<char>((char*)_ptr, (char*)_ptr+_len); }
 	
 	private:
-		// == allocator
-		void _init(size_t len){ _mode=HEAP; _ptr=NULL; _len=len; _msize=0; _alloc(len); }
+		#if _BF_SSO_LEN > 0
+		unsigned char _sso[_BF_SSO_LEN];
+		void _init(size_t len){ _len=len++; if(_len<_BF_SSO_LEN){ _mode=STACK; _ptr=_sso; _msize=_BF_SSO_LEN; }else{ _mode=HEAP; _alloc(len); } }
+		#else
+		void _init(size_t len){ _len=len; _mode=HEAP; _ptr=NULL; _msize=0; _alloc(len); }
+		#endif
 		
+		// == allocator
 		void _alloc(size_t len, bool copy=false){ if(len<=0) return; if(_mode==STACK_ONLY){ print("ncpp::Buffer malloc error: mode=STACK_ONLY"); exit(1); }
 			_msize=len<_MIN_ALLOC?_MIN_ALLOC:len; unsigned char* ptr0=_ptr; _ptr=(unsigned char*)malloc(_msize);
 			if(_ptr==NULL){ print("ncpp::Buffer malloc error: Out of memory"); exit(1); } if(copy&&ptr0!=NULL){ memcpy(_ptr, ptr0, _len); } _mode=HEAP; }
@@ -297,4 +337,6 @@ template <> String Array<Buffer>::cout() const { String ss("["); if(_len>0){ ss+
 	for(size_t i=1;i<this->size();i++){ ss << ", " << _ptr[i].cout(); } ss+="]"; return ss; }
 
 void print(const Buffer& buff){ print(buff.cout()); }
+void print(const void* ptr){ String str="0x"; str+=Buffer::lltoh((size_t)ptr); print(str); }
+void print(const volatile void* ptr){ print((const void*)ptr); }
 String& String::operator<<(const Buffer& buff){ (*this)+=buff.cout(); return *this; } }

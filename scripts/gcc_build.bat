@@ -15,12 +15,12 @@ if not exist %ncpp_lib% mkdir %ncpp_lib%
 
 echo Build static-bundle lib...
 if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)
-g++ -Wall -c %cppfile% -o %ncpp_lib%\ncpp.o %gcc_flags% -I "%ncpp_include%"
-ar rcs %ncpp_lib%\libncpp-bundle.lib %ncpp_lib%\ncpp.o
+g++ -D NCPP_LIB_BUILD -Wall -c %cppfile% -o %ncpp_lib%\ncpp.o %gcc_flags% -I "%ncpp_include%" %ext_flags%
+ar rcs %ncpp_lib%\libncpp-bundle.a %ncpp_lib%\ncpp.o
 del %ncpp_lib%\ncpp.o
 
 echo Build dynamic .dll lib...
-g++ -shared %cppfile% -o %ncpp_lib%\ncpp.dll %gcc_flags% %dll_lnk_flags% -Wl,--out-implib,"%ncpp_lib%\ncpp.dll.lib"
+g++ -D NCPP_LIB_BUILD -shared %cppfile% -o %ncpp_lib%\ncpp.dll %gcc_flags% %dll_lnk_flags% -Wl,--out-implib,"%ncpp_lib%\ncpp.dll.lib" %ext_flags%
 cd /d "%currCD%"
 
 :: === Time calc ===

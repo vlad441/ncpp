@@ -6,6 +6,7 @@ namespace ncpp { void print(const char *cptr); const char* version(); template<t
 volatile unsigned long long _dbg_allocs=0, _dbg_deallocs=0;
 extern "C" void* _dbg_malloc(size_t size){ ++_dbg_allocs; return malloc(size); }
 extern "C" void _dbg_free(void* p){ ++_dbg_deallocs; free(p); }
+//extern "C" void _dbg_free(void* p){ ++_dbg_deallocs; }
 #define malloc _dbg_malloc
 #define free _dbg_free
 

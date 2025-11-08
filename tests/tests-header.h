@@ -1,3 +1,5 @@
+#ifndef NCPP_TESTS_H
+#define NCPP_TESTS_H
 void cpp_version(){ print("[");
 #if __cplusplus >= 202302L
 	print(">=C++23");
@@ -16,7 +18,7 @@ void cpp_version(){ print("[");
 
 void gcc_version(){ print("[Compiller] ");
 #if defined(__clang__)
-	print("Clang "); print(__VERSION__); print("\n"); //std::cout << "Clang " << __clang_major__ << "." << __clang_minor__ << "." <<  __clang_patchlevel__ << std::endl;
+	print(__VERSION__); print("\n"); //std::cout << "Clang " << __clang_major__ << "." << __clang_minor__ << "." <<  __clang_patchlevel__ << std::endl;
 #elif defined(__GNUC__)
 	print("GCC "); print(__VERSION__); print("\n"); //std::cout << "GCC " << __GNUC__ << "." << __GNUC_MINOR__ << "." <<  __GNUC_PATCHLEVEL__ << std::endl;
 #elif defined(_MSC_VER)
@@ -24,4 +26,47 @@ void gcc_version(){ print("[Compiller] ");
 #else
 	print("(Unknown)\n");
 #endif
-} void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); print("\n"); _ncpp_check_ver(); }
+} 
+
+void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); 
+#ifdef NCPP_LIB_USE
+
+#endif
+#ifdef NCPP_LIB_USE
+print(" (Compiled via LIB)");
+#else
+print(" (Directly compiled)");
+#endif
+_ncpp_check_ver(); }
+
+void arch_current(){ print(" | [Arch]");
+#ifdef __x86_64__
+	print("[x86_64]");
+#elif defined(__i686__) //x86 32 bit
+	print("[i686]");
+#elif defined(__i386__) //x86 32 bit
+	print("[i386]");
+#elif defined(__aarch64__)
+	print("[ARM64]");
+#elif defined(__arm__)
+	print("[ARM]");
+#elif defined(__riscv) || defined(__riscv_64) || __riscv_xlen == 64
+	print("[RISC-V]");
+#else
+	print("[?]");
+#endif
+#if defined(__LP64__) || defined(_WIN64) || __SIZEOF_POINTER__==8
+	print(" 64 bit.");
+	#ifdef __LP64__
+	print(" (LP64)");
+	#endif
+	#ifdef _WIN64
+	print(" (WIN64)");
+	#endif
+#else
+    print(" 32 bit.");
+#endif
+	print("\n");
+}
+#endif
+

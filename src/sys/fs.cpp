@@ -26,6 +26,8 @@ struct Stream { bool destroyed;
 	void pipestart(){ if(_pipestream==NULL){ return; } while(read().size()>0){} }
 	void destroy(){ _onDestroy(); }
 	void close(){ _onDestroy(); }
+	
+	//volatile unsigned int ref_cnt; bool acquire(); void release();
 	Stream& operator<<(const Buffer& data){ if(!destroyed){ this->write(data); } return *this; }
 	void (*OnData)(const Buffer& data);
 	protected: Stream* _pipestream; //Buffer _buff;
@@ -40,11 +42,15 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
     FStream() : autodestroy(true){}
 	FStream(const CString& fpath, char mode) : autodestroy(true){ open(fpath, mode); }
 	FStream(const FStream& other) : autodestroy(true){ _fd=other._fd; }
-	~FStream(){ if(_fd>0&&autodestroy) close(); }
 	FStream& own(bool en=true){ autodestroy=en; return *this; }
 #ifdef _WIN32
+	~FStream(){ if(_IsValidHandle(_fd)>0&&autodestroy) close(); }
     HANDLE _fd; size_t getfd(){ return (size_t)_fd; } 
 	FStream(size_t fd) : autodestroy(true){ _fd=(HANDLE)fd; }
+	bool _IsValidHandle(HANDLE h){ return h!=NULL && h!=INVALID_HANDLE_VALUE; }
+	bool is_open(){ return _IsValidHandle(_fd)?true:false; }
+	bool isOpen(){ return _IsValidHandle(_fd)?true:false; }
+	
 	bool open(const CString& fpath, char mode){ DWORD dwDesiredAccess = GENERIC_READ; DWORD dwCreationDisposition = OPEN_EXISTING; //IO_READ
 		if(mode == IO_WRITE){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = CREATE_ALWAYS; }
 		else if(mode == IO_APPEND){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = OPEN_ALWAYS; }
@@ -61,8 +67,12 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	int read(char* ptr, size_t size){ DWORD bytesRead; if(ReadFile(_fd, ptr, (DWORD)size, &bytesRead, NULL)){ return (int)bytesRead; } return -1; }
 	void write(const char* ptr, size_t size){ DWORD wrbytes; WriteFile(_fd, ptr, (DWORD)size, &wrbytes, NULL); }
 #else
+	~FStream(){ if(_fd>0&&autodestroy) close(); }
 	int _fd; size_t getfd(){ return _fd; } 
 	FStream(size_t fd) : autodestroy(true){ _fd=fd; }
+	bool is_open(){ return _fd>0?true:false; }
+	bool isOpen(){ return _fd>0?true:false; }
+	
 	bool open(const CString& fpath, char mode){ int flags = 0; mode_t perms = 0744; // O_CREAT
 		if(mode == IO_READ){ flags = O_RDONLY; } else if(mode == IO_WRITE){ flags = O_WRONLY | O_CREAT | O_TRUNC; }
 		else if(mode == IO_APPEND){ flags = O_WRONLY | O_CREAT | O_APPEND; }
@@ -76,8 +86,6 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	int read(char* ptr, size_t size){ return ::read(_fd, ptr, size); }
 	void write(const char* ptr, size_t size){ ::write(_fd, ptr, size); }
 #endif	
-    bool is_open(){ return _fd>0?true:false; }
-	bool isOpen(){ return _fd>0?true:false; }
 	size_t tellg(){ return pos(); }
 	void seekg(size_t pos){ setPos(pos); }
 	

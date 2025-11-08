@@ -22,7 +22,9 @@ namespace ncpp{ namespace crypto{
 		Buffer decrypt(const Buffer& key, Buffer value){
 			for(size_t i=0;i<value.size();i++){ value[i] -= key[pos % key.size()]; pos = (pos + 1) % key.size(); } return value; }
 	};
-}}
+}
+BigInt BigInt::safeRandom(size_t bits){ return BigInt::fromBuffLE(crypto::randomBytes(bits/8)); }
+}
 
 #include "crypto/aes.cpp"
 #include "crypto/rsa.cpp"

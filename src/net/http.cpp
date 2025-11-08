@@ -10,10 +10,12 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		String cout() const { String ss; ss << "Request: " << method << " " << this->url
 			<< "\n  === Headers ===  " << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
 	};
-	struct Res : HttpMsg { float hver; int status; TCPSocket* socket; bool ttfb; Res() : hver(1.1), status(0), socket(NULL), ttfb(false){}
-		Res(TCPSocket& sock) : hver(1.1), status(0), socket(&sock), ttfb(false){}
+	struct Res : HttpMsg { float hver; int status; TCPSocket* socket; bool ttfb, chnk; 
+		Res() : hver(1.1), status(0), socket(NULL), ttfb(false), chnk(false){}
+		Res(TCPSocket& sock) : hver(1.1), status(0), socket(&sock), ttfb(false), chnk(false){}
 		//~Res(){ socket.is_busy=false; } //Или использовать TCPSocket**
-		void write(const char* ptr, size_t len){ if(socket==NULL) return; if(!ttfb){ socket->send(RespComposer(*this)); ttfb=true; } socket->send(ptr, len); }
+		void write(const char* ptr, size_t len){ if(socket==NULL) return; if(ttfb){ socket->send(ptr, len); return; }
+			if(!hasLength()){ headers["transfer-encoding"]="chunked"; } socket->send(RespComposer(*this)); ttfb=true; }
 		void write(const char* ptr){ write(ptr, strlen(ptr)); }
 		void write(const Buffer& data){ write((const char*)data.data(), data.size()); }
 		void end(const Buffer& data=Buffer()){ if(socket==NULL) return; Buffer resp; 
@@ -25,6 +27,8 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		void SendCode(int status1, const CString& codeDescr=""){ status=status1; socket->send(RespComposer(*this, codeDescr)); }
 		void SendErr(int status1, const CString& errDescr=""){ SendCode(status1, errDescr); socket->destroy(); }
 		String cout() const { String ss("Status: "); ss << status << " | Headers:" << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
+		private:
+			void sendChunked();
 	};
 	
 	IPAddr splitIpPort(const CString& ipstr){ IPAddr result; result.ip=""; result.port=0; size_t closingIndx = ipstr.find("]");
@@ -59,13 +63,13 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ th << it->first + ": " + it->second + "\r\n"; }
 		if(!opts.headers.has("user-agent")){ th <<"User-Agent: Mozilla/5.0 (tipa compatibility :)\r\n"; }
 		if(!opts.headers.has("connection")){ th <<"Connection: close\r\n"; } th << "\r\n";
-		query=th; if(!opts.body.empty()){ query.concat(opts.body); } return query; }
+		query=th; if(!opts.body.empty()){ query+=opts.body; } return query; }
 		
 	Buffer RespComposer(Res& opts, const CString& codeDescr){ if(opts.status<=0) opts.status=200; String th; 
 		th <<"HTTP/"<<dtos(opts.hver, 1)<< " " << opts.status << " "; if(!codeDescr.empty()){ th << codeDescr; }
 			else{ th << (ErrCodes.has(opts.status)?ErrCodes[opts.status]:"Code"); } th << "\r\n";
 		for(StringMap::const_iterator it = opts.headers.begin(); it != opts.headers.end(); ++it){ th << it->first + ": " + it->second + "\r\n"; }
-		if(!opts.headers.has("content-type")){ th <<"Content-Type: text/html\r\n"; }
+		if(!opts.headers.has("content-type")){ th <<"Content-Type: text/html; charset=utf-8\r\n"; }
 		if(!opts.hasLength()){ th <<"Content-Length: "<<opts.body.size()<<"\r\n"; }
 		if(!opts.headers.has("connection")){ th <<"Connection: close\r\n"; } th <<"\r\n"; Buffer resp=th;
 		if(opts.body.size()>0) resp+=opts.body; return resp; }
@@ -73,7 +77,7 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 	Buffer chunkedStreamParser(Buffer& rawbuff, unsigned int& chunkSize, bool& is_end){ Buffer chunk;
 		while(!rawbuff.empty()){
 			if(chunkSize == 0){ size_t chunkEndIndx = rawbuff.indexOf("\r\n"); if(chunkEndIndx==NPOS){ return chunk; }
-				chunkSize = Buffer::htoi(rawbuff.slice(0, chunkEndIndx).toString().c_str()); 
+				chunkSize = Buffer::htoll(rawbuff.slice(0, chunkEndIndx).toString());
 				if(chunkSize == 0){ is_end=true; return chunk; } rawbuff = rawbuff.slice(chunkEndIndx+2); }
 			if(rawbuff.size() < chunkSize+2){ return chunk; } // Если данных меньше, чем размер чанка, выходим и ждем дополнительные данные
 			chunk+=rawbuff.slice(0, chunkSize); rawbuff = rawbuff.slice(chunkSize+2); chunkSize=0;

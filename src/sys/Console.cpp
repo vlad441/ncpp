@@ -7,13 +7,7 @@ namespace ncpp{ struct Console {
 	template <typename T, typename D>
 	Console& operator+=(const BaseString<T, D>& s){ print(s); return *this; }
 	
-	Console& operator<<(const char* c){ print(c); return *this; }
-	Console& operator<<(long long num){ print(dtos(num)); return *this; }
-	Console& operator<<(const Buffer& buff){ print(buff.cout()); return *this; }
-	template <typename T, typename D> Console& operator<<(const BaseString<T, D>& s){ print(s); return *this; }
-	template <typename T> Console& operator<<(const Array<T>& arr){ print(arr.cout()); return *this; }
-	template <typename K, typename V> Console& operator<<(const HashMap<K, V>& obj){ print(obj.cout()); return *this; }
-	template <typename K> Console& operator<<(const HashSet<K>& obj){ print(obj.cout()); return *this; }
+	template <typename T> Console& operator<<(T val){ print(val); return *this; }
 	
 	Console& operator>>(String& s){ s=readline(); return *this; }
 	Console& operator>>(int& i){ i=stoin(readline()); return *this; }
@@ -67,6 +61,7 @@ const WORD Console::win_colors[8] = { 0, FOREGROUND_RED, FOREGROUND_GREEN, FOREG
 #endif
 
 }
+
 // Цвета:
 // 0	Черный
 // 1	Красный
@@ -83,3 +78,12 @@ const WORD Console::win_colors[8] = { 0, FOREGROUND_RED, FOREGROUND_GREEN, FOREG
 // 2	Тусклый (не всегда поддерживается)
 // 3	Курсив (не всегда поддерживается)
 // 4	Подчеркнутый (не всегда поддерживается)
+
+#ifdef NCPP_COUT_COLORED
+namespace ncpp{
+//template <> Console& Console::operator<<(const Object& val);
+//template <> Console& Console::operator<<(const Array<T> val);
+template <> Console& Console::operator<<(long long ll){ this->setColor(3); print(ll); this->reset(); return *this; }
+//template <> Console& Console::operator<<(int ll){ return Console::operator<<((long long)ll); }
+}
+#endif

@@ -15,12 +15,12 @@ mkdir -p "$ncpp_lib"
 
 if [ -z "$gccpath" ]; then gccbin=g++; else cd "$gccpath" && gccbin="./g++"; fi
 echo "Build static-bundle lib..."
-$gccbin -Wall -c "$cppfile" -o "$ncpp_lib/ncpp.o" $gcc_flags -I "$ncpp_include"
+$gccbin -D NCPP_LIB_BUILD -Wall -c "$cppfile" -o "$ncpp_lib/ncpp.o" $gcc_flags -I "$ncpp_include" $ext_flags
 ar rcs "$ncpp_lib/libncpp-bundle.a" "$ncpp_lib/ncpp.o"
 rm "$ncpp_lib/ncpp.o"
 
 echo "Build dynamic lib..."
-$gccbin -fPIC -shared "$cppfile" -o "$ncpp_lib/libncpp.so" $gcc_flags $dll_lnk_flags
+$gccbin -D NCPP_LIB_BUILD -fPIC -shared "$cppfile" -o "$ncpp_lib/libncpp.so" $gcc_flags $dll_lnk_flags $ext_flags
 if [ -z "$gccpath" ]; then gccbin=g++; else cd "$currCD"; fi
 
 # === Time ===

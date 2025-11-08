@@ -197,7 +197,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		static const char blockSize = 16; int rounds = calc_rounds(key); Array<Buffer> roundKeys; 
 		KeyExpansion(key, roundKeys, rounds); Buffer encryptedData; size_t dataSize = value.size(); iv = NormalizeIV(iv);
 		Buffer y0 = encryptBlock(roundKeys, iv, rounds);
-		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::Math::increment(iv, 1);
+		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::increment(iv, 1);
 			Buffer block = value.slice(i, i + blockSize);
 			XOR(block, encryptBlock(roundKeys, iv, rounds));
 			encryptedData.insert(encryptedData.end(), block.begin(), block.end()); }
@@ -214,7 +214,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		Buffer decryptedData; size_t dataSize = value.size(); iv = NormalizeIV(iv);
 		Buffer y0 = encryptBlock(roundKeys, iv, rounds);
 
-		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::Math::increment(iv, 1);
+		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::increment(iv, 1);
 			Buffer block = value.slice(i, i + blockSize);
 			XOR(block, encryptBlock(roundKeys, iv, rounds));
 			decryptedData.insert(decryptedData.end(), block.begin(), block.end()); }

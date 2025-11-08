@@ -8,12 +8,13 @@ template <typename N> N max(N num1, N num2){ return num1>=num2?num1:num2; }
 //template <typename T> void move(T& a, T& b){ T::move(a, b); }
 
 template<typename I>
-char _dtos(char str[27], I num, char sep) noexcept { if(sizeof(I)>8) return 0; //max "18446744073709551615\0" - 21 ch; "18'446'744'073'709'551'615\0" - 27 ch
+char _dtos(char str[27], I num, char sep) noexcept { //if(sizeof(I)>8) return 0; //max "18446744073709551615\0" - 21 ch; "18'446'744'073'709'551'615\0" - 27 ch
 	int i=0; bool negate=false; if(num < 0){ num = -num; negate=true; }
 	do { if(sep!=0&&(i+1)%4==0){ str[i++]=sep; } str[i++] = num % 10 + '0'; } while ((num /= 10) > 0); if(negate) str[i++] = '-';
 	reverse(str, str+i); str[i] = '\0'; return i; };
 	
-void _printNum(long long val){ char num[27]; _dtos(num, val, 0); print(num); }
+template<typename I> void _printNum(I val, char sep=0){ char num[27]; _dtos(num, val, sep); print(num); }
+template<typename I> void _printNum128(I val, char sep=0){ char num[52]; _dtos(num, val, sep); print(num); } //max "340'282'366'920'938'463'463'374'607'431'768'211'455\0" - 52 ch
 
 struct String;
 template <typename T> //Array<T> ≈ std::vector<T>
@@ -105,7 +106,8 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY }; typedef T* Iter; typedef c
 	
 	T& operator[](size_t pos){ return _ptr[pos]; }
 	const T& operator[](size_t pos) const { return _ptr[pos]; }
-	const T& at(size_t pos) const { static const T cval; return (_ptr&&pos<_len)?_ptr[pos]:cval; }
+	const T& at(size_t pos) const { static const T cval=T(); return (_ptr&&pos<_len)?_ptr[pos]:cval; }
+	//const T& at(size_t pos) const { if(_len==0||!_ptr||pos>=_len){ print("(!) Array::at() error: Out of the bounds."); exit(1); } return _ptr[pos]; }
 	
 	//bool operator==(const Array& arr) const;
 	template <size_t N>

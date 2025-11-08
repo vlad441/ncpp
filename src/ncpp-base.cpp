@@ -1,13 +1,12 @@
 #include "ncpp.cpp.h"
-namespace ncpp { const char* version(){ return NCPP_VER; } }
 // ======== Base Include Sources ========
 // -- Base --
-#include "base/print.cpp"
-#include "base/Array.cpp"
-#include "base/String.cpp"
-#include "base/dtos.cpp"
-#include "base/Buffer.cpp"
-#include "base/HashMap.cpp"
+#include "base/print.cpp" // Depends: None
+#include "base/Array.cpp" // Depends: None
+#include "base/String.cpp" // Depends: Array
+#include "base/dtos.cpp" //Depends: String
+#include "base/Buffer.cpp" //Depends: Array, String
+#include "base/HashMap.cpp" //Depends: Array
 #include "base/utils.cpp"
 
 #ifdef NCPP_USESTL

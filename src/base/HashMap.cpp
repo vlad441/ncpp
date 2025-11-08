@@ -142,6 +142,7 @@ struct HashSet : _HashTable<K, K, _KData<K>, HashSet<K> >{ HashSet() : _HashTabl
 	
 typedef HashMap<String, String> StringMap;
 typedef HashMap<String, double> DoubleMap;
-//typedef HashMap<String, unsigned long long> ULLMap; // UInt64Map?
+typedef HashMap<String, unsigned long long> ULLMap;
+typedef HashMap<String, long long> LLMap;
 //typedef HashMap<String, long long> Int64Map; // IntLLMap?
 }

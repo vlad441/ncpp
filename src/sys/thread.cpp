@@ -212,11 +212,11 @@ namespace ncpp {
 		
 		static void _handler(){ _run=true; //std::cout << "Timers debug: Thread created." << std::endl;
 			//if(List.size()>=1){ std::cout << "; List[0].msec=" << List[0].msec << "; List[0].once=" << List[0].once << std::endl; }else{ std::cout << std::endl; }
-			while(!List.empty()){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m'); 
+			while(!List.empty()){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m');
 				for(size_t i=0; i<List.size(); ++i){ long long timeLeft = List[i].msec-(now-List[i].last);
 					if(timeLeft < minTime){ minTime = timeLeft; } }
 				
-				if(minTime > 0){ Sleep((int)minTime); } now = GetTimestamp('m');
+				if(minTime>0&&minTime!=LLONG_MAX){ Sleep((int)minTime); } now = GetTimestamp('m');
 				for(Array<Timer>::iterator it = List.begin(); it != List.end(); ){ if(!_run){ List.clear(); break; } Timer& timer = *it;
 					if((now-timer.last) >= timer.msec){ timer.func(timer.arg); timer.last += timer.msec;
 						if(timer.once){ it = List.erase(it); continue; } } ++it; } 

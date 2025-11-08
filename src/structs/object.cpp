@@ -5,28 +5,34 @@ namespace JSON { Object parse(String jsonstr); }
 #define MAX_T_SIZE4(T1, T2, T3, T4) (MAX_T_SIZE3(T1, T2, T3) > sizeof(T4) ? MAX_T_SIZE3(T1, T2, T3) : sizeof(T4))
 
 	struct ObjectValue { enum Type { DOUBLE, INT8, INT16, INT32, INT64, BOOLEAN, STRING, BUFFER, OBJECT, ARRAY, PTR, NIL, UNDEFINED }; char _type;
-		union { double d; int i; long long ll; bool b; void* ptr; Object* o; char mem[MAX_T_SIZE(String, Buffer)]; } value;
+		union { double d; int i; long long ll; bool b; void* ptr; String* s; Buffer* bf; Object* o; VArray* arr; } value; //char mem[MAX_T_SIZE(String, Buffer)];
 		struct { String s; Buffer bf; } edata;
-		ObjectValue() : _type(NIL){} ~ObjectValue(){ clear(); }
-		ObjectValue(double d){ set(d); }
+		ObjectValue() : _type(NIL){ value.o=NULL; } ~ObjectValue(){ clear(); }
+		ObjectValue(double d) : _type(NIL){ set(d); }
+		ObjectValue(const ObjectValue& val) : _type(NIL){ _copy(val); }
+		ObjectValue& operator=(const ObjectValue& val){ _copy(val); return *this; }
 		#if __cplusplus >= 201103L
-		explicit ObjectValue(long long v){ set(v); }
-		explicit ObjectValue(int i){ set(i); }
-		explicit ObjectValue(bool b){ set(b); }
+		explicit ObjectValue(long long v) : _type(NIL){ set(v); }
+		explicit ObjectValue(unsigned long long v) : _type(NIL){ set(v); }
+		explicit ObjectValue(int i) : _type(NIL){ set(i); }
+		explicit ObjectValue(unsigned int i) : _type(NIL){ set(i); }
+		explicit ObjectValue(bool b) : _type(NIL){ set(b); }
 		#endif
-		ObjectValue(const String& s){ set(s); }
-		ObjectValue(const Buffer& bf){ set(bf); }
-		ObjectValue(const char* c){ set(c); }
-		ObjectValue(const Object& o){ set(o); }
-		ObjectValue(const StringMap& map){ set(map); }
-		ObjectValue(const DoubleMap& map){ set(map); }
+		ObjectValue(const String& s) : _type(NIL){ set(s); }
+		ObjectValue(const Buffer& bf) : _type(NIL){ set(bf); }
+		ObjectValue(const char* c) : _type(NIL){ set(c); }
+		ObjectValue(const Object& o) : _type(NIL){ set(o); }
+		ObjectValue(const StringMap& map) : _type(NIL){ set(map); }
+		ObjectValue(const DoubleMap& map) : _type(NIL){ set(map); }
 		template<typename T>
-		ObjectValue(const Array<T>& arr){ set(arr); }
+		ObjectValue(const Array<T>& arr) : _type(NIL){ set(arr); }
 		void clear();
 		
 		ObjectValue& set(double d){ clear(); _type = DOUBLE; value.d = d; return *this; } 
 		ObjectValue& set(int i){ clear(); _type = INT32; value.i = i; return *this; }
+		ObjectValue& set(unsigned int i){ return set((int)i); }
 		ObjectValue& set(long long ll){ clear(); _type = INT64; value.ll = ll; return *this; }
+		ObjectValue& set(unsigned long long ll){ return set((long long)ll); }
 		ObjectValue& set(bool b){ clear(); _type = BOOLEAN; value.b = b; return *this; }
 		ObjectValue& set(const String& s){ clear(); _type = STRING; edata.s = s; return *this; }
 		ObjectValue& set(const Buffer& bf){ clear(); _type = BUFFER; edata.bf = bf; return *this; }
@@ -41,7 +47,8 @@ namespace JSON { Object parse(String jsonstr); }
 
 		bool isInt8() const { return _type == INT8; } bool isInt16() const { return _type == INT16; }
 		bool isInt32() const { return _type == INT32; } bool isInt64() const { return _type == INT64; }
-		bool isDouble() const { return _type == DOUBLE; } 
+		bool isDouble() const { return _type == DOUBLE; }
+		bool isInteger() const { return _type==INT64||_type==INT32||_type==INT16||_type==INT8; }
 		bool isNumber() const { return _type==DOUBLE||_type==INT64||_type==INT32||_type==INT16||_type==INT8; }
 		bool isBool() const { return _type == BOOLEAN; }
 		bool isString() const { return _type == STRING; }
@@ -70,7 +77,7 @@ namespace JSON { Object parse(String jsonstr); }
 		ObjectValue& operator=(int i){ set(i); return *this; }
 		ObjectValue& operator=(unsigned int i){ set((int)i); return *this; }
 		ObjectValue& operator=(long long ll){ set(ll); return *this; }
-		ObjectValue& operator=(unsigned long long ll){ set((long long)ll); return *this; }
+		ObjectValue& operator=(unsigned long long ll){ set(ll); return *this; }
 		ObjectValue& operator=(bool b){ set(b); return *this; }
 		ObjectValue& operator=(const String& s){ set(s); return *this; }
 		ObjectValue& operator=(const char* c){ set(c); return *this; }
@@ -136,12 +143,12 @@ namespace JSON { Object parse(String jsonstr); }
 			
 		double toNumber() const noexcept { switch((*this)._type){ case DOUBLE: return (*this).value.d;
             case INT64: return (*this).value.ll; case INT32: case INT16: case INT8: return (*this).value.i;
-            case BOOLEAN: return (*this).value.b; case STRING: return stodn((*this).edata.s);
-            case BUFFER: return (*this).edata.bf.toInt(); default: return 0; } }
+            case BOOLEAN: return (*this).value.b; case STRING: return stodn(asString());
+            case BUFFER: return asBuff().toInt(); default: return 0; } }
 		long long toInteger() const noexcept { switch((*this)._type){ case DOUBLE: return (*this).value.d;
             case INT64: return (*this).value.ll; case INT32: case INT16: case INT8: return (*this).value.i;
-            case BOOLEAN: return (*this).value.b; case STRING: return stolln((*this).edata.s);
-            case BUFFER: return (*this).edata.bf.toInt(); default: return 0; } }
+            case BOOLEAN: return (*this).value.b; case STRING: return stolln(asString());
+            case BUFFER: return asBuff().toInt(); default: return 0; } }
 		long long toInt64() const noexcept { return _type==INT64?(*this).value.ll:toInteger(); }
 		int toInt32() const noexcept { return _type==INT32?(*this).value.i:toInteger(); }
 		int toInt16() const noexcept { return _type==INT16?(*this).value.i:toInteger(); }
@@ -158,6 +165,7 @@ namespace JSON { Object parse(String jsonstr); }
             case BUFFER: return (*this).edata.bf.size()>0; case OBJECT: return true; default: return false; } }
 		private:
 			void _initObj();
+			void _copy(const Variant& val2);
 	};
 	
 	struct Object : HashMap<String, ObjectValue> {
@@ -192,17 +200,26 @@ namespace JSON { Object parse(String jsonstr); }
 			const ObjectValue& value() const { return it->second; } 
 			private: const_iterator it, _end; };*/
 		
-		static void deepCopy(Object& dst, const Object& src){
+		static void deepCopy(Object& dst, const Object& src){ if(&dst==&src) return;
 			for(Object::ConstIter it=src.begin(); it!=src.end(); ++it){
 				if(it->second.isObj()){ dst[it->first]=Object(); deepCopy(dst[it->first].asObj(), it->second.asObj()); }
 				else{ dst[it->first] = it->second; } } };
 	};
 	
+	void ObjectValue::_copy(const Variant& val2){ switch(val2._type){
+		case DOUBLE: value.d=val2.value.d; break;
+		case INT32: case INT16: case INT8: value.i=val2.value.i; break;
+		case INT64: value.ll=val2.value.ll; break; case BOOLEAN: value.b=val2.value.b; break;
+		case STRING: edata.s=val2.edata.s; break; case BUFFER: edata.bf=val2.edata.bf; break;
+		case OBJECT: case ARRAY: if(_type!=OBJECT) _initObj(); *value.o=*val2.value.o; break;
+		case NIL: setNull(); case UNDEFINED: default: setUndefined(); } _type=val2._type; }
+	
 	void ObjectValue::clear(){ switch(_type){
 			case OBJECT: delete value.o; value.o=NULL; break;
 			case STRING: edata.s=String(); break;
-			case BUFFER: edata.bf=Buffer(); break;
+			case BUFFER: edata.bf=Buffer(); break; default: value.ll=0;
 		} _type = NIL; }
+	//void ObjectValue::clear(){ _type = NIL; }
 	
 	void ObjectValue::_initObj(){ clear(); _type = OBJECT; value.o = new Object(); }
 	
@@ -369,40 +386,41 @@ namespace BSON{
 
 namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const StringMap& map);
 	void writeLen(Buffer& buff, unsigned long long len, unsigned char otp=0x00, size_t offset=0){
-		//size_t requiredSize = offset + (len <= 23 ? 1 : (len <= 255 ? 2 : (len <= 65535 ? 3 : (len <= 4294967295 ? 5 : 9)))); 
-		//if(buff.size()<requiredSize){ buff.resize(requiredSize); }
-		
 		if(len<=23){ if(buff.size()<offset+1){ buff.resize(offset+1); } buff[offset++]=otp+len; return; } otp+=23;
 		if(len<=255){ if(buff.size()<offset+2){ buff.resize(offset+2); } buff[offset++]=otp+1; buff[offset++]=len; return; }
 		else if(len<=65535){ if(buff.size()<offset+3){ buff.resize(offset+3); } buff[offset++]=otp+2; buff.writeUInt16BE(len, offset); offset+=2; return; }
 		else if(len<=4294967295U){ if(buff.size()<offset+5){ buff.resize(offset+5); } buff[offset++]=otp+3; buff.writeUInt32BE(len, offset); offset+=4; return; }
-		else{ if(buff.size()<offset+9){ buff.resize(offset+9); } buff[offset++]=otp+23+4; buff.writeUInt64BE(len, offset); return; } }
+		else{ if(buff.size()<offset+9){ buff.resize(offset+9); } buff[offset++]=otp+4; buff.writeUInt64BE(len, offset); return; } }
+		
+	void writeBuff(Buffer& buff, const void* ptr, size_t len, unsigned char otp=0x40){ 
+		buff.reserve(buff.size()+9+len); writeLen(buff, len, otp, buff.size()); buff.push(ptr, len); }
 	
-	Buffer encode(unsigned long long ll){ Buffer buff; writeLen(buff, ll); return buff; }
-	Buffer encode(long long val){ if(val>=0){ return encode((unsigned long long)val); }
-		else{ Buffer buff; writeLen(buff, val, 0x20); return buff; } }
-	Buffer encode(int i){ return encode((long long)i); }
-	Buffer encode(double d){ Buffer buff(9); buff[0]=0xFB; buff.writeDoubleBE(d, 1); return buff; }
-	Buffer encode(const Buffer& bf){ Buffer buff; writeLen(buff, bf.size(), 0x40); buff+=bf; return buff; }
-	Buffer encode(const String& str){ Buffer buff; writeLen(buff, str.size(), 0x60); buff+=Buffer(str); return buff; }
-	Buffer encode(const CString& str){ return encode(String(str)); }
-	Buffer encode(const char* cstr){ return encode(String(cstr)); }
-	Buffer encode(bool b){ return b?Buffer(1,0xF5):Buffer(1,0xF4); }
-	Buffer encode(const Object& obj){ return serialize(obj); }
-	Buffer encode(const StringMap& map){ return serialize(map); }
-	Buffer encode(Variant val){ switch(val._type){ case Variant::DOUBLE: return encode((double)val.value.d);
-		case Variant::INT32: return encode((long long)val.value.i); case Variant::INT64: return encode((long long)val.value.ll);
-		case Variant::BOOLEAN: return encode(val.value.b); case Variant::STRING: return encode(val.toString());
-		case Variant::BUFFER: return encode(val.toBuff()); case Variant::ARRAY: case Variant::OBJECT: return serialize(val.asObj()); 
-		case Variant::NIL: return Buffer(1,0xF6); case Variant::UNDEFINED: default: return Buffer(1,0xF7); } }
+	void write(Buffer& buff, unsigned long long ll){ writeLen(buff, ll, 0x00, buff.size()); }
+	void write(Buffer& buff, long long val){ if(val>=0){ write(buff, (unsigned long long)val); }else{ writeLen(buff, -val, 0x20, buff.size()); } }
+	void write(Buffer& buff, int i){ write(buff, (long long)i); }
+	void write(Buffer& buff, double d){ size_t offset=buff.size(); buff.resize(offset+9); buff[offset++]=0xFB; buff.writeDoubleBE(d, offset); }
+	void write(Buffer& buff, const Buffer& bf){ buff.reserve(buff.size()+9+bf.size()); writeLen(buff, bf.size(), 0x40, buff.size()); buff+=bf; }
+	void write(Buffer& buff, const String& s){ buff.reserve(buff.size()+9+s.size()); writeLen(buff, s.size(), 0x60, buff.size()); buff+=s; }
+	void write(Buffer& buff, const CString& cs){ writeBuff(buff, cs.c_str(), cs.size(), 0x60); }
+	void write(Buffer& buff, const char* cstr){ writeBuff(buff, cstr, strlen(cstr), 0x60); }
+	void write(Buffer& buff, bool b){ buff.push(b?0xF5:0xF4); }
+	void write(Buffer& buff, const Object& obj){ buff+=serialize(obj); }
+	void write(Buffer& buff, const StringMap& map){ buff+=serialize(map); }
+	
+	void write(Buffer& buff, const Variant& val){ switch(val._type){ case Variant::DOUBLE: write(buff, val.value.d); break;
+		case Variant::INT32: case Variant::INT16: case Variant::INT8: write(buff, (long long)val.value.i); break;
+		case Variant::INT64: write(buff, (long long)val.value.ll); break; case Variant::BOOLEAN: write(buff, val.value.b); break;
+		case Variant::STRING: write(buff, val.edata.s); break; case Variant::BUFFER: write(buff, val.edata.bf); break;
+		case Variant::OBJECT: case Variant::ARRAY: write(buff, val.asObj()); break;
+		case Variant::NIL: buff.push(0xF6); break; case Variant::UNDEFINED: default:  buff.push(0xF7); } }
 	
 	Buffer serialize(const Object& obj){ Buffer buff; writeLen(buff, obj.size(), 0xA0);
 		for(Object::const_iterator it = obj.begin(); it != obj.end(); ++it){ const CString& key = it->first; 
-			buff+=encode(key)+encode(obj[key]); } return buff; }
+			write(buff, key); write(buff, obj[key]); } return buff; }
 		
 	Buffer serialize(const StringMap& map){ Buffer buff; writeLen(buff, map.size(), 0xA0);
 		for(StringMap::const_iterator it = map.begin(); it != map.end(); ++it){ const CString& key = it->first; 
-			buff+=encode(key)+encode(map.at(key)); } return buff; }
+			write(buff, key); write(buff, map.at(key)); } return buff; }
 	
 	size_t parseLen(const Buffer& buff, size_t& offset){ unsigned char otp=buff[offset]%32;
 		if(otp<=23){ offset++; return otp; } size_t rst=offset+1; // Simple, <=0x17
@@ -412,12 +430,13 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 		else if(otp==0x1B){ if(buff.size()<=offset+8){ offset++; return 0; } offset+=9; return buff.readUInt64BE(rst); }else{ return 0; } } //8 bytes 
 	
 	Object parse(const Buffer& cbor, size_t& offset);
-	Variant parseValue(const Buffer& cbor, size_t& offset){ unsigned char type=cbor[offset]; size_t len; char ptype[2]; Buffer bits = cbor.BitsRead(offset);
-		Buffer::BitsWrite(&ptype[0], bits.slice(0,3)); Buffer::BitsWrite(&ptype[1], bits.slice(3));
+	unsigned long long parseInt(const Buffer& cbor, size_t& offset);
+	
+	Variant parseValue(const Buffer& cbor, size_t& offset){ unsigned char type=cbor[offset]; size_t len; //char ptype[2]; ptype[0]=type/32; ptype[1]=type%32;
 		//std::cout << "CBOR::parseValue: type = " << std::hex << (int)type << std::dec << " (ptype: " << (int)ptype[0] << ", " << (int)ptype[1] << ")" << std::endl;
 		
-		if(type<=0x1F){ return parseLen(cbor, offset); } //Unsigned Integer
-		else if(type>=0x20&&type<=0x3F){ return parseLen(cbor, offset)*-1; } //Negative Integer
+		if(type<=0x1F){ return Variant().set((unsigned long long)parseLen(cbor, offset)); } //Unsigned Integer
+		else if(type>=0x20&&type<=0x3F){ return Variant().set((long long)parseLen(cbor, offset)*-1); } //Negative Integer
 		else if(type>=0x40&&type<=0x5F){ len=parseLen(cbor, offset); size_t rst=offset; offset+=len; return cbor.slice(rst, rst+len); }  //Byte String
 		else if(type>=0x60&&type<=0x7F){ len=parseLen(cbor, offset); size_t rst=offset; offset+=len; return cbor.slice(rst, rst+len).toString(); } //Text String
 		else if(type>=0x80&&type<=0x9F){ return parse(cbor, offset); //Array
@@ -431,11 +450,10 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 	Variant parseValue(const Buffer& cbor){ size_t offset=0; return parseValue(cbor, offset); }
 	
 	Object parse(const Buffer& cbor, size_t& offset){ Object obj; size_t indx=0, len=0; bool ismap=false; unsigned char type = cbor[offset];
-		if(type>=0x80&&type<=0xBF){ len=parseLen(cbor,offset); } //Array or Map
+		if(type>=0x80&&type<=0xBF){ len=parseLen(cbor,offset); } //Array or Map  
 		if(type>=0xA0&&type<=0xBF){ ismap=true; } //Map
 		
-		while((len<=0||indx<len)&&offset<cbor.size()&&type!=0xFF){ String key=ismap?"":dtos(indx);
-			if(ismap){ key=parseValue(cbor, offset).toString(); }
-			obj[key]=parseValue(cbor,offset); indx++; type = cbor[offset]; } return obj; }
+		while((len<=0||indx<len)&&offset<cbor.size()&&cbor[offset]!=0xFF){ String key=ismap?"":dtos(indx);
+			if(ismap){ key=parseValue(cbor, offset).toString(); } obj[key]=parseValue(cbor,offset); indx++; } return obj; }
 	Object parse(const Buffer& cbor){ size_t offset=0; return parse(cbor, offset); }
-}}
+} }

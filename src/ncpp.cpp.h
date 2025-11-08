@@ -1,15 +1,16 @@
 // ncpp: tech header file. Entry point for compilation from object files. Using only for direct compilation or build libs.
 #ifndef NCPP_H
 #define NCPP_H
-#define NCPP_VER "v0.0.1-0-rev2"
-namespace ncpp { void print(const char *cptr); const char* version(); } //Only declaration.
+#define NCPP_VER "v0.0.1-0-rev3"
+namespace ncpp { void print(const char *cptr); const char* version(); void print(long long v); } //Only declaration.
 
 /*#ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00 // 0x0501 - WinXP; 0x0601 - Win7; 0x0602 - Win8; 0x0A00 - Win10;
 #endif*/
 
-#if defined(_WIN32) && (defined(__x86_64__) || defined(__aarch64__) || defined(__LP64__)) // win 64 bit
+//#if defined(__LP64__) || defined(_WIN64) || __SIZEOF_POINTER__ == 8 || defined(__x86_64__) || defined(__aarch64__) || defined(__riscv_64) || __riscv_xlen == 64 // 64 bit architecture
+#if defined(_WIN32) && (defined(_WIN64) || defined(__x86_64__)) // win 64 bit
 	//typedef long long int_t; typedef long long ssize_t;
 #elif defined(_WIN32)
     //typedef int int_t; typedef int ssize_t;
@@ -21,6 +22,7 @@ namespace ncpp { void print(const char *cptr); const char* version(); } //Only d
 #include <math.h>
 #include <ctype.h> // isdigit, isalpha, isalnum, etc.
 #include <errno.h> // errno: UNIX get last error;
+//#include <limits.h> // INT_MAX, LLONG_MAX, ULLONG_MAX, PATH_MAX etc.
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -37,29 +39,32 @@ namespace ncpp { void print(const char *cptr); const char* version(); } //Only d
 #include <signal.h> // signals kill, etc.
 #include <sys/time.h> // time api: gettimeofday
 #include <fcntl.h> // for socket descryptor settings (non-bloking mode, etc).
-#include <limits.h> //PATH_MAX constant
+#include <limits.h> //int types limits, PATH_MAX constant
 #endif
 
 // === polyfills ===
 #define NPOS (size_t)-1
-
 #if __cplusplus < 201103L
 #define noexcept throw()
 #define nullptr NULL
 //#define unique_ptr auto_ptr
 #endif
 
+//#ifndef NCPP_LIB_USE
 #ifdef NCPP_USESTL
 #include <new> //WTF? placement new без него никак?
 #else
 void* operator new(size_t size, void* ptr) noexcept { return ptr; } //Определение сигнатуры для placement new
-//#include "stdcpp/libsupc.cpp"
-#endif
+//#include "stdcpp/libsupc.cpp" //Only for Linux
+#endif //NCPP_USESTL
+//#endif //NCPP_LIB_USE
+//#define NCPP_COUT_COLORED
 
 #if defined(_WIN32) && defined(__GNUC__) && __GNUC__ < 4
 #include "system/gcc3_winxpdef.h"
 #endif
 
+#ifndef NCPP_LIB_BUILD
 void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())==0) return;
 	ncpp::print(""\
 	"█████████████████████████████████████████████████████████████████████████\n"\
@@ -84,5 +89,5 @@ void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())==0) return;
 	"█████████████████████████████████████████████████████████████████████████\n");
 	// exit(1);
 }
-
+#endif // NCPP_LIB_BUILD
 #endif // NCPP_H end

@@ -5,9 +5,7 @@ if not "%1"=="" ( set cppfile=%currCD%\..\%1.cpp
 set start_time=%TIME%
 
 if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)
-g++ -Wall %cppfile% -o %exefile% %gcc_flags% %lnk_flags% -fno-rtti -fno-exceptions -Wno-misleading-indentation
-::g++ -Wall %cppfile% -o %exefile% %gcc_flags% -static -s -m32 -L"%currpath%\..\lib" -lncpp -fno-exceptions -Wno-misleading-indentation
-::g++ -O3 -std=c++98 -march=native -flto -funroll-loops -fipa-cp-clone -ffast-math -fomit-frame-pointer %cppfile% -o %exefile% -fno-exceptions -fno-rtti -Wno-misleading-indentation
+g++ %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS%
 cd /d "%currCD%"
 
 :: ======= Time calc =======

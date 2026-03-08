@@ -1,9 +1,9 @@
 namespace ncpp{
 	struct WebSocket : TCPSocket { enum State { WS_HANDSHAKE, WS_OPEN, WS_CLOSE }; char state; bool client; TCPSocket* _kostyl;
-		WebSocket() : client(true){}
+		WebSocket() : TCPSocket(), state(0), client(true), _kostyl(NULL){}
 		WebSocket(const CString& ip, int port, bool toconn=false) : TCPSocket(ip, port), state(0), client(true), _kostyl(NULL){ if(toconn) connect(); }
 		WebSocket(const IPAddr& addr, bool toconn=false) : TCPSocket(addr.ip, addr.port), state(0), client(true), _kostyl(NULL){ if(toconn) connect(); }
-		WebSocket(const Socket& sock) : TCPSocket(sock), state(0), client(true), _kostyl(NULL){}
+		WebSocket(const Socket& sock) : TCPSocket(sock), state(0), client(true), _kostyl(NULL){ this->autodestroy=false; }
 		
 		struct WSFrameInfo { char opcode; unsigned int headerSize, bodyLen; bool masked; bool fin; };
 		
@@ -79,7 +79,7 @@ namespace ncpp{
 					case 9: { if(ws) ws->pong(); continue; } //ping
 					case 10: continue; //pong
 					case 0: case 1: case 2: default: { msg+=frame; if(winfo.fin){ return true; } continue; } } } }
-		//private: Buffer _rbuff, _msg;
+		//private: Buffer _rbuff, _msg; public:
 	};
 
 	struct WServer : HTTPServer {

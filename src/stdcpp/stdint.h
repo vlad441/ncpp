@@ -7,12 +7,17 @@
 
 #ifndef _SIZE_T_
 #define _SIZE_T_
+//typedef __SIZE_TYPE__ size_t;
 #ifdef _64BIT
 typedef unsigned long long size_t; //typedef long long ssize_t;
 #else
 typedef unsigned int size_t; //typedef int ssize_t;
 #endif
 #endif
+
+//typedef __PTRDIFF_TYPE__  ptrdiff_t;
+//typedef __UINTPTR_TYPE__  uintptr_t;
+//typedef __INTPTR_TYPE__   intptr_t;
 
 typedef char int8_t; typedef unsigned char uint8_t;
 #if __SIZEOF_SHORT__ == 2
@@ -38,7 +43,7 @@ typedef long long int128_t; typedef unsigned long long uint128_t;
 #elif __SIZEOF_INT128__
 typedef __int128 int128_t; typedef unsigned __int128 uint128_t;
 #else
-//#include "../experimantal/__int128.cpp"
+//#include "../experimental/__int128.cpp"
 #endif
 
 #if 

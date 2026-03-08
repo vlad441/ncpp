@@ -1,0 +1,3 @@
+let ws = new WebSocket("ws://"+location.host); 
+ws.onmessage = function(event){ console.log("Recv data: " + event.data); };
+ws.onclose = function(event){ console.log('ws closed. Code: ' + event.code + '; Reason: ' + event.reason); };

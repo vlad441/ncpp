@@ -1,20 +1,19 @@
 @echo off
-set gccpath="D:\Progs\IDE\MinGW\gcc-4.9.2-tdm\bin"
 set currpath=%CD%
-if "%1"=="" (set fname=gui-testapp) else (set fname=%1)
+set gccpath=
+
+set WARN_FLAGS=-Wall -Wno-misleading-indentation
+set OPT_FLAGS=-O2 -std=c++98 -fno-exceptions -fno-rtti
+set D_LNK_FLAGS=-s -m32 -lws2_32 -lpsapi -liphlpapi -lopengl32 -lgdi32
+set LNK_FLAGS=-static %D_LNK_FLAGS%
+
+if "%~1"=="" (set fname=gui-testapp) else (set fname=%1)
 set cppfile=%CD%\%fname%.cpp
 set exefile=%CD%\%fname%.exe
 set start_time=%TIME%
 
-set gcc_flags=-O2 -std=c++98
-::set lnk_flags=-static -s -m32 -lws2_32 -lpsapi -liphlpapi
-set lnk_flags=-static -s -m32 -lws2_32 -lpsapi -liphlpapi -lopengl32 -lgdi32
-
-if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)
-g++ -Wall %cppfile% -o %exefile% %gcc_flags% %lnk_flags% -fno-exceptions -fno-rtti 
-::g++ -Wall %cppfile% -o %exefile% %gcc_flags% -static -s -m32 -L"%currpath%\..\lib" -lncpp
-::g++ -O3 -std=c++98 -march=native -flto -funroll-loops -ffast-math -funsafe-math-optimizations -fno-trapping-math -fno-math-errno -fomit-frame-pointer %cppfile% -o %exefile%
-
+if "%gccpath%"=="" (set "gccpath=g++") else (cd /d %gccpath%)
+g++ -DUSE_GUI -DNOUSE_OBJECT -DNOUSE_CRYPTO -DNOUSE_NET %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS%
 cd /d "%currpath%"
 
 :: === Time calc ===

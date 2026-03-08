@@ -23,7 +23,7 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 			if(hver<=1.0||headers["connection"]=="close") socket->destroy(); }
 		bool ok(){ return status < 300 && status >= 200; }
 		bool hasLength(){ return headers.has("content-length")||headers.has("transfer-encoding"); }
-		void Redirect(const CString& url){ status=301; headers["location"]=url; end(); }
+		void Redirect(const CString& url, int code=302){ status=code; headers["location"]=url; end(); }
 		void SendCode(int status1, const CString& codeDescr=""){ status=status1; socket->send(RespComposer(*this, codeDescr)); }
 		void SendErr(int status1, const CString& errDescr=""){ SendCode(status1, errDescr); socket->destroy(); }
 		String cout() const { String ss("Status: "); ss << status << " | Headers:" << this->headers.cout() << "\n  === Body ===  \n" << this->body << "\n\n"; return ss; }
@@ -164,4 +164,13 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		String htmlContent; htmlContent << "<html><head><title>AutoIndex of " << path << "</title></head>\n<body>"\
 		"<h3>AutoIndex of " << path << "</h3><hr><pre><ul>" << fileList << "</ul><hr></pre>\nPowered by <a href=\"http://ncpp.art\">ncpp</a></body></html>"; 
 		res.end(htmlContent); }
+		
+	String RenderHtml(CString html, StringMap tokens, CString oTag = "{{%", CString cTag = "%}}"){ 
+		unsigned int cursor = 0; String result; result.reserve(html.size()); String key; 
+		while(true){
+			unsigned int startPos = html.indexOf(oTag, cursor); if(startPos == NPOS){ result+=html.slice(cursor); break; }
+			result+=html.slice(cursor, startPos);
+			unsigned int endPos = html.indexOf(cTag, startPos+oTag.size()); if(endPos == NPOS){ result+=html.slice(startPos); break; }
+			key = html.slice(startPos+oTag.size(), endPos).trim();
+			result+=tokens.has(key)?tokens[key]:""; cursor = endPos + cTag.size(); } return result; }
 } }

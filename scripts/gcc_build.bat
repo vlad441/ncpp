@@ -3,24 +3,24 @@ call _params.bat
 ::call _gcc_obj_make.bat
 if "%gccpath%"=="" (set gccar="ar") else (set gccar=%gccpath%\ar)
 set cppfile=%currCD%\..\src\ncpp.cpp
-set ncpp_include=%currCD%\..\include
-set ncpp_lib=%currCD%\..\lib
+set INCL_DIR=%currCD%\..\include
+set LIB_DIR=%currCD%\..\lib
 if "%start_time%"=="" (set start_time=%TIME%)
-if not exist %ncpp_lib% mkdir %ncpp_lib%
+if not exist %LIB_DIR% mkdir %LIB_DIR%
 
 ::cd ../lib/obj
-::echo Packing in archive libncpp.lib...
-::%gccar% rcs ../libncpp.lib ncpp-base.o system_fs.o ncpp-system.o net_socket.o net_http.o ncpp-thread.o net_server.o
+::echo Packing obj files to archive libncpp.lib...
+::%gccar% rcs ../libncpp.a base_print.o base_utils0.o base_Array.o base_String.o base_dtos.o base_Buffer.o base_HashMap.o base_utils.o base_Date.o
 ::cd %currCD%
 
 echo Build static-bundle lib...
 if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)
-g++ -D NCPP_LIB_BUILD -Wall -c %cppfile% -o %ncpp_lib%\ncpp.o %gcc_flags% -I "%ncpp_include%" %ext_flags%
-ar rcs %ncpp_lib%\libncpp-bundle.a %ncpp_lib%\ncpp.o
-del %ncpp_lib%\ncpp.o
+g++ -D LIB_DIR_BUILD %WARN_FLAGS% %OPT_FLAGS% -c %cppfile% -o %LIB_DIR%\ncpp.o -I "%INCL_DIR%"
+ar rcs %LIB_DIR%\libncpp-bundle.a %LIB_DIR%\ncpp.o
+del %LIB_DIR%\ncpp.o
 
 echo Build dynamic .dll lib...
-g++ -D NCPP_LIB_BUILD -shared %cppfile% -o %ncpp_lib%\ncpp.dll %gcc_flags% %dll_lnk_flags% -Wl,--out-implib,"%ncpp_lib%\ncpp.dll.lib" %ext_flags%
+g++ -D LIB_DIR_BUILD -shared %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %LIB_DIR%\ncpp.dll %D_LNK_FLAGS% -Wl,--out-implib,"%LIB_DIR%\ncpp.dll.lib"
 cd /d "%currCD%"
 
 :: === Time calc ===

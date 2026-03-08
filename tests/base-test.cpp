@@ -67,15 +67,31 @@ int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); 
 	#endif
 	
 	//uint128_t myval=13; print("uint128_t myval = "); myval._print128('\''); print("\n");
-	uint128_t myval=(~(uint128_t)0); print("uint128_t myval = "); char cstr[52]; dtos(cstr, myval, '\''); print(cstr); print("\n");
+	//uint128_t myval=(~(uint128_t)0); print("uint128_t myval = "); char cstr[52]; dtos(cstr, myval, '\''); print(cstr); print("\n");
 	//print("uint128_t myval = "); print(myval._toBuff()); print("\n");
 	//myval = uint128_t::mul_64x64_128(0xFFFFFFFFFFFFFFFAULL, 0xFFFFFFFFFFFFFFFAULL);
 	//print("uint128_t::mul_64x64_128 = "); myval._print(); print("\n");
 	//print("uint128_t::mul_64x64_128 = "); print(myval._toBuff()); print("\n");
 	//340282366920938463242013678547253592100
 	
+	//while(true){ BigInt n(readline()); print(n.parts); print("\n"); print(n.toString()); print(" == metka :)\n"); }
 	
-	while(true){ BigInt n(readline()); print(n.parts); print("\n"); print(n.toString()); print(" == metka :)\n"); }
+	Array<int> arrI; arrI.push(13).push(10); int i=arrI.join(10);
+	Array<String> arr; arr.push("st").push("13"); String str=arr.join("|");
+	print("Array<String>: "); print(arr); print("\n");
+	print("Array<int>: "); print(arrI); print("\n");
+	print("str: "); print(str); print("\n");
+	print("i: "); print(i); print("\n");
+	
+	while(true){ long long timestamp = stolln(readline()); print("Timestamp: "); print(timestamp); print("\n"); 
+		Date::DValue dv = Date::parseTimestamp(timestamp); Date date(timestamp);
+		Date::_showDValue(dv);
+		print("Date.toTime: "); print(date.toTime()); print("\n");
+		print("Date.toTime(true): "); print(date.toTime(true)); print("\n");
+		print("date.toIMFDate(): "); print(date.toIMFDate()); print("\n");
+		print("Date: "); print(date.toReverseDate()); print("\n"); 
+		print("-- Date(String dateStr).timestamp: "); print(Date(date.toReverseDate()).timestamp); print("\n\n"); }
+		
 	#endif
 	print("\n -- END PROGRAM --\n");
 }

@@ -1,20 +1,13 @@
 // ncpp: tech header file. Entry point for compilation from object files. Using only for direct compilation or build libs.
-#ifndef NCPP_H
-#define NCPP_H
-#define NCPP_VER "v0.0.1-0-rev3"
-namespace ncpp { void print(const char *cptr); const char* version(); void print(long long v); } //Only declaration.
+#pragma once
+#ifndef NCPP_H_DEF
+#define NCPP_H_DEF
+#define NCPP_VER "v0.0.1-0-rev4"
 
 /*#ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00 // 0x0501 - WinXP; 0x0601 - Win7; 0x0602 - Win8; 0x0A00 - Win10;
 #endif*/
-
-//#if defined(__LP64__) || defined(_WIN64) || __SIZEOF_POINTER__ == 8 || defined(__x86_64__) || defined(__aarch64__) || defined(__riscv_64) || __riscv_xlen == 64 // 64 bit architecture
-#if defined(_WIN32) && (defined(_WIN64) || defined(__x86_64__)) // win 64 bit
-	//typedef long long int_t; typedef long long ssize_t;
-#elif defined(_WIN32)
-    //typedef int int_t; typedef int ssize_t;
-#endif
 
 #include <stdlib.h> // C lib
 #include <string.h> // strlen, memcpy, etc.
@@ -24,12 +17,12 @@ namespace ncpp { void print(const char *cptr); const char* version(); void print
 #include <errno.h> // errno: UNIX get last error;
 //#include <limits.h> // INT_MAX, LLONG_MAX, ULLONG_MAX, PATH_MAX etc.
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <mswsock.h>  // for AcceptEx
-//#include <windows.h>
-#else
+#ifdef _WIN32 // == Windows Headers ==
+#define WIN32_LEAN_AND_MEAN  // Исключает редко используемые компоненты из заголовков Windows
+#define NOSERVICE            // Исключает API служб
+#define NOMCX                // Исключает API модемов
+#define NOIME                // Исключает API ввода символов (иероглифы и т.д.)
+#else // == Linux Headers ==
 #include <unistd.h> // Linux POSIX API (write(), close(), getpid, _fd, etc...)
 #include <sys/types.h> //pid_t, uid_t, gid_t, off_t
 #include <sys/socket.h>
@@ -42,11 +35,14 @@ namespace ncpp { void print(const char *cptr); const char* version(); void print
 #include <limits.h> //int types limits, PATH_MAX constant
 #endif
 
-// === polyfills ===
+namespace ncpp { void print(const char *cptr); const char* version(); void print(long long v); } //Only declaration.
+
 #define NPOS (size_t)-1
-#if __cplusplus < 201103L
+#if __cplusplus >= 201103L
+#else //C++98
 #define noexcept throw()
 #define nullptr NULL
+#define decltype __typeof__
 //#define unique_ptr auto_ptr
 #endif
 
@@ -54,15 +50,12 @@ namespace ncpp { void print(const char *cptr); const char* version(); void print
 #ifdef NCPP_USESTL
 #include <new> //WTF? placement new без него никак?
 #else
-void* operator new(size_t size, void* ptr) noexcept { return ptr; } //Определение сигнатуры для placement new
+void* operator new(size_t size, void* ptr) noexcept; //Объявление сигнатуры для placement new
 //#include "stdcpp/libsupc.cpp" //Only for Linux
 #endif //NCPP_USESTL
 //#endif //NCPP_LIB_USE
+//#include "experimental/initializer_list.hpp"
 //#define NCPP_COUT_COLORED
-
-#if defined(_WIN32) && defined(__GNUC__) && __GNUC__ < 4
-#include "system/gcc3_winxpdef.h"
-#endif
 
 #ifndef NCPP_LIB_BUILD
 void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())==0) return;
@@ -90,4 +83,4 @@ void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())==0) return;
 	// exit(1);
 }
 #endif // NCPP_LIB_BUILD
-#endif // NCPP_H end
+#endif // NCPP_H_DEF end

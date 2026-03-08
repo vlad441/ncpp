@@ -212,7 +212,7 @@ namespace JSON { Object parse(String jsonstr); }
 		case INT64: value.ll=val2.value.ll; break; case BOOLEAN: value.b=val2.value.b; break;
 		case STRING: edata.s=val2.edata.s; break; case BUFFER: edata.bf=val2.edata.bf; break;
 		case OBJECT: case ARRAY: if(_type!=OBJECT) _initObj(); *value.o=*val2.value.o; break;
-		case NIL: setNull(); case UNDEFINED: default: setUndefined(); } _type=val2._type; }
+		case NIL: setNull(); break; case UNDEFINED: default: setUndefined(); } _type=val2._type; }
 	
 	void ObjectValue::clear(){ switch(_type){
 			case OBJECT: delete value.o; value.o=NULL; break;

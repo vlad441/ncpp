@@ -1,12 +1,15 @@
 TODO v0.0.1:
-- GUI -> onClick, onEvent vs TCPServer -> onConnect, onData.
 - DoubleMap -> Int64Map? UllMap? (ncpp-system)? Или может структурку сделать?
 -- Не разбрасываться noexept
 - HTTP: вспомогательные функции: cookie parser, qparse, etc.
-- Оптимизация и разделение base: min-base(print, etc...) (+/-)
-- print(long long v) fixes: SFINAE use for numbers.
 - WebSocket::_onClose();
+- excmd() -> execShell(): whar_t декодинг.
+- Buffer::insert();
 
+- print(long long v): SFINAE use for numbers.
+- Array: _reallocT(): move семантика, type traits.
+- Стандартизация обработки ошибок.
+- Стандартные алгоритмы и нейминг
 - Stream
 -- Socket
 --- UnixStream (+/-)
@@ -14,6 +17,7 @@ TODO v0.0.1:
 --- acquire/release?
 -- FileStream
 - AsyncIO
+-- EventLoop: hasEvent/nextEvent step-by-step model.
 -- StreamPool
 --- SocketPool
 ---- Возможноть массива servfd в одном цикле событий.
@@ -28,9 +32,10 @@ TODO v0.0.1:
 -- Promise?
 - System
 -- CPU getCoresTime()
+-- Memory: Used = Total-Available; (Выгружаемый+Невыгружаемый пул?)
 -- Disk (wmic -> WinApi)
 -- readline(): ReadFileW()
-- Date (!)
+- Date (+/-)
 - Threads (+/-)
 -- Thread (Event) Pool?
 -- ncpp::Thread::Signal.emit() (EventEmiter?) (condition_variable)?
@@ -38,10 +43,10 @@ TODO v0.0.1:
 -- ??
 - Object (+/-)
 -- BSON/CBOR? (+/-)
--- typemap(): Вернуть StringMap вида (ключ -> тип)
+-- typemap(): Вернуть StringMap вида (ключ -> тип)?
 - Encryption
 -- TLS
---- KTLS (Linux)/Schannel (Windows)
+--- KTLS (Linux)/Schannel (Windows)?
 --- RSA/DH
 ---- BigInt (!)
 --- X.509/ASN.1
@@ -59,7 +64,7 @@ TODO v0.0.1:
 - clang 3.5 support, Linux 3.10.0 and 2.6.18 (Debian4)
 -- Поддержка gcc3_winxpdef.h
 -- CI/CD?
-- Упаковать либу в .deb пакет.
+- Упаковать либу в .deb пакет?
 - Производительность: Минимизация вызовов malloc/free, SSO, SlabAllocator?
 
 Если вы используете строгие режимы компиляции или специфические флаги компилятора, которые исключают функции стандартной библиотеки (например, для защиты от ошибок или для контроля размера кода), то memmove() может быть недоступна.

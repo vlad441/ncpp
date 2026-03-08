@@ -37,7 +37,7 @@
  * * [Dev-C++ 4.9.9.2 (gcc 3.4.2) installer](https://sourceforge.net/projects/dev-cpp/files/Binaries/Dev-C++%204.9.9.2/) (только для очень старых систем)
  
 ### Linux
-Для Linux вы можете пакетные менеджеры вашей системы для установки GCC/Clang, например:
+Для Linux вы можете использовать пакетные менеджеры вашей системы для установки GCC/Clang, например:
 * Debian: `apt install g++ --no-install-recommends`.
 
 ## Примеры

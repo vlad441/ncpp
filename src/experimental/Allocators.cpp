@@ -8,9 +8,13 @@ namespace ncpp{
 		
 		T* alloc(){ if(!freePtrs.empty()) freePtrs.pop(); if(!end || end->offset >= blocksize) _newblock();
 			T* ptr = (T*)((char*)end->data+end->offset*_sizeT); end->offset++; return ptr;
-			//T* ptr = end->data+end->offset++; return ptr; 
+			//T* ptr = end->data+end->offset++; return ptr;
 		}
 		void dealloc(T* ptr){ freePtrs.push(ptr); }
+		
+		//Intrusive Free List:
+		//T* alloc(){ if (!nextFreeBlock) return _newblock(); T* result = nextFreeBlock; nextFreeBlock = *(T**)result; return result; }
+		//void dealloc(T* ptr){ *(T**)ptr = nextFreeBlock; nextFreeBlock = ptr; }
 
 		T* New(){ return new (alloc()) T(); }
 		void Delete(T* ptr){ ptr->~T(); dealloc(ptr); } //dealloc(ptr, _sizeT); // не применяется
@@ -24,6 +28,27 @@ namespace ncpp{
 			b->offset = 0; b->next = NULL; b->data = (T*)((char*)b+sizeof(Block)); 
 			if(!first){ first = end = b; } else { end->next = b; end = b; } }
 		//void _clearBlock(){  } //Операция деструктора всех объектов в блоке не реализована
+	};
+	
+	struct ArenaAlloc { struct Block { Block* next; size_t offset; size_t capacity; char* data() { return (char*)this + sizeof(Block); } };
+		ArenaAlloc(size_t def_block_sz = 4096) : _blocksz(def_block_sz), first(NULL), end(NULL){}
+		~ArenaAlloc() { clear(); }
+		void setBlockSize(size_t blocksz){ _blocksz=blocksz; }
+
+		void* alloc(size_t sz, char align=8){ if(end){ end->offset = (end->offset+align-1) & ~(align-1); } //выравнивание
+			if(!end || (end->offset + sz) > end->capacity){ _newblock(sz > _blocksz ? sz : _blocksz); }
+			void* ptr = end->data() + end->offset; end->offset += sz; return ptr; }
+		template<typename U> U* New(){ return ::new (alloc(sizeof(U))) U(); }
+		void clear(){ Block* curr = first; while(curr){ Block* next = curr->next; free(curr); curr = next; } first = end = NULL; }
+
+	private: size_t _blocksz; Block* first; Block* end; //bool nonTriviallyDestructible;
+
+		void _newblock(size_t sz){ size_t tsize = sizeof(Block) + sz; Block* b = (Block*)malloc(tsize); if(!b){ print("(!) _newblock: alloc fail"); return; }
+			b->offset = 0; b->capacity = sz; b->next = NULL;
+			if(!first){ first = end = b; }else{ end->next = b; end = b; } }
+		
+		ArenaAlloc(const ArenaAlloc&); // Запрет копирования
+		ArenaAlloc& operator=(const ArenaAlloc&);
 	};
 	
 	struct BucketAlloc { //BinningAllocator
@@ -40,9 +65,8 @@ namespace ncpp{
 			else if(size <= 32){ _pool32.dealloc(p); }
 			else if(size <= 64){ _pool64.dealloc(p); }
 			else{ free(p); } }
-		private: SlabAllocator<char> _pool16, _pool32, _pool64;
+		private: SlabAlloc<char> _pool16, _pool32, _pool64;
 	};
 	
-	//template<typename T>
-	//struct SlotMap {} //Индексная карта
+	//template<typename T> struct SlotMap {} //Индексная карта?
 }

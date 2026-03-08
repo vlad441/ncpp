@@ -6,6 +6,7 @@ namespace ncpp{ struct UnixSocket : TCPSocket { char _utype; String path;
 	bool isAbstract() const { return !path.empty() && path[0] == '@'; }
 	~UnixSocket(){ destroy(); }
 	#ifdef _WIN32
+	//UnixSocket() : TCPSocket(), _utype(SOCK_STREAM), path(""), hPipe(NULL){ _type=Socket::UNIX; }
 	UnixSocket(CString sockPath, int type=SOCK_STREAM) : TCPSocket(), _utype(type), path(sockPath), hPipe(NULL){ _type=Socket::UNIX; }
 	UnixSocket(int type=SOCK_STREAM, HANDLE sockid1=NULL) : TCPSocket(), _utype(type), hPipe(sockid1){ _type=Socket::UNIX; if(hPipe!=NULL) connected=true; }
 	HANDLE hPipe;
@@ -23,14 +24,15 @@ namespace ncpp{ struct UnixSocket : TCPSocket { char _utype; String path;
 			rsetErr(); DWORD rbytes; ReadFile(hPipe, buff->data(), buff->size(), &rbytes, NULL);
 			if(rbytes<=0){ buff->resize(0); if(rbytes==0){ destroy(); }else{ GetErr(); } }
 			else{ buff->resize(rbytes); } return rbytes; }
-	Buffer recv(){ Buffer buff(buffsize); recv(&buff); return buff; }
+	Buffer recv(){ Buffer buff(DEF_BUFF_SIZE); recv(&buff); return buff; }
 	private: 
 		inline void pathNormalize(){ if(path.startsWith("\\\\.\\pipe\\")) return; 
 			if(isAbstract()){ path=path.slice(1); } if(path.startsWith("/tmp/")){ path=path.slice(5); } path="\\\\.\\pipe\\"+path; }
 		HANDLE _bind(){ pathNormalize(); return CreateNamedPipe(TEXT(path.c_str()), PIPE_ACCESS_DUPLEX, 
-			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, buffsize, buffsize, 0, NULL); }
+			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, DEF_BUFF_SIZE, DEF_BUFF_SIZE, 0, NULL); }
 	
 	#else
+	//UnixSocket() : TCPSocket(), _utype(SOCK_STREAM){ _type=Socket::UNIX; }
 	UnixSocket(CString sockPath, int type=SOCK_STREAM) : TCPSocket(), _utype(type), path(sockPath){ _type=Socket::UNIX; }
 	UnixSocket(int type=SOCK_STREAM, int sockid1=-1) : TCPSocket(sockid1), _utype(type){ _type=Socket::UNIX; }
 

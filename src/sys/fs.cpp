@@ -1,4 +1,4 @@
-#ifndef _WIN32
+#ifndef _WIN32 // == Linux Headers ==
 #include <sys/stat.h> // posix stat()
 #include <dirent.h> //opendir/readdir/closedir
 #include <pwd.h>
@@ -91,20 +91,38 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	
 	int read(Buffer* rbuff){ int rbytes = read((char*)rbuff->data(), rbuff->size()); rbuff->resize(rbytes); return rbytes; }
 	Buffer read(){ size_t fsize=size(); if(fsize==NPOS){ return readEOF(); } Buffer rbuff(fsize-pos()); read(&rbuff); return rbuff; }
-    Buffer read(int len){ Buffer rbuff(len); int rbytes=read(&rbuff); print("FStream::read() rbytes: "); print(rbytes); print("\n"); if(rbytes<len){ rbuff.resize(rbytes); } return rbuff; }
+    Buffer read(int len){ Buffer rbuff(len); int rbytes=read(&rbuff); if(rbytes<len){ rbuff.resize(rbytes); } return rbuff; }
 	template <typename V>
-	V _readEOF(){ V data; char _buff[DEF_SIZE]; int rbytes=0;
-		while((rbytes=read(_buff, sizeof(_buff)))>0){ data.push(_buff, rbytes); } return data; }
+	V _readEOF(){ V data; char _bf[DEF_SIZE]; int rbytes=0; while((rbytes=read(_bf, sizeof(_bf)))>0){ data.push(_bf, rbytes); } return data; }
 	Buffer readEOF(){ return _readEOF<Buffer>(); }
+	
+	void write(const char* c){ write(c, strlen(c)); }
+    void write(const Buffer& wrbuff){ write((const char*)wrbuff.data(), wrbuff.size()); }
 	
 	bool readline(String& line, bool once=false){ line.clear(); char _b[512]; String buff; buff.stack(_b); int rbytes=0; bool ok=false;
 		while((rbytes = read(_b, sizeof(_b)))>0){ ok=true; size_t nidx = buff.indexOf('\n');
 			if(nidx==NPOS){ line.push(_b, rbytes); if(line.back()=='\r') line.pop(); continue; }
 			int loffset=0; if(rbytes>1&&_b[nidx-1]=='\r') ++loffset;
 			line.push(_b, nidx-loffset); if(!once) setPos(pos()-rbytes+nidx+1); return true; } return ok; }
-	
-	void write(const char* c){ write(c, strlen(c)); }
-    void write(const Buffer& wrbuff){ write((const char*)wrbuff.data(), wrbuff.size()); }
+			
+	size_t readLines(Array<String>& lines, int cnt){ lines.clear(); if(!isOpen() || cnt <= 0) return 0;
+		char buff[DEF_SIZE]; String currLine; int strsRead = 0;
+		while(strsRead < cnt){ size_t startPos = pos(); int rbytes = read(buff, sizeof(buff)); if(rbytes <= 0) break;
+			bool foundInBlock = false; size_t lnSt=0;
+			for(int i=0;i<rbytes;++i){
+				if(buff[i]=='\n'){ int lnLen = i-lnSt;
+					if(lnLen>0 && buff[i-1]=='\r'){ currLine.push(buff+lnSt, lnLen-1); }else{ currLine.push(buff+lnSt, lnLen); }
+					lines.push(currLine); currLine.clear(); strsRead++;
+					startPos+=lnLen+1; lnSt=i+1; if(strsRead >= cnt){ foundInBlock = true; break; } }
+			}
+			setPos(startPos);
+
+			// Если прошли весь буфер и не нашли '\n' (или лимит строк не достигнут)
+			if(!foundInBlock && strsRead < cnt){ currLine.push(buff, rbytes); // Добавляем весь прочитанный кусок в текущую строку
+			} else if(foundInBlock){ break; } // Мы закончили чтение нужного количества строк
+		}
+		// Если файл кончился, а в currLine что-то осталось (последняя строка без \n)
+		if(!currLine.empty() && strsRead < cnt){ lines.push(currLine); strsRead++; } return strsRead; }
 	
 	FStream& operator<<(const char* c){ write(c); return *this; }
 	template <typename T, typename D>
@@ -116,18 +134,18 @@ FStream createReadStream(const CString& path){ return FStream(path, FStream::IO_
 FStream createWriteStream(const CString& path){ return FStream(path, FStream::IO_WRITE).own(false); }
 
 bool _writeFile(const CString& path, const Buffer& data, char mode=FStream::IO_WRITE){ if(data.size()<=0){ return false; }
-	FStream f(path, mode); if(!f.isOpen()){ print("(!) writeFile: Open file error.\n"); return false; } f.write(data); f.close(); return true; }
+	FStream f(path, mode); if(!f.isOpen()){ Except("writeFile: Open file error.\n"); return false; } f.write(data); f.close(); return true; }
 bool writeFile(const CString& path, const Buffer& data){ return _writeFile(path,data); }
 bool appendFile(const CString& path, const Buffer& data){ return _writeFile(path,data,FStream::IO_APPEND); }
 
 template <typename V>
-V _readFile(const CString& path){ FStream f(path, FStream::IO_READ); if(!f.isOpen()){ print("(!) fs::_readFile(): Open file error.\n"); return V(); } 
-	size_t fsize = f.size(); if(fsize==0){ return f._readEOF<V>(); }else if(fsize==NPOS){ print("(!) fs::_readFile(): fail get file size.\n"); }
+V _readFile(const CString& path){ FStream f(path, FStream::IO_READ); if(!f.isOpen()){ Except("fs::_readFile(): Open file error.\n"); return V(); } 
+	size_t fsize = f.size(); if(fsize==0){ return f._readEOF<V>(); }else if(fsize==NPOS){ Except("fs::_readFile(): fail get file size.\n"); }
 	V data(fsize); f.read((char*)data.data(), data.size()); f.close(); return data; }
 Buffer readFile(const CString& path){ return _readFile<Buffer>(path); }
 	
 Array<String> readLines(const CString& path){ Array<String> lines; FStream f(path, FStream::IO_READ);
-	if(!f.isOpen()){ print("(!) fs::readLines(): Open file error.\n"); return lines; }
+	if(!f.isOpen()){ Except("fs::readLines(): Open file error.\n"); return lines; }
     char _b[DEF_SIZE]; int rbytes = 0; String line;
     while((rbytes = f.read(_b, sizeof(_b)))>0){ int idx=0;
         for(int i=0; i<rbytes; ++i){ 
@@ -136,7 +154,7 @@ Array<String> readLines(const CString& path){ Array<String> lines; FStream f(pat
 		line.push(_b+idx, rbytes-idx); if(line.back()=='\r') line.pop();
     } lines.push(line); f.close(); return lines; }
 	
-String readFstLine(const CString& path){ FStream f(path, FStream::IO_READ); if(!f.isOpen()){ print("fs::readFirstLine(): Open file error.\n"); return ""; }  
+String readFstLine(const CString& path){ FStream f(path, FStream::IO_READ); if(!f.isOpen()){ Except("fs::readFirstLine(): Open file error.\n"); return ""; }  
 	String line; f.readline(line, true); return line; }
 
 StringMap ConfigRead(const CString& path, bool unescape=false, const CString& delim="="){ Array<String> lines=readLines(path);
@@ -149,13 +167,13 @@ bool ConfigWrite(const CString& path, StringMap config, String delim="="){ Buffe
 DoubleMap stat(const CString& path){ DoubleMap stinfo;
 	#ifdef _WIN32
 	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-    if(GetFileAttributesExW(_toWStr(path).c_str(), GetFileExInfoStandard, &fileInfo) == 0){ print("(!) stat: get file attributes fail.\n"); return stinfo; }
+    if(GetFileAttributesExW(_toWStr(path).c_str(), GetFileExInfoStandard, &fileInfo) == 0){ Except("stat: get file attributes fail.\n"); return stinfo; }
     LARGE_INTEGER fileSize; fileSize.LowPart = fileInfo.nFileSizeLow; fileSize.HighPart = fileInfo.nFileSizeHigh;
 	stinfo["mode"] = (double)fileInfo.dwFileAttributes; stinfo["size"] = (double)fileSize.QuadPart; 
 	stinfo["blocks"] = stinfo["size"]/512.0; stinfo["atime"] = (double)_FtToUnixTime(fileInfo.ftLastAccessTime);
 	stinfo["mtime"] = (double)_FtToUnixTime(fileInfo.ftLastWriteTime); stinfo["ctime"] = (double)_FtToUnixTime(fileInfo.ftCreationTime);
 	#else
-	struct stat statbuf; if(::stat(path.c_str(), &statbuf)!=0){ print("(!) stat: get stat fail.\n"); return stinfo; }
+	struct stat statbuf; if(::stat(path.c_str(), &statbuf)!=0){ Except("stat: get stat fail.\n"); return stinfo; }
 	stinfo["dev"]=statbuf.st_dev; stinfo["mode"]=statbuf.st_mode; stinfo["size"]=statbuf.st_size; stinfo["blocks"]=statbuf.st_blocks;
 	stinfo["ino"]=statbuf.st_ino; stinfo["nlink"]=statbuf.st_nlink; stinfo["uid"]=statbuf.st_uid; stinfo["gid"]=statbuf.st_gid;
 	stinfo["atime"]=statbuf.st_atime; stinfo["mtime"]=statbuf.st_mtime; stinfo["ctime"]=statbuf.st_ctime;
@@ -201,10 +219,10 @@ bool rm(const CString& path){ return unlink(path); }
 Array<String> readDir(const CString& path){ Array<String> files;
 #ifdef _WIN32
     WIN32_FIND_DATAW findFileData; HANDLE hF=FindFirstFileW(_toWStr(path+"\\*").c_str(), &findFileData);
-    if(hF==INVALID_HANDLE_VALUE){ print("(!) Failed to open directory: "); print(path); print("\n"); return files; }
+    if(hF==INVALID_HANDLE_VALUE){ Except("Failed to open directory: "+String(path)+"\n"); return files; }
     do { files.push(_toUTF8(findFileData.cFileName)); }while(FindNextFileW(hF, &findFileData) != 0); FindClose(hF);
 #else
-    DIR* dir = opendir(path.c_str()); if(dir==NULL){ print("(!) Failed to open directory: "); print(path); print("\n"); return files; }
+    DIR* dir = opendir(path.c_str()); if(dir==NULL){ Except("Failed to open directory: "+String(path)+"\n"); return files; }
     struct dirent* entry; while((entry = readdir(dir)) != NULL){ String name=entry->d_name; files.push(name); } closedir(dir);
 #endif
 	return files; }

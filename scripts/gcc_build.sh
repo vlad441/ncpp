@@ -2,11 +2,11 @@
 source ./_params.sh
 #./_gcc_obj_make.sh
 cppfile="$currCD/../src/ncpp.cpp"
-ncpp_include="$currCD/../include"
-ncpp_lib="$currCD/../lib"
+INCL_DIR="$currCD/../include"
+LIB_DIR="$currCD/../lib"
 start_time=$(date +%s)
 [ -z "$gccpath" ] && gccar=ar || gccar="$gccpath/ar"
-mkdir -p "$ncpp_lib"
+mkdir -p "$LIB_DIR"
 
 #cd ../lib/obj || exit 1
 #echo "Packing in archive libncpp.a..."
@@ -15,12 +15,12 @@ mkdir -p "$ncpp_lib"
 
 if [ -z "$gccpath" ]; then gccbin=g++; else cd "$gccpath" && gccbin="./g++"; fi
 echo "Build static-bundle lib..."
-$gccbin -D NCPP_LIB_BUILD -Wall -c "$cppfile" -o "$ncpp_lib/ncpp.o" $gcc_flags -I "$ncpp_include" $ext_flags
-ar rcs "$ncpp_lib/libncpp-bundle.a" "$ncpp_lib/ncpp.o"
-rm "$ncpp_lib/ncpp.o"
+$gccbin -D LIB_DIR_BUILD $WARN_FLAGS $OPT_FLAGS -c "$cppfile" -o "$LIB_DIR/ncpp.o"  -I "$INCL_DIR"
+ar rcs "$LIB_DIR/libncpp-bundle.a" "$LIB_DIR/ncpp.o"
+rm "$LIB_DIR/ncpp.o"
 
 echo "Build dynamic lib..."
-$gccbin -D NCPP_LIB_BUILD -fPIC -shared "$cppfile" -o "$ncpp_lib/libncpp.so" $gcc_flags $dll_lnk_flags $ext_flags
+$gccbin -D LIB_DIR_BUILD $WARN_FLAGS -fPIC -shared $OPT_FLAGS "$cppfile" -o "$LIB_DIR/libncpp.so" $D_LNK_FLAGS
 if [ -z "$gccpath" ]; then gccbin=g++; else cd "$currCD"; fi
 
 # === Time ===

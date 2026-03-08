@@ -10,9 +10,9 @@ Console cons;
 
 //void timer_test(Thread::Signal* sgn1){ (*sgn1).notify(); }
 
-int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version();
+int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); arch_current();
 
-	cons.setColor(2) << "colored output\n"; cons.reset();
+	cons.setColor(2) << " colored output\n"; cons.reset();
 	print("Hi, Julien Lete\n - Is a print()\n\n");
 	
 	Buffer buff("Hi, ncpp");

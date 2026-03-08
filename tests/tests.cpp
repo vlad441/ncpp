@@ -38,7 +38,7 @@ void Sys_module_test();
 
 int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); arch_current(); //setInterval(_dbg_ShowAllocs, 1000);
 	// === BEGIN TEST ===
-	//Base_module_test();
+	Base_module_test();
 	//Structs_module_test();
 	Crypto_module_test();
 	// === END TEST ===

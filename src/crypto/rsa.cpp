@@ -37,7 +37,7 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 		if(gcd(a, mod) != BigInt(1)){ print("(!) modInverse: Modular inverse does not exist: 'a' and 'mod' have a common divisor."); return BigInt(); }
 		while (a > 1){ q = a / mod; t = mod; mod = a % mod; a = t; t = x0; x0 = x - q * x0; x = t; } if(x<0){ x += m0; } return x; }
 	
-	struct PrivateKey; struct PublicKey;
+	struct PrivateKey; struct PublicKey; struct MontgomeryCtx { BigInt R; BigInt R_inv; BigInt M_prime; };
 	PrivateKey genPrivateKey(int bitLength);
 	PublicKey genPublicKey(const PrivateKey& privKey);
 	Pair<BigInt, BigInt> recoverPQ(const BigInt& n, const BigInt& d, const BigInt& e);
@@ -51,6 +51,7 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 		BigInt dP; // d mod (p-1)
 		BigInt dQ; // d mod (q-1)
 		BigInt qInv; // q^(-1) mod p
+		//MontgomeryCtx m_ctx;
 		
 		PrivateKey(){  }
 		PrivateKey(int bitLength){ generate(bitLength); }
@@ -66,8 +67,8 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 		void generate(int bitLength=DEFAULT_BITS){ *this = genPrivateKey(bitLength); }
 		void clear(){}
 		void exportKey(){}
-		size_t size(){ return d.size(); }
-		size_t bits(){ return d.size()*8; }
+		size_t size() const { return d.size(); }
+		size_t bits() const { return d.size()*8; }
 		private:
 			void calcDerivedValues(BigInt e1=PUBLIC_EXPONENT){ if(n==0){ n = p * q; d = modInverse(e1, (p-1)*(q-1));
 				dP = d % (p-1); dQ = d % (q-1); qInv = modInverse(q, p); }
@@ -85,10 +86,10 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 		void import(const BigInt& n1, const BigInt& e1=PUBLIC_EXPONENT){ n=n1; e=e1; calcDerivedValues(); }
 		void clear(){}
 		void exportKey(){}
-		size_t size(){ return n.size(); }
-		size_t bits(){ return n.size()*8; }
+		size_t size() const { return n.size(); }
+		size_t bits() const { return n.size()*8; }
 		private:
-			void calcDerivedValues(){ if(e==0){ e = PUBLIC_EXPONENT; } }
+			void calcDerivedValues(){ if(e==0) e = PUBLIC_EXPONENT; }
 	};
 	
 	bool CheckDivisibleBySmallPrimes(const BigInt& n){
@@ -131,6 +132,9 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 			for (int j = 0; j < s - 1; ++j){ x = BigInt::powMod(x, 2, n); if(x == n - BigInt(1)) break;
 				if (x == 1){ BigInt p = gcd(x - BigInt(1), n); BigInt q = n / p; return Pair<BigInt, BigInt>(p, q); } }
 		} return Pair<BigInt, BigInt>(0, 0); }
+	
+	BigInt mulMod(const BigInt& a, const BigInt& b, const BigInt& mod, const MontgomeryCtx& ctx);
+	
 	//PKCS#1 v1.5 или OAEP
 	Buffer addPKCS1v15Padding(const Buffer& buffer, int blockSize){ return buffer; //test nothing;
 		if ((int)buffer.size() > blockSize-11){ print("(!) Buffer size too large for PKCS#1 v1.5 padding."); return BigInt().toBuff(); }
@@ -146,9 +150,17 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 	//C=M^e mod n (Example: C=65^17 mod 3233 = 2790)
 	Buffer encryptBlock(const PublicKey& pubKey, const Buffer& data){ return BigInt::powMod(BigInt(data), pubKey.e, pubKey.n); }
 	//M=C^d mod n (Example: M=2790^2753 mod 3233 = 65)
-	Buffer decryptBlock(const PrivateKey& privKey, const Buffer& buff){ return BigInt::powMod(BigInt(buff), privKey.d, privKey.n); }
+	//Buffer decryptBlock(const PrivateKey& privKey, const Buffer& buff){ return BigInt::powMod(BigInt(buff), privKey.d, privKey.n); } // Simple and Slower variant
 	
-	Buffer encrypt(const PublicKey& pubKey, const Buffer& buffer, int blockSize=0){ int keysize=pubKey.n.size(); //std::cout << "encrypt: INPUT: n = " << pubKey.n << "(" << pubKey.n.cout() << ")" << std::endl;
+	Buffer decryptBlock(const PrivateKey& privKey, const Buffer& buff){ //CRT RSA Decrypt
+		BigInt C(buff);
+		BigInt m1 = BigInt::powMod(C, privKey.dP, privKey.p); // 1. m1 = C^(dp) mod p (Используем p и dP из privKey) 
+		BigInt m2 = BigInt::powMod(C, privKey.dQ, privKey.q); // 2. m2 = C^(dq) mod q (Используем q и dQ из privKey)
+
+		BigInt h = privKey.qInv * (m1-m2).abs() % privKey.p; // 3. h = qInv * (m1 - m2) mod p
+		BigInt M = m2 + (h * privKey.q); return M.toBuff(); } // 4. M = m2 + h * q
+		
+	Buffer encrypt(const PublicKey& pubKey, const Buffer& buffer, int blockSize=0){ int keysize=pubKey.size(); //std::cout << "encrypt: INPUT: n = " << pubKey.n << "(" << pubKey.n.cout() << ")" << std::endl;
 		Buffer encryptedBuffer; if(blockSize<=0){ blockSize=keysize-11; if(blockSize<=0){ blockSize=1; } }
 		for(size_t i = 0; i < buffer.size(); i += blockSize){ //std::cout << "encrypt: RSA DEBUG 1: cycle: " << i << "(Buff: " << buffer.slice(i,i+blockSize) << std::endl;
 			encryptedBuffer+=addPKCS1v15Padding(BigInt::powMod(BigInt(buffer.slice(i,i+blockSize)), pubKey.e, pubKey.n), keysize); } //std::cout << "encrypt: RSA DEBUG 2: complete." << std::endl; 

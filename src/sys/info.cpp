@@ -79,14 +79,14 @@ namespace system {
 		//TODO: getCoresTime for Windows
 		Array<CPUTime> getCoresTime(){ return Array<CPUTime>(); }
 		CPUTime getUsageTime(int pid=-1){ CPUTime stats; HANDLE hProc; if(pid<0){ hProc = GetCurrentProcess(); }
-			else{ hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid); if(!hProc){ print("Failed to open process.\n"); return stats; } }
+			else{ hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid); if(!hProc){ Except("getUsageTime: Failed to open process.\n"); return stats; } }
 			FILETIME creationTime, exitTime, kernelTime, userTime; GetProcessTimes(hProc, &creationTime, &exitTime, &kernelTime, &userTime); CloseHandle(hProc);
 			stats.system=_FtToUnixTime(kernelTime, 'm'); stats.user=_FtToUnixTime(userTime, 'm'); 
 			stats.idle=GetTimestamp('m')-_FtToUnixTime(creationTime, 'm')-stats.system-stats.user; return stats; }
 		#else
 		String model(){ Array<String> lines = fs::readLines("/proc/cpuinfo"); for(size_t indx=0;indx<lines.size();indx++){ 
 				if(lines[indx].startsWith("model name")){ Array<String> splt=lines[indx].split(":"); return splt[1].trim(); } } return ""; }	
-		CPUTime _parseCPUStats(const CString& line){ CPUTime stats; Array<String> splited = line.splitTokens(8);
+		CPUTime _parseCPUStats(const CString& line){ CPUTime stats; Array<String> splited = line._splitTokens<String>(8);
 			stats.user = stolln(splited[1]); stats.nice = stolln(splited[2]); stats.system = stolln(splited[3]); stats.idle = stolln(splited[4]); 
 			stats.iowait = stolln(splited[5]); stats.irq = stolln(splited[6]); stats.softirq = stolln(splited[7]); return stats; }
 		CPUTime getTotalTime(){ CPUTime avgtime; String line = fs::readFstLine("/proc/stat"); if(!line.startsWith("cpu ")){ return avgtime; } return _parseCPUStats(line); }
@@ -119,7 +119,7 @@ namespace system {
 		DoubleMap info(){ DoubleMap raminfo;
 		#ifdef _WIN32
 			MEMORYSTATUSEX statex; statex.dwLength = sizeof(statex);
-			if(!GlobalMemoryStatusEx(&statex)){ print("Failed to get memory status\n"); return DoubleMap(); }
+			if(!GlobalMemoryStatusEx(&statex)){ Except("Failed to get memory status\n"); return DoubleMap(); }
 			raminfo["used"] = (double)(statex.ullTotalPhys - statex.ullAvailPhys);
 			raminfo["available"] = (double)statex.ullAvailPhys; raminfo["total"] = (double)statex.ullTotalPhys;
 			raminfo["swap_total"] = (double)statex.ullTotalPageFile - (double)statex.ullTotalPhys;

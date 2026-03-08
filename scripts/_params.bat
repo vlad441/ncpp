@@ -4,8 +4,10 @@ set currCD=%CD%
 set cppfile=%CD%\..\example.cpp
 set exefile=%CD%\..\example.exe
 
-set gcc_flags=-O2 -std=c++98
-set lnk_flags=-static -s -lws2_32 -lpsapi -liphlpapi
-set dll_lnk_flags=-s -m32 -lws2_32 -lpsapi -liphlpapi
-::set lgui_flags="-lopengl32"
 set ext_flags=-fno-exceptions -fno-rtti -Wno-misleading-indentation
+
+set WARN_FLAGS=-Wall -Wno-misleading-indentation
+set OPT_FLAGS=-O2 -std=c++98 -fno-exceptions -fno-rtti
+set LIBS=-lws2_32 -lpsapi -liphlpapi
+set D_LNK_FLAGS=-s -m32 %LIBS%
+set LNK_FLAGS=-static %D_LNK_FLAGS%

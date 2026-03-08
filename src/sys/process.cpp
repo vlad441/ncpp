@@ -13,7 +13,7 @@ namespace ncpp{
 			}while(bread >= sizeof(buf)); } GetExitCodeProcess(pi.hProcess,&exit); if(exit!=STILL_ACTIVE){ break; } Sleep(200); }
 		CloseHandle(pi.hThread); CloseHandle(pi.hProcess); CloseHandle(newstdout); CloseHandle(hRead); return str;
 	#else
-		String ecmd="/bin/sh -c \""+cmd+" 2>&1\""; FILE* pipe = popen(ecmd.c_str(), "r"); if(!pipe){ print("(!) popen() failed!"); return ""; }
+		String ecmd="/bin/sh -c \""+cmd+" 2>&1\""; FILE* pipe = popen(ecmd.c_str(), "r"); if(!pipe){ Except("popen() failed!"); return ""; }
 		while(fgets(buf, sizeof(buf), pipe)!=NULL){ if(stream==NULL){ ss << buf; }else{ (*stream) << buf; } } pclose(pipe);
 	#endif
 		return ss; }
@@ -79,7 +79,7 @@ namespace ncpp{
 			ssize_t count = readlink(path.c_str(), result, PATH_MAX); if(count!=-1){ return String(result, count); } return ""; }
 		static ProcessInfo GetProcInfo(int pid){ ProcessInfo pinfo; pinfo.pid = -1; size_t pgsize = sysconf(_SC_PAGESIZE);
 			String line=fs::_readFile<String>("/proc/"+dtos(pid)+"/stat"); Array<String> spltd = line.splitTokens(24);
-			if(spltd.size()<24){ print("(!) GetProcInfo err: read proc data: "); print(spltd.size()); print("/24\n"); }
+			if(spltd.size()<24){ Except("(!) GetProcInfo err: read proc data: "+dtos(spltd.size())+"/24\n"); }
 			pinfo.pid = stoin(spltd[0]); pinfo.name = spltd[1].slice(1,-1); pinfo.state = *spltd[2].c_str();
 			pinfo.parent = stoin(spltd[3]); pinfo.priority = stoin(spltd[17]); pinfo.nice = stoin(spltd[18]);
 			pinfo.threads = stoin(spltd[19]); pinfo.virt = stolln(spltd[22]); pinfo.rss = stolln(spltd[23]); pinfo.rss = pinfo.rss*pgsize; return pinfo; }
@@ -104,9 +104,9 @@ namespace ncpp{
 				#else
 				pid_t p = fork(); if(p==0){ setsid(); }else if(p > 0){ return p; }else{ return -1; }
 				#endif
-				} Array<String> args = execpath.split(" "); Array<char*> argv; for(size_t i=0;i<args.size();i++){ argv.push((char*)args[i].c_str()); }
+				} Array<String> args = execpath._split<String>(" "); Array<char*> argv; for(size_t i=0;i<args.size();i++){ argv.push((char*)args[i].c_str()); }
 				argv.push(NULL); int status = posix_spawn(&pid, argv[0], NULL, &attr, argv.data(), environ);
-				posix_spawnattr_destroy(&attr); if (status != 0){ print("(!) posix_spawn failed: "); print(strerror(status)); print("\n"); } }
+				posix_spawnattr_destroy(&attr); if (status != 0){ Except("(!) posix_spawn failed: "+String(strerror(status))+"\n"); } }
 			else{ pid_t p = fork(); if(opts.detach >= 1){ setsid(); } if(p == -1){ return -1; } 
 				else if(p == 0){ execl("/bin/sh", "sh", "-c", execpath.c_str(), (char *)0); exit(EXIT_FAILURE); } else { pid = p; } }
 		#endif

@@ -147,15 +147,6 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 			signal(SIGPIPE, SIG_IGN);
 			#endif
 		}
-		#if __cplusplus >= 201103L
-		//TCPServer(TCPServer&& other){ _move(other); }
-		TCPServer& operator=(TCPServer&& other){ move(other.sock, sock); return *this; }
-		#else
-		//TCPServer(TCPServer& other){ _move(other); } //"передача" права на уничтожение дескриптора.
-		TCPServer& operator=(TCPServer other){ move(other.sock, sock); return *this; }
-		//TCPServer(const TCPServer& other){ _move((Socket&)other); } // UB: non-const violation
-		//TCPServer& operator=(const TCPServer& other){ _move((Socket&)other); return *this; } // UB: non-const violation
-		#endif
 		~TCPServer(){ if(sock.autodestroy) close(); }
 		bool bind(int port, const CString& bindip="::"){
 			if(!sock.bind(port, bindip)){ print("(!) TCPServer: bind failed on port: "+dtos(port)+"\n"); return false; }
@@ -168,6 +159,21 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		void run(){ _runSelect();
 			//addServSocket((Socket*)this); sockets.erase((Socket*)this); waitAndProcess(); 
 		}
+		
+		#if __cplusplus >= 201103L //move for C++11
+		TCPServer(TCPServer&& tmp) noexcept { move(*this, tmp); }
+		TCPServer& operator=(TCPServer&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+		TCPServer(const TCPServer&) = delete; TCPServer& operator=(const TCPServer&) = delete; //Запрет копирования.
+		TCPServer& steal(TCPServer& tmp){ move(*this, tmp); return *this; }
+		TCPServer& steal(TCPServer&& tmp){ move(*this, tmp); return *this; }
+		friend void move(TCPServer& dst, TCPServer&& tmp){ move(dst, (TCPServer&)tmp); }
+		#else //move for C++98
+		private: TCPServer(const TCPServer&); TCPServer& operator=(const TCPServer&); public: //Скрытие копирования.
+		TCPServer& steal(const TCPServer& victim){ move(*this, (TCPServer&)victim); return *this; }
+		friend void move(TCPServer& dst, const TCPServer& victim){ move(dst, (TCPServer&)victim); }
+		//TCPServer& operator=(TCPServer other){ move(*this, other); return *this; } //Old UB rvalue copy imitator
+		#endif
+		friend void move(TCPServer& dst, TCPServer& tmp){ move(dst.sock, tmp.sock); }
 	};
 	
 	struct ReqCache { http::Req req; bool headwait; Buffer bf, wsbf; unsigned int bodylen; bool ws; ReqCache() : headwait(true), bodylen(0), ws(false){} };

@@ -437,12 +437,22 @@ void Buffer_test(){ const char* ctest="Test str"; Buffer copy; unsigned int tmpv
 	TEST_EQ(Buffer::concat(Buffer("A"), Buffer("B")).toString(), "AB");
 }
 
+void Date_test(){
+	NextTest("Date()"); Date date; TEST_EQ(date.timestamp, Date::now());
+	NextTest("Date(long long msecs, char type='s')"); date=Date(2000); TEST_EQ(date.timestamp, 2000LL); 
+	date=Date(2000, 's'); TEST_EQ(date.timestamp, 2000LL); date=Date(2000, 'm'); TEST_EQ(date.timestamp, 2LL);
+	NextTest("Date(const CString& dateStr)"); date=Date("2026.02.02 01:09:05"); TEST_EQ(date.timestamp, 1769994545LL);
+	//NextTest("Date(const DValue& dv)");
+	NextTest("Date::now()"); TEST_EQ(Date::now(), GetTimestamp('s'));
+	
+}
+
 void Base_module_test(){
-	NextTest("print(const char *cstr)"); print("-- Hi, ncpp.\n");
-	Array_test();
-	String_test();
-	//Dtos_test();
-	Buffer_test();
-	//HashMap_test()
-	//utils_test()
+	//Array_test();
+	//String_test();
+	///Dtos_test();
+	//Buffer_test();
+	///HashMap_test();
+	Date_test();
+	///utils_test();
 }

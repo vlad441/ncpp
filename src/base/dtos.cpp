@@ -33,14 +33,12 @@ namespace ncpp{
 		if(exponent == 0x7FF && mantissa != 0){ return 1; } //NaN 
 		if(exponent == 0x7FF && mantissa == 0){ if(dbits.u & 0x8000000000000000ULL){ return 3; }else{ return 2; } } return 0; } //-Inf/Inf
 	
-	String dtos(double d, char precision=-1) noexcept { char str[27]; int i=0; bool negate=false; long long num=(long long)d;
+	String dtos(double d, char precision=-1) noexcept { char str[27]; int i=0; bool negate=false; if(d<0){ d=-d; negate=true; } 
 		switch(isNaN(d)){ case 1: return String("NaN", 3); case 2: return String("Inf", 3); case 3: return String("-Inf", 4); }
-		if(num < 0){ num = -num; negate=true; } do { str[i++] = num % 10 + '0'; } while ((num /= 10) > 0); if(negate) str[i++] = '-'; reverse(str, str+i);
+		long long num=(long long)d; do{ str[i++] = num % 10 + '0'; }while((num /= 10) > 0); if(negate) str[i++] = '-'; reverse(str, str+i);
 		
 		if(precision!=0){ str[i++] = '.'; num=(long long)d; d-=num; if(precision==-1) precision=D_PRECISION;
-			for(int j = 0; j<precision; j++){ char digit=(char)d;
-				d *= 10; digit = (int)d; str[i++] = digit + '0'; d -= digit; } }
-		return String(str, i); };
+			for(int j = 0; j<precision; j++){ char digit=(char)d; d*=10; digit=(int)d; str[i++] = digit + '0'; d -= digit; } } return String(str, i); };
 	String dtos(float num, char precision=-1) noexcept { return dtos((double)num, precision==-1?F_PRECISION:precision); };
 	
 	#define INTMAX_HALF10 INT_MAX/10

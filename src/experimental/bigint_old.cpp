@@ -57,7 +57,7 @@ namespace ncpp{
 				if((exp.back()&1)!=0){ result = multiply(result, base); }
 				base = multiply(base, base); Buffer::divide_single(exp, 2); } return result; }
 		//TODO: Knuth’s Algorithm D (https://skanthak.hier-im-netz.de/division.html)
-		//#include "experimantal/ncpp-divide_knuth.cpp"
+		//#include "experimental/ncpp-divide_knuth.cpp"
 		//TODO: Алгоритм Карацубы (>=128-256 bytes)
 		/*static Buffer karatsuba_multiply(const Buffer& a, const Buffer& b){
 			if(a.size() <= 4 || b.size() <= 4){ return multiply(a, b); }

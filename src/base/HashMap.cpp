@@ -13,13 +13,7 @@ uint32_t hash(const String& s){ return Fnv1a(s.c_str(), s.size()); }
 uint32_t hash(const CString& cs){ return Fnv1a(cs.c_str(), cs.size()); }
 uint32_t hash(const Buffer& bf){ return Fnv1a((const char*)bf.data(), bf.size()); }
 
-//template <>
-//struct hash<int>{ size_t operator()(int val) const { return val; } }
-
-template <typename K, typename V>
-struct Pair { K first; V second; Pair(const K& k=K(), const V& v=V()) : first(k), second(v){}
-	K& key(){ return first; } const K& key() const { return first; }
-	V& value(){ return second; } const V& value() const { return second; } };
+//template <> struct hash<int>{ size_t operator()(int val) const { return val; } }
 
 template <typename K>
 struct _KData { K first; _KData(const K& k, const K& v) : first(k){}; 
@@ -33,7 +27,8 @@ template <typename K, typename V, typename KVData, typename Derived>
 class _HashTable {
     struct Entry { KVData data; bool occupied;
         Entry() : data(K(), V()), occupied(false){}
-        Entry(const K& key, const V& val) : data(key, val), occupied(true){} };
+        Entry(const K& key, const V& val) : data(key, val), occupied(true){}
+	};
     Array<Entry> table; size_t _size;
 
     size_t _hash(const K& key) const { return hash(key); }
@@ -49,7 +44,7 @@ class _HashTable {
             next = (next + 1) % table.size(); } }
     
     template <typename ValT, typename ArrEntryT, typename IterDerived>
-    struct _Iter { size_t idx; ArrEntryT* tbl;
+    struct _Iter { size_t idx; ArrEntryT* tbl; _Iter() : idx(0), tbl(NULL){}
 		_Iter(ArrEntryT* table, size_t idx1=0) : idx(idx1), tbl(table){}
 
 		ValT& operator*() const { return (*tbl)[idx].data; }
@@ -69,9 +64,9 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
     _HashTable() : _size(0){ table.resize(8); }
     
     //typedef _Iter<const KVData, const Array<Entry>> ConstIter;
-	struct ConstIter : _Iter<const KVData, const Array<Entry>, ConstIter> {
+	struct ConstIter : _Iter<const KVData, const Array<Entry>, ConstIter> { ConstIter() : _Iter<const KVData, const Array<Entry>, ConstIter>(){}
 		ConstIter(const Array<Entry>* table, size_t idx1=0) : _Iter<const KVData, const Array<Entry>, ConstIter>(table, idx1){} };
-    struct Iter : _Iter<KVData, Array<Entry>, Iter> {
+    struct Iter : _Iter<KVData, Array<Entry>, Iter> { Iter() : _Iter<KVData, Array<Entry>, Iter>(){}
 		Iter(Array<Entry>* table, size_t idx1=0) : _Iter<KVData, Array<Entry>, Iter>(table, idx1){}
 		operator ConstIter() const { return ConstIter(this->tbl, this->idx); } };
 	typedef Iter iterator; typedef ConstIter const_iterator;
@@ -82,7 +77,7 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
 	Iter end(){ return Iter(&table, table.size()); }
 	bool empty() const { return _size<=0; }
 	size_t size() const { return _size; }
-	void clear(){ table.clear(); _size=0; }
+	void clear(){ table.clear(); table.resize(8); _size=0; }
 
     Pair<Iter,bool> insert(const K& key, const V& value=V()){
 		//String debug("== debug: "); debug << dtos((float)(_size+1), 2) << "/" << table.size() << "\n"; print(debug);

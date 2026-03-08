@@ -4,9 +4,9 @@ namespace ncpp{
 	typedef unsigned __int128 uint128_t;
     //#define CARRY_MAX (CARRY_T)-1 // VS ~((CARRY_T)0)
 #else
-	#include "../experimantal/__int128.cpp"
+	#include "../experimental/__int128.cpp"
 #endif
-	//TODO: RSA CRT, умножение Карацубы, modular exponential Монтгомери
+	//TODO: умножение Карацубы, modular exponential Монтгомери
 	struct BigInt { //(https://gmplib.org/manual/Algorithms)
 	#if __SIZEOF_INT128__
 		typedef unsigned long long ELEM_T; typedef uint128_t CARRY_T; typedef int128_t DIFF_T;
@@ -61,7 +61,8 @@ namespace ncpp{
 		size_t bits() const { return size()*8; }
 		bool IsEven() const { return (parts.front() & 1) == 0; }
 		bool IsZero() const { return parts.empty()||(parts.size()==1&&parts.front()==0); }
-		void negate(){ sign?sign=false:sign=true; }
+		BigInt& negate(){ sign?sign=false:sign=true; return *this; }
+		BigInt& abs(){ if(!sign) sign=true; return *this; }
 		// Вывод
 		Buffer toBuffLE() const { Buffer bf(parts.size()*ELEM_SZ); memcpy(bf.data(), (char*)parts.data(), bf.size());
 			Buffer::removeLastZeros(bf); return bf; }
@@ -126,7 +127,19 @@ namespace ncpp{
 			if(resize) removeLeadingZeros(a); }
 		static BigInt subtract(const BigInt& a, const BigInt& b, bool resize = true){ BigInt a1=a; _subtract(a1, b, resize); return a1; }
 		
-		static BigInt multiply(const BigInt& a, const BigInt& b, bool resize = true){ const Array<ELEM_T>& arr_a = a.parts; const Array<ELEM_T>& arr_b = b.parts;
+		static BigInt multiply(const BigInt& a, const BigInt& b, bool resize = true){ return multiply_native(a, b, resize); }
+		
+		static BigInt divide(const BigInt& a, const BigInt& b, bool resize = true){ return divmod(a, b).first; }
+		static BigInt mod(const BigInt& a, const BigInt& b, bool resize = true){ return divmod(a, b).second; }
+		static Pair<BigInt,BigInt> divmod(const BigInt& a, const BigInt& b, bool resize = true){
+			if(b.IsZero()){ return Pair<BigInt,BigInt>(0, 0); } char cmp_ab = compare(a, b);
+			if(cmp_ab < 0){ return Pair<BigInt,BigInt>(0, a); }
+			if(cmp_ab == 0){ return Pair<BigInt,BigInt>(1, 0); }
+			//if(b.parts.size()==1){ BigInt q=a; ELEM_T r = divide_single(q, b.parts[0]); return Pair<BigInt,BigInt>(q, r); }
+			return divmod_binary(a, b, resize); }
+		
+		// "Нативный" (школьный) алгоритм: O(N^2)
+		static BigInt multiply_native(const BigInt& a, const BigInt& b, bool resize = true){ const Array<ELEM_T>& arr_a = a.parts; const Array<ELEM_T>& arr_b = b.parts;
 			const size_t ARR_SZ = arr_a.size()+arr_b.size(); BigInt resp; Array<ELEM_T>& result = resp.parts; result.resize(ARR_SZ, 0);
 			// Основной цикл (школьный алгоритм): O(N^2)
 			for(size_t i = 0; i < arr_a.size(); ++i){ CARRY_T carry = 0;
@@ -134,23 +147,10 @@ namespace ncpp{
 					result[i + j] = (ELEM_T)(product & ELEM_MAX); carry = product >> (ELEM_SZ*8); }
 				if(carry != 0){ result[i + arr_b.size()] = (ELEM_T)carry; } }
 			if(resize){ removeLeadingZeros(resp); } return resp; }
-		
-		static BigInt divide(const BigInt& a, const BigInt& b, bool resize = true){ return divmod(a, b).first; }
-		static BigInt mod(const BigInt& a, const BigInt& b, bool resize = true){ return divmod(a, b).second; }
-		static Pair<BigInt,BigInt> divmod(const BigInt& a, const BigInt& b, bool resize = true){
-			if(b.parts.size()==0){ return Pair<BigInt,BigInt>(0, 0); }
-			//else if(b.parts.size()==1){ BigInt q=a; ELEM_T r = divide_single(q, b.parts[0]); return Pair<BigInt,BigInt>(q, r); }
-			return divmod_binary(a, b); }
-		//=== advanced matan ===
-		//Knuth’s Algorithm D (https://skanthak.hier-im-netz.de/division.html) - Не реализован :(
-		static Pair<BigInt,BigInt> divmod_knuth(const BigInt& a, const BigInt& b, bool resize = true);
+			
 		//Binary Division (Сдвиги и Вычитания): O(N^2)
 		static Pair<BigInt,BigInt> divmod_binary(const BigInt& a, const BigInt& b, bool resize = true){
 			//print("(#DEBUG) divmod_binary: "); print(a.toString()); print("/"); print(b.toString()); print(" ==\n");
-			if(b.IsZero()){ return Pair<BigInt,BigInt>(0, 0); } char cmp_ab = compare(a, b);
-			if(cmp_ab < 0){ return Pair<BigInt,BigInt>(0, a); }
-			if(cmp_ab == 0){ return Pair<BigInt,BigInt>(1, 0); }
-
 			BigInt remainder = a; BigInt quotient(0); BigInt temp_b = b; unsigned int shifts = 0;
 			while(compare(remainder, temp_b) >= 0){ temp_b <<= 1; shifts++; } temp_b >>= 1; shifts--;
 
@@ -163,6 +163,12 @@ namespace ncpp{
 				
 			if(resize){ removeLeadingZeros(quotient); removeLeadingZeros(remainder); } 
 			return Pair<BigInt,BigInt>(quotient, remainder); }
+			
+		//=== advanced matan ===
+		static BigInt multiply_karatsuba(const BigInt& a, const BigInt& b, bool resize = true);
+		
+		//Knuth’s Algorithm D (https://skanthak.hier-im-netz.de/division.html) - Не реализован :(
+		static Pair<BigInt,BigInt> divmod_knuth(const BigInt& a, const BigInt& b, bool resize = true);
 		
 		BigInt pow(BigInt base, BigInt exp){ BigInt result(1);
 			while(exp > 0){ if(exp % 2 == 1){ result = (result * base); }
@@ -225,10 +231,37 @@ namespace ncpp{
 		BigInt operator-() const { BigInt result = *this; result.sign=!result.sign; return result; }
 		
 		static void removeLeadingZeros(BigInt& bint){ while(bint.parts.size() > 1 && bint.parts.back() == 0) bint.parts.pop(); }
-		private: 
-			BigInt& _shift_left(unsigned int bits){ if(IsZero()||bits == 0) return *this; // (BigInt << int): O(N*B)
-				for(unsigned int i = 0; i < bits; ++i){ multiply_single(*this, 2); } return *this; }
-			BigInt& _shift_right(unsigned int bits){ if(IsZero() || bits == 0) return *this; // (BigInt >> int): O(N*B)
-				for(unsigned int i = 0; i < bits; ++i){ divide_single(*this, 2); } return *this; }
+		private:
+			BigInt& _shift_left(unsigned int bits){ if(IsZero() || bits == 0) return *this; // O(N)
+				const unsigned int ELEM_BITS = ELEM_SZ*8;
+				unsigned int elem_shift = bits / ELEM_BITS; // Сдвиг на целое кол-во элементов
+				unsigned int bit_shift = bits % ELEM_BITS;  // Сдвиг внутри элемента (0 до ELEM_BITS-1)
+
+				if (elem_shift > 0){ parts.resize(parts.size()+elem_shift, 0);
+					for(int i = parts.size() - 1; i >= (int)elem_shift; --i){ parts[i] = parts[i - elem_shift]; }
+					for(unsigned int i = 0; i < elem_shift; ++i){ parts[i] = 0; } }
+
+				if (bit_shift > 0){ ELEM_T carry = 0; //ELEM_T high_mask = ELEM_MAX << (ELEM_BITS - bit_shift);
+					for(size_t i = elem_shift; i < parts.size(); ++i){
+						ELEM_T new_carry = parts[i] >> (ELEM_BITS - bit_shift); // Биты, которые уходят "вверх"
+						parts[i] = (parts[i] << bit_shift) | carry; carry = new_carry; }
+					if(carry != 0){ parts.push(carry); } } return *this; }
+
+			BigInt& _shift_right(unsigned int bits){ if(IsZero() || bits == 0) return *this; // O(N)
+				const unsigned int ELEM_BITS = ELEM_SZ*8;
+				unsigned int elem_shift = bits / ELEM_BITS; // Сдвиг на целое кол-во элементов
+				unsigned int bit_shift = bits % ELEM_BITS;  // Сдвиг внутри элемента
+				if(elem_shift >= parts.size()){ parts.clear(); return *this; }
+
+				if(elem_shift > 0){
+					for(size_t i = 0; i < parts.size() - elem_shift; ++i){ parts[i] = parts[i + elem_shift]; }
+					parts.resize(parts.size()-elem_shift); }
+
+				if (bit_shift > 0){ ELEM_T borrow = 0; unsigned int reverse_shift = ELEM_BITS - bit_shift;
+					for(int i = parts.size() - 1; i >= 0; --i){
+						ELEM_T current_carry = parts[i] << reverse_shift; // Биты, которые уходят "вниз"
+						parts[i] = (parts[i] >> bit_shift) | borrow; borrow = current_carry; } }
+				
+				removeLeadingZeros(*this); return *this; }
 	};
 }

@@ -14,7 +14,6 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 	
 	// == STL similar api ===
 	T* data() const { return _ptr; }
-	//T* data() const { return _ptr?_ptr:NCHAR; }
 	T* begin() const { return _ptr; }
 	T* end() const { return _ptr+_len; }
 	bool empty() const { return _len<=0; }
@@ -111,6 +110,13 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 			
 	Array<String> splitTokens(int limit=-1, const char* chars = " \t\r\n\f\v") const { return _splitTokens<String>(limit, chars); }
 	
+	template <typename V>
+	Array<V> _splitParts(int partSz) const { Array<V> result; if(partSz <= 0){ result.push(V(_ptr, _len)); return result; }
+		size_t numParts = (_len+partSz-1) / partSz; result.reserve(numParts); size_t start = 0; 
+		while(start < _len){ size_t end = start+partSz; result.push(_slice<V>((int)start, (int)end)); start = end; } return result; }
+		
+	Array<String> splitParts(int partSz) const { return _splitParts<String>(partSz); }
+	
 	bool startsWith(const char* prefix, size_t len) const { if(len==0||len > this->size()) return false;
 		for(size_t i = 0; i < len; ++i){ if(_ptr[i] != prefix[i]){ return false; } } return true; }
 	bool startsWith(const char* prefix) const { return startsWith(prefix, strlen(prefix)); }
@@ -141,7 +147,7 @@ struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
 	protected: T* _ptr; size_t _len, _msize; char _mode;
 };
 
-struct CString : BaseString<const char, CString>{
+struct CString : BaseString<const char, CString>{ //CString ≈ std::string_view
 	CString(){ _ptr=NULL; _len=0; }
 	CString(const char* c, size_t len){ _ptr=c; _len=len; }
 	CString(const char* c){ _ptr=c; _len=strlen(c); }
@@ -169,11 +175,12 @@ struct CString : BaseString<const char, CString>{
 
 #define _SSO_LEN 7
 struct String : BaseString<char, String>{ //String ≈ std::string
-	String(){ _init(0); }
+	typedef char* Iter; typedef const char* CIter; typedef CIter ConstIter;
+	typedef Iter iterator; typedef CIter const_iterator;
+	String(size_t len=0){ _init(len); }
+	String(size_t len, char v){ _init(len); memset(_ptr, v, _len); }
 	String(const char* ptr, size_t len){ _init(len); _set(ptr, len); }
 	String(const char* cptr){ _init(strlen(cptr)); _set(cptr, _len); }
-	String(size_t len){ _init(len); }
-	String(size_t len, char v){ _init(len); memset(_ptr, v, _len); }
 	String(const String& s){ _init(s._len); _set(s._ptr, s._len); }
 	String& operator=(const String& s){ _set(s.c_str(), s.size()); return *this; }
 	template <typename T, typename D>
@@ -183,21 +190,33 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	template <size_t N>
 	String(const char (&arr)[N]){ _init(strnlen(arr, N)); _set(arr, _len); } //char arr[];
 	~String(){ if(_mode==HEAP&&_ptr!=NULL) free(_ptr); }
+	
+	
 	// == STL similar api ===
 	const char* c_str() const { return _ptr; }
 	
 	String& reserve(size_t sz){ if(sz<=_msize||sz<=_SSO_LEN) return *this; if(_mode!=HEAP){ _alloc(sz, true); return *this; }
 		_msize=(sz<_msize*2)?_msize*2:sz; _ptr=(char*)realloc(_ptr, _msize);
-		if(_ptr==NULL){ print("ncpp::String realloc error: Out of memory"); exit(1); } return *this; }
+		if(_ptr==NULL){ Except("ncpp::String realloc error: Out of memory\n", 0, ERR_OOM); } return *this; }
 	String& resize(size_t len){ reserve(len+1); _len=len; _ptr[len]='\0'; return *this; }
+	
+	String& erase(size_t pos=0, size_t len = NPOS){ if(pos >= _len) return *this; if(len > _len-pos){ len = _len-pos; } erase(_ptr+pos, _ptr+pos+len); return *this; }
+	void erase(Iter first, Iter last){ if(first >= last || first < _ptr || last > _ptr+_len) return;
+        size_t end_pos = last-_ptr; memmove(first, last, _len-end_pos); _len -= last-first; }
+	void erase(Iter ipos){ erase(ipos, ipos+1); }
 	
 	void push_back(char v){ push(v); }
 	void pop_back(){ resize(--_len); }
 	
 	void clear(){ _len=0; }
-	void shrink_to_fit(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP||_isSSO()) return; _ptr=(char*)realloc(_ptr, _msize=_len);
-		if(_ptr==NULL){ print("ncpp::Buffer shrink mem error"); exit(1); } }
-	void shrink(){ shrink_to_fit(); }
+	void shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP||_isSSO()) return; 
+		if(_len==0){ free(_ptr); _ptr=NULL;
+		#if _SSO_LEN > 0
+			stack(_sso); _len=0;
+		#endif
+			return; }
+		_ptr=(char*)realloc(_ptr, _msize=_len); if(_ptr==NULL){ Except("ncpp::String shrink mem error\n", 0); } }
+	void shrink_to_fit(){ shrink(); }
 	// == ==
 	template <size_t N>
 	String& push(const char (&arr)[N]){ _append(arr, N); return *this; }
@@ -205,7 +224,7 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	String& push(const String& s){ _append(s.data(), s.size()); return *this; }
 	String& push(const CString& cs){ _append(cs.data(), cs.size()); return *this; }
 	String& push(char v){ _append(v); return *this; }
-	char pop(){ resize(--_len); return *(_ptr+_len); }
+	char pop(){ if(_len>0){ resize(--_len); } return *(_ptr+_len); }
 	String& fill(char v){ memset(_ptr, v, _len); return *this; }
 	
 	String replace(const CString& from, const CString& to, bool all = false) const {
@@ -252,29 +271,46 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	String& operator<<(long long num);
 	//String& operator<<(double num){}
 	template <typename T> String& operator<<(const Array<T>& arr){ *this+=arr.cout(); return *this; }
+		
+	operator Array<char>() const { return Array<char>((char*)_ptr, (char*)_ptr+_len); }
 	
+	void swap(String& other){ ncpp::swap(*this, other); }
 	friend void swap(String& a, String& b){ char* tmpc = a._ptr; a._ptr = b._ptr; b._ptr = tmpc;
 		size_t tmp = a._len; a._len = b._len; b._len = tmp;
 		tmp = a._msize; a._msize = b._msize; b._msize = tmp;
 		tmp = a._mode; a._mode = b._mode; b._mode = tmp; }
-	friend void move(String& a, String& b){ b._ptr = a._ptr; a._ptr = NULL; 
-		b._len = a._len; a._len = 0; b._msize = a._msize; a._msize = 0; a._mode = b._mode; }
 		
-	operator Array<char>() const { return Array<char>((char*)_ptr, (char*)_ptr+_len); }
+	#if __cplusplus >= 201103L //move for C++11
+	String(String&& tmp) noexcept { move(*this, tmp); }
+	String& operator=(String&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+	String& steal(String& tmp){ move(*this, tmp); return *this; }
+	String& steal(String&& tmp){ move(*this, tmp); return *this; }
+	friend void move(String& dst, String&& tmp){ move(dst, (String&)tmp); }
+	#else //move for C++98
+	String& steal(const String& victim){ move(*this, (String&)victim); return *this; }
+	friend void move(String& dst, const String& victim){ move(dst, (String&)victim); }
+	#endif
+	friend void move(String& dst, String& tmp){ if(dst._mode==HEAP&&dst._ptr!=NULL) free(dst._ptr);
+		#if _SSO_LEN > 0
+		if(tmp._isSSO()){ dst=tmp; tmp.clear(); return; } dst._ptr = tmp._ptr; tmp._ptr = tmp._sso; dst._msize = tmp._msize; tmp._msize=_SSO_LEN;
+		#else
+		dst._ptr = tmp._ptr; tmp._ptr = NULL; dst._msize = tmp._msize; tmp._msize = 0;
+		#endif
+		dst._len = tmp._len; tmp._len = 0;
+		dst._mode = tmp._mode; tmp._mode = STACK; }
 		
-	bool _isSSO(){ return _ptr==_sso; }
 	private: 
 		#if _SSO_LEN > 0
-		char _sso[_SSO_LEN];
+		char _sso[_SSO_LEN]; bool _isSSO(){ return _ptr==_sso; }
 		void _init(size_t len){ _len=len++; if(_len<_SSO_LEN){ _mode=STACK; _ptr=_sso; _sso[_len]='\0'; _msize=_SSO_LEN; }else{ _mode=HEAP; _alloc(len); } }
 		#else
 		void _init(size_t len){ _len=len; _mode=HEAP; _ptr=NULL; _msize=0; if(_len>0){ _alloc(len); } }
 		#endif
 		
 		// == allocator
-		void _alloc(size_t sz, bool copy=false){ if(_mode==STACK_ONLY){ print("(!) ncpp::String malloc error: mode=STACK_ONLY"); exit(1); }
+		void _alloc(size_t sz, bool copy=false){ if(_mode==STACK_ONLY){ Except("ncpp::String malloc error: mode=STACK_ONLY\n", 0); return; }
 			_msize=sz<_SSO_LEN*2?_SSO_LEN*2:sz; char* ptr0=_ptr; _ptr=(char*)malloc(_msize);
-			if(_ptr==NULL){ print("(!) ncpp::String malloc error: Out of memory"); exit(1); }
+			if(_ptr==NULL){ Except("ncpp::String malloc error: Out of memory\n", 0, ERR_OOM); }
 			if(copy){ memcpy(_ptr, ptr0, _len); } _mode=HEAP; }
 			
 		void _set(const char* ptr, size_t len){ if(len<=0){ _len=0; return; } resize(len); memcpy(_ptr, ptr, len); }
@@ -299,6 +335,14 @@ template <typename T> String Array<T>::cout() const { String ss("["); if(_len>0)
 	for(size_t i=1;i<this->size();i++){ ss << ", " << _ptr[i]; } ss+="]"; return ss; }
 template <> String Array<String>::cout() const { String ss("["); if(_len>0){ ss+="\""; ss<<_ptr[0]; }
 	for(size_t i=1;i<this->size();i++){ ss << "\", \"" << _ptr[i]; } if(_len>0) ss+="\""; ss+="]"; return ss; }
+	
+void Except(const String& s, int errlvl, int type){ Except(s.c_str(), errlvl, type); }
 
 template <typename T, typename D>
-void print(const BaseString<T, D>& s){ print(s.data(), s.size()); } }
+void print(const BaseString<T, D>& s){ print(s.data(), s.size()); } 
+
+#ifdef NCPP_LIB_BUILD
+//template struct BaseString<char, String>; //Принудительно сгенерировать код BaseString<char, String>
+//extern template struct Array<String>; //Не генерировать код Array<String> тут
+#endif
+}

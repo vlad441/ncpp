@@ -1,4 +1,4 @@
-namespace ncpp{ struct Console {
+namespace ncpp{ struct Console { enum Color { BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
 	void log(const char* c){ String ss(c); ss+='\n'; print(ss); }
 	void log(const CString& cs){ String ss(cs); ss+='\n'; print(ss); }
 	String input(){ return readline(); }
@@ -38,7 +38,7 @@ namespace ncpp{ struct Console {
 		if(!FillConsoleOutputCharacter(hConsole, (TCHAR)' ', cellsToClear, current_pos, &charsWritten)){ return *this; }
 		if(!FillConsoleOutputAttribute(hConsole, csbi.wAttributes, cellsToClear, current_pos, &charsWritten)){ return *this; }
 		SetConsoleCursorPosition(hConsole, current_pos); return *this; }
-	//Расширенная цветовая палитра недоступна в Windows cmd.exe
+	//Расширенная цветовая палитра недоступна в cmd.exe
 	Console& setColorEx(unsigned char color){ return *this; } Console& setColorEx(unsigned char r, unsigned char g, unsigned char b){ return *this; }
 	
 	private: HANDLE hConsole; WORD _base_attr; static const WORD win_colors[8];
@@ -68,7 +68,7 @@ const WORD Console::win_colors[8] = { 0, FOREGROUND_RED, FOREGROUND_GREEN, FOREG
 // 2	Зеленый
 // 3	Желтый
 // 4	Синий
-// 5	Пурпурный
+// 5	Пурпурный //MAGENTA #BB00BB or PURPLE: #800080 or VIOLET: #8F00FF
 // 6	Голубой
 // 7	Белый
 

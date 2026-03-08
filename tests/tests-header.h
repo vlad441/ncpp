@@ -12,7 +12,7 @@ void cpp_version(){ print("[");
 #elif __cplusplus >= 201103L
 	print("C++11");
 #else
-	print("c++98");
+	print("C++98");
 #endif
 	print("] UTF-8 кирилица にも含み\n"); }
 
@@ -30,14 +30,11 @@ void gcc_version(){ print("[Compiller] ");
 
 void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); 
 #ifdef NCPP_LIB_USE
-
-#endif
-#ifdef NCPP_LIB_USE
-print(" (Compiled via LIB)");
+	print(" (Compiled via LIB)");
 #else
-print(" (Directly compiled)");
+	print(" (Directly compiled)");
 #endif
-_ncpp_check_ver(); }
+	_ncpp_check_ver(); }
 
 void arch_current(){ print(" | [Arch]");
 #ifdef __x86_64__
@@ -46,7 +43,7 @@ void arch_current(){ print(" | [Arch]");
 	print("[i686]");
 #elif defined(__i386__) //x86 32 bit
 	print("[i386]");
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) || defined(__arm64__)
 	print("[ARM64]");
 #elif defined(__arm__)
 	print("[ARM]");

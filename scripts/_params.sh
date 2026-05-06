@@ -1,16 +1,19 @@
 #!/bin/bash
 #gccpath="~/gcc-4.9.2/bin"
 #clangpath="~/clang-3.5.2/bin"
+
 currCD=$(pwd)
-cppfile="$currCD/../test.cpp"
-exefile="$currCD/../test"
+cppfile="$currCD/../example.cpp"
+exefile="$currCD/../example"
 start_time=$(date +%s)
 
-gcc_flags="-O2 -std=c++98"
+WARN_FLAGS="-Wall -Wno-misleading-indentation"
+OPT_FLAGS="-O2 -std=c++98 -fno-exceptions -fno-rtti"
+LNK_FLAGS="-static -s -Wl,--whole-archive -lpthread -Wl,--no-whole-archive"
+D_LNK_FLAGS="-s -lpthread"
+
 #static_lnk_flags="-static -s -Wl,--whole-archive -lpthread -Wl,--no-whole-archive"
 #partial_static_flags="-lGL -Wl,-static -s -static-libgcc -static-libstdc++ -lc -Wl,--whole-archive -lpthread -Wl,--no-whole-archive"
-lnk_flags="-static -s -Wl,--whole-archive -lpthread -Wl,--no-whole-archive"
-dll_lnk_flags="-s -pthread -lGL"
 #lgui_flags="-Wl,-Bdynamic -lGL -Wl,-Bstatic"
 
 #gui_lnk_flags="-lGL -pthread -Wl,-static -s -static-libgcc -static-libstdc++ -lc"

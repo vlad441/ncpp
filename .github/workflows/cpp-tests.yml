@@ -1,0 +1,80 @@
+name: GCC Default Tests - Сloud
+
+on:
+  workflow_dispatch: # Добавляет кнопку "Run workflow"
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  OS-ubuntu-latest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Donwload and Checkout Code
+        uses: actions/checkout@v4
+
+      #- name: Install Dependencies
+      #  run: |
+      #    sudo apt-get update
+      #    sudo apt-get install -y build-essential --no-install-recommends
+
+      - name: C++98 Compiling Tests
+        run: |
+          cd tests/
+          chmod +x ./make_test.sh
+          bash ./make_test.sh C++98
+          
+      - name: C++98 Executing Tests
+        run: |
+          cd tests/
+          ./tests
+
+      - name: C++11 Compiling Tests
+        run: |
+          cd tests/
+          rm -f ./tests
+          bash ./make_test.sh C++11
+          
+      - name: C++11 Executing Tests 
+        run: |
+          cd tests/
+          ./tests
+  OS-windows-latest:
+    runs-on: windows-latest
+
+    steps:
+      - name: Donwload and Checkout Code
+        uses: actions/checkout@v4
+
+      - name: C++98 Compiling Tests
+        shell: cmd
+        run: |
+          cd tests/
+          make_test.bat C++98 x64
+          
+      - name: C++98 Executing Tests
+        shell: cmd
+        run: |
+          cd tests/
+          tests.exe
+
+      - name: C++11 Compiling Tests
+        shell: cmd
+        run: |
+          cd tests/
+          del tests.exe
+          make_test.bat C++11 x64
+          
+      - name: C++11 Executing Tests
+        shell: cmd
+        run: |
+          cd tests/
+          tests.exe
+  # OS-win7-gcc-4.9.2:
+    # runs-on: self-hosted win7
+  # OS-win7-gcc-3.4.2:
+    # runs-on: self-hosted win7
+  # OS-debian-old-gcc-4.9.2:
+    # runs-on: self-hosted linux2.6

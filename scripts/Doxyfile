@@ -1,0 +1,40 @@
+# --- Основные настройки проекта ---
+PROJECT_NAME           = "ncpp (Node C++)"
+OUTPUT_DIRECTORY       = ../docs-doxy
+GENERATE_LATEX         = NO
+GENERATE_HTML          = YES
+
+# --- Настройка ввода (Unity Build) ---
+# Укажи здесь путь к твоему главному файлу
+INPUT                  = ../src/
+RECURSIVE              = YES
+FILE_PATTERNS          = *.cpp *.h *.hpp *.c
+# Список папок или файлов через пробел
+EXCLUDE = ../src/stdcpp ../src/sys/gcc3_winxpdef.hpp ../src/experimental
+
+# --- Магия препроцессора (чтобы Doxygen заходил внутрь инклудов) ---
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+SEARCH_INCLUDES        = YES
+# Добавь сюда папки, где лежат твои .h и .cpp файлы, которые подключаются
+#INCLUDE_PATH           = src/ include/
+
+# --- Извлечение данных ---
+# В Unity Build часто всё static или внутри анонимных namespace
+EXTRACT_ALL            = YES
+#EXTRACT_STATIC         = YES
+#EXTRACT_PRIVATE        = YES
+#EXTRACT_LOCAL_CLASSES  = YES
+#EXTRACT_LOCAL_METHODS  = YES
+#EXTRACT_ANON_NSPACES   = YES
+
+# --- Графики и диаграммы (нужен установленный graphviz) ---
+#HAVE_DOT               = YES
+#CALL_GRAPH             = YES
+#CALLER_GRAPH           = YES
+#DIRECTORY_GRAPH        = YES
+#DOT_IMAGE_FORMAT       = svg
+#INTERACTIVE_SVG        = YES
+
+# --- Кодировка ---
+INPUT_ENCODING         = UTF-8

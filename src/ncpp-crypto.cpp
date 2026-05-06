@@ -4,16 +4,16 @@ namespace ncpp{ namespace crypto{
 #endif
 	Buffer randomBytes(size_t length){ Buffer bytes(length); 
 	#ifdef _WIN32
-		HCRYPTPROV hProvider = 0;
-		if(!CryptAcquireContext(&hProvider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)){ throw std::runtime_error("CryptAcquireContext failed"); }
-		if(!CryptGenRandom(hProvider, length, &bytes[0])){ CryptReleaseContext(hProvider, 0); 
-			throw std::runtime_error("CryptGenRandom failed: "+dtos(GetLastError())); } CryptReleaseContext(hProvider, 0);
+		static HCRYPTPROV hProvider = 0; 
+		if(hProvider == 0){ if(!CryptAcquireContext(&hProvider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)){ 
+				print("(!) CryptAcquireContext failed"); return Buffer(); } }
+		if(!CryptGenRandom(hProvider, length, &bytes[0])){ CryptReleaseContext(hProvider, 0); hProvider=0;
+			print("(!) CryptGenRandom failed: "+dtos(GetLastError())); return Buffer(); }
 	#else
-		std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
-		if(!urandom){ throw std::runtime_error("Failed to open /dev/urandom"); }
-		urandom.read((char*)&bytes[0], length); if(!urandom){ throw std::runtime_error("Failed to read from /dev/urandom"); }
+		FStream urand("/dev/urandom", FStream::IO_READ); if(!urand.isOpen()){ print("(!) Failed to open /dev/urandom"); return Buffer(); }
+		if(urand.read((char*)&bytes[0], length)<=0){ print("(!) Failed to read from /dev/urandom"); return Buffer(); }
 	#endif
-	return bytes; }
+		return bytes; }
 
 	struct Vigenere { int pos; Vigenere() : pos(0){}
 		static Buffer encode(const Buffer& key, Buffer value){ for(size_t i=0;i<value.size();i++){ value[i] += key[i % key.size()]; } return value; }
@@ -23,22 +23,28 @@ namespace ncpp{ namespace crypto{
 		Buffer decrypt(const Buffer& key, Buffer value){
 			for(size_t i=0;i<value.size();i++){ value[i] -= key[pos % key.size()]; pos = (pos + 1) % key.size(); } return value; }
 	};
-}}
+}
+BigInt BigInt::safeRandom(size_t bits){ return BigInt::fromBuffLE(crypto::randomBytes(bits/8)); }
+}
 
 #include "crypto/aes.cpp"
-//#include "crypto/rsa.cpp"
-//#include "crypto/dh.cpp"
+#include "crypto/rsa.cpp"
+#include "crypto/dh.cpp"
 
 #include "crypto/md5.cpp"
 #include "crypto/sha1.cpp"
 #include "crypto/sha2.cpp"
 #include "crypto/sha3.cpp"
 
+//TLS Cipher Suites: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
+//ECDHE Curves: secp256r1 (prime256v1), X25519
+//DSA: ECDSA, RSA-PSS (for RSA certs)
+
 
 namespace ncpp{ namespace crypto{
 	template <typename T>
-	Buffer checksum(T& algo, const String& path){ algo.reset(); fs::FStream f = fs::createReadStream(path);
-		if(f.destroyed){ throw Err("checksum: open file err: "+path); return Buffer(); } 
+	Buffer checksum(T& algo, const String& path){ algo.reset(); FStream f(path, FStream::IO_READ);
+		if(!f.isOpen()){ print("(!) crypto::checksum: open file err: "); print(path); print("\n"); return Buffer(); }
 		Buffer buff(65536); while(f.read(&buff)>0){ algo.update(buff); } f.close(); return algo.digest(); }
 			
 	template <typename T>

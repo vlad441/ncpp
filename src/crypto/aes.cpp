@@ -79,7 +79,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		} state.assign(tmp, tmp + 16); }
 
     void AddRoundKey(Buffer& state, const Buffer& roundKey){ for(size_t i = 0; i < state.size(); ++i){ state[i] ^= roundKey[i]; } }
-	void KeyExpansion(const Buffer& key, std::vector<Buffer>& roundKeys, const int& rounds){
+	void KeyExpansion(const Buffer& key, Array<Buffer>& roundKeys, const int& rounds){
         int keySize = key.size(); int numWords = keySize / 4; int numRoundKeys = 4 * (rounds + 1); 
 		roundKeys.resize(numRoundKeys/4); unsigned char temp[4];
 
@@ -97,7 +97,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
         }
 	}
 	int calc_rounds(const Buffer& key){ int rounds=10; if(key.size()==16){ rounds=10; }else if(key.size() == 24){ rounds = 12; }
-		else if(key.size()==32){ rounds = 14; }else{ throw std::runtime_error("AES: Invalid key size. Length: "+dtos((int)key.size()*8)+" bits"); } 
+		else if(key.size()==32){ rounds = 14; }else{ print("(!) AES: Invalid key size. Length: "+dtos((int)key.size()*8)+" bits"); return -1; }
 		return rounds; }
 	
 	void addPKCS7Padding(Buffer& data, const char& blockSize=16){
@@ -108,17 +108,17 @@ namespace ncpp{ namespace crypto{ namespace AES{
 	void removePKCS7Padding(Buffer& data, const char& blockSize=16){ if (data.empty()){ return; }
 		char lastByte = data.back();
 		int paddingLength = static_cast<int>(lastByte);
-		if(paddingLength > blockSize || paddingLength == 0){ throw std::runtime_error("AES: Invalid PKCS7 padding length. paddingLength: "+dtos(paddingLength)+"; blockSize: "+dtos(blockSize)); }
+		if(paddingLength > blockSize || paddingLength == 0){ print("(!) AES: Invalid PKCS7 padding length. paddingLength: "+dtos(paddingLength)+"; blockSize: "+dtos(blockSize)); return; }
 		for(int i = 0; i < paddingLength; ++i){ data.pop_back(); } }
 	
-	Buffer encryptBlock(const std::vector<Buffer>& roundKeys, Buffer block, const int& rounds=10){
+	Buffer encryptBlock(const Array<Buffer>& roundKeys, Buffer block, const int& rounds=10){
         AddRoundKey(block, roundKeys[0]);
         for (int round = 1; round < rounds; ++round){
             SubBytes(block); ShiftRows(block);
             MixColumns(block); AddRoundKey(block, roundKeys[round]); }
         SubBytes(block); ShiftRows(block); AddRoundKey(block, roundKeys[rounds]); return block; }
 
-    Buffer decryptBlock(const std::vector<Buffer>& roundKeys, Buffer block, const int& rounds=10){
+    Buffer decryptBlock(const Array<Buffer>& roundKeys, Buffer block, const int& rounds=10){
         AddRoundKey(block, roundKeys[rounds]);
         for (int round = rounds - 1; round > 0; --round){
             InvShiftRows(block); InvSubBytes(block);
@@ -126,45 +126,45 @@ namespace ncpp{ namespace crypto{ namespace AES{
         InvShiftRows(block); InvSubBytes(block); AddRoundKey(block, roundKeys[0]); return block; }
 	
 	Buffer ECB_encrypt(const Buffer& key, Buffer value){ static const char blockSize=16; int rounds=calc_rounds(key); 
-		std::vector<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds); addPKCS7Padding(value, blockSize); 
+		Array<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds); addPKCS7Padding(value, blockSize); 
 		Buffer encryptedData; size_t dataSize = value.size();
 		for (size_t i = 0; i < dataSize; i += blockSize){
 			Buffer block = value.slice(i, i+blockSize);
 			Buffer encryptedBlock = encryptBlock(roundKeys, block, rounds);
-			encryptedData.insert(encryptedData.end(), encryptedBlock.begin(), encryptedBlock.end());
+			encryptedData.push(encryptedBlock.data(), encryptedBlock.size());
 		} return encryptedData; }
 	
 	Buffer ECB_decrypt(const Buffer& key, Buffer value){ static const char blockSize=16; int rounds=calc_rounds(key); 
-		std::vector<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds);
+		Array<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds);
 		Buffer decryptedData; size_t dataSize = value.size();
 		for (size_t i = 0; i < dataSize; i += blockSize){
 			Buffer block = value.slice(i, i+blockSize);
 			Buffer decryptedBlock = decryptBlock(roundKeys, block, rounds);
-			decryptedData.insert(decryptedData.end(), decryptedBlock.begin(), decryptedBlock.end());
+			decryptedData.push(decryptedBlock.data(), decryptedBlock.size());
 		} removePKCS7Padding(decryptedData, blockSize); return decryptedData; }
 		
-	void XOR(Buffer& buff1, const Buffer& buff2){ size_t minSize = std::min(buff1.size(), buff2.size()); 
+	void XOR(Buffer& buff1, const Buffer& buff2){ size_t minSize = min(buff1.size(), buff2.size()); 
 		for(size_t i = 0; i<minSize; ++i){ buff1[i] ^= buff2[i]; } }
 
     Buffer CBC_encrypt(const Buffer& key, Buffer value, Buffer iv=Buffer(16)){ static const char blockSize = 16; 
-		int rounds = calc_rounds(key); std::vector<Buffer> roundKeys; 
+		int rounds = calc_rounds(key); Array<Buffer> roundKeys; 
 		KeyExpansion(key, roundKeys, rounds); addPKCS7Padding(value, blockSize);
 
         Buffer encryptedData; size_t dataSize = value.size(); Buffer prevBlock = iv;
         for (size_t i = 0; i < dataSize; i += blockSize){
             Buffer block = value.slice(i, i + blockSize); XOR(block, prevBlock);
             Buffer encryptedBlock = encryptBlock(roundKeys, block, rounds);
-            encryptedData.insert(encryptedData.end(), encryptedBlock.begin(), encryptedBlock.end());
+            encryptedData.push(encryptedBlock.data(), encryptedBlock.size());
             prevBlock = encryptedBlock; } return encryptedData; }
 
     Buffer CBC_decrypt(const Buffer& key, Buffer value, Buffer iv=Buffer(16)){ static const char blockSize = 16; 
-		int rounds = calc_rounds(key); std::vector<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds);
+		int rounds = calc_rounds(key); Array<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds);
 
         Buffer decryptedData; size_t dataSize = value.size(); Buffer prevBlock = iv;
         for (size_t i = 0; i < dataSize; i += blockSize){
             Buffer block = value.slice(i, i + blockSize);
             Buffer decryptedBlock = decryptBlock(roundKeys, block, rounds); XOR(decryptedBlock, prevBlock);
-            decryptedData.insert(decryptedData.end(), decryptedBlock.begin(), decryptedBlock.end());
+            decryptedData.push(decryptedBlock.data(), decryptedBlock.size());
             prevBlock = block; } removePKCS7Padding(decryptedData, blockSize); return decryptedData; }
 			
 	Buffer GCM_multiply(Buffer x, Buffer y){ Buffer z(16); Buffer v = y;
@@ -176,10 +176,10 @@ namespace ncpp{ namespace crypto{ namespace AES{
 	Buffer GCM_ghash(Buffer h, Buffer aad, Buffer cipherText){ 
 		Buffer y(16); size_t aadLen = aad.size(); size_t cipherTextLen = cipherText.size();
 		for (size_t i = 0; i < aadLen; i += 16){ // Обработка AAD
-			Buffer block = aad.slice(i, std::min(aadLen, i + 16));
+			Buffer block = aad.slice(i, min(aadLen, i + 16));
 			XOR(y, block); y = GCM_multiply(y, h); }
 		for (size_t i = 0; i < cipherTextLen; i += 16){ // Обработка зашифрованного текста
-			Buffer block = cipherText.slice(i, std::min(cipherTextLen, i + 16));
+			Buffer block = cipherText.slice(i, min(cipherTextLen, i + 16));
 			XOR(y, block); y = GCM_multiply(y, h); }
 		// Обработка длины AAD и зашифрованного текста
 		Buffer lengthBlock(16); unsigned long long aadBits = aadLen * 8; 
@@ -194,33 +194,33 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		else { Buffer h(16); iv = GCM_ghash(h, iv, Buffer()); } return iv; }
     
 	Buffer GCM_encrypt(const Buffer& key, Buffer value, Buffer iv=Buffer(12), Buffer aad=Buffer()){
-		static const char blockSize = 16; int rounds = calc_rounds(key); std::vector<Buffer> roundKeys; 
+		static const char blockSize = 16; int rounds = calc_rounds(key); Array<Buffer> roundKeys; 
 		KeyExpansion(key, roundKeys, rounds); Buffer encryptedData; size_t dataSize = value.size(); iv = NormalizeIV(iv);
 		Buffer y0 = encryptBlock(roundKeys, iv, rounds);
-		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::Math::increment(iv, 1);
+		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::increment(iv, 1);
 			Buffer block = value.slice(i, i + blockSize);
 			XOR(block, encryptBlock(roundKeys, iv, rounds));
-			encryptedData.insert(encryptedData.end(), block.begin(), block.end()); }
+			encryptedData.push(block.data(), block.size()); }
 		
 		Buffer h = encryptBlock(roundKeys, Buffer(blockSize), rounds);
 		Buffer tag = GCM_ghash(h, aad, encryptedData); XOR(tag, y0);
-		encryptedData.insert(encryptedData.end(), tag.begin(), tag.end());
+		encryptedData.push(tag.data(), tag.size());
 		return encryptedData; }
 
 	Buffer GCM_decrypt(const Buffer& key, Buffer value, Buffer iv=Buffer(12), Buffer aad=Buffer()){
 		static const char blockSize = 16; int rounds = calc_rounds(key); 
-        std::vector<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds);
+        Array<Buffer> roundKeys; KeyExpansion(key, roundKeys, rounds);
 		Buffer tag; tag.assign(value.end() - blockSize, value.end()); value.resize(value.size() - blockSize);
 		Buffer decryptedData; size_t dataSize = value.size(); iv = NormalizeIV(iv);
 		Buffer y0 = encryptBlock(roundKeys, iv, rounds);
 
-		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::Math::increment(iv, 1);
+		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::increment(iv, 1);
 			Buffer block = value.slice(i, i + blockSize);
 			XOR(block, encryptBlock(roundKeys, iv, rounds));
-			decryptedData.insert(decryptedData.end(), block.begin(), block.end()); }
+			decryptedData.push(block.data(), block.size()); }
 			
 		Buffer h = encryptBlock(roundKeys, Buffer(blockSize), rounds);
 		Buffer expectedTag = GCM_ghash(h, aad, value); XOR(expectedTag, y0);
-		if(tag != expectedTag){ throw std::runtime_error("GCM_ghash: Authentication tag mismatch. Tag: "+tag.cout()+"; Expected: "+expectedTag.cout()); }
+		if(tag != expectedTag){ print("(!) GCM_ghash: Authentication tag mismatch. Tag: "+tag.cout()+"; Expected: "+expectedTag.cout()); return Buffer(); }
 		return decryptedData; }
 }}}

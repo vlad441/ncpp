@@ -3,4 +3,4 @@
 musl_include=/usr/include/x86_64-linux-musl
 musl_lib=/usr/lib/x86_64-linux-musl
 
-g++ -nostdlib -nostartfiles -I$musl_include -L$musl_lib $musl_lib/crt1.o $musl_lib/crti.o -lc $musl_lib/crtn.o %*
+g++ -nostdlib -nostartfiles -I$musl_include -L$musl_lib $musl_lib/crt1.o $musl_lib/crti.o -lc $musl_lib/crtn.o -fno-exceptions -fno-rtti "$@"

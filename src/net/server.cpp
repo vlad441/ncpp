@@ -14,17 +14,20 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 	//short life-time TCP, epoll: https://habr.com/ru/articles/416669/
 	//epoll man: https://man7.org/linux/man-pages/man7/epoll.7.html
 	//typedef std::shared_ptr<Socket> SocketP;
-	//typedef std::shared_ptr<TCPSocket> TCPSocketP;
+	//typedef std::shared_ptr<TCPSocket> TCPSocketP; 
+	//typedef SharedPtr SPtr?
 	
-	struct AsyncIO { enum {FD_SOCK,FD_FILE} _type; };
-	struct SocketPool : AsyncIO { HashSet<Socket*> sockets; int servfd; 
+	struct AsyncIO { enum FDTYPE {FD_SOCK,FD_FILE}; };
+	//template <typename S = TCPSocket> struct SocketPool;
+	struct SocketPool : AsyncIO { HashSet<Socket*> sockets; int servfd; //HashSet<SharedPtr<S>>; Array<int> srvfds?
 	#ifdef _WIN32
-		std::vector<Socket*> acceptSocks; LPFN_ACCEPTEX PAcceptEx;
+	//#define EINTR 10004L
+		Array<Socket*> acceptSocks; LPFN_ACCEPTEX PAcceptEx;
 		LPFN_ACCEPTEX WIN_GetAcceptEx(int sockfd){ LPFN_ACCEPTEX AcceptExPtr = nullptr; GUID guidAcceptEx = WSAID_ACCEPTEX; DWORD bytes; 
 			if(WSAIoctl(sockfd, SIO_GET_EXTENSION_FUNCTION_POINTER, &guidAcceptEx, sizeof(guidAcceptEx),
 				&AcceptExPtr, sizeof(AcceptExPtr), &bytes, NULL, NULL) != 0){ print("(!) WIN_GetAcceptEx error.\n"); }
 			  if(AcceptExPtr == nullptr){ print("(!) AcceptEx pointer is null.\n"); } return AcceptExPtr; }
-	    SocketPool() : servfd(-1), PAcceptEx(NULL), onConnect(NULL), onData(NULL), onError(NULL), onClose(NULL){ _type=FD_SOCK; } //_initIOCP();
+	    SocketPool() : servfd(-1), PAcceptEx(NULL), onConnect(NULL), onData(NULL), onError(NULL), onClose(NULL){} //_initIOCP();
 		~SocketPool(){ CloseHandle(hIOCP); }
 		enum IOType { IO_READ, IO_WRITE, IO_ACCEPT, IO_CLOSE, IO_NONE };
 		struct IOEvent : OVERLAPPED { Buffer buff; };
@@ -50,15 +53,15 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		}
 		private: HANDLE hIOCP;
 		void _initIOCP(){ hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-			if(hIOCP==NULL){ print("Failed to create IOCP: "); print(dtos(WSAGetLastError())); print("\n"); exit(EXIT_FAILURE); }
-			print("Failed to create IOCP\n"); }
+			if(hIOCP==NULL){ print("(!) Failed to create IOCP: "); print(dtos(WSAGetLastError())); print("\n"); exit(EXIT_FAILURE); }
+			print("(!) Failed to create IOCP\n"); }
 		bool registerIOCP(Socket* socket){ if(CreateIoCompletionPort((HANDLE)(size_t)socket->sockfd, hIOCP, (ULONG_PTR)socket, 0) == NULL){
-				print("Failed IOCP addSocket: "); print(dtos(WSAGetLastError())); print("\n"); return false; }
+				print("(!) Failed IOCP addSocket: "); print(dtos(WSAGetLastError())); print("\n"); return false; }
 			//std::cerr << "IOCP new addSocket: " << socket->sockfd <<  std::endl; 
 			return true; }
 		bool initSockRecv(Socket* socket){ WSABUF wsabuf; IOEvent* ioctx = new IOEvent(); ZeroMemory(ioctx, sizeof(IOEvent)); 
-			ioctx->hEvent = (HANDLE)IO_READ; ioctx->buff.reserve(DEF_BUFF_SIZE); ioctx->buff.resize(DEF_BUFF_SIZE); wsabuf.buf = (char*)&ioctx->buff[0]; 
-			wsabuf.len = DEF_BUFF_SIZE; DWORD flags = 0; int result = WSARecv(socket->sockfd, &wsabuf, 1, NULL, &flags, ioctx, NULL);
+			ioctx->hEvent = (HANDLE)IO_READ; ioctx->buff.reserve(DEF_SOCK_SIZE); ioctx->buff.resize(DEF_SOCK_SIZE); wsabuf.buf = (char*)&ioctx->buff[0]; 
+			wsabuf.len = DEF_SOCK_SIZE; DWORD flags = 0; int result = WSARecv(socket->sockfd, &wsabuf, 1, NULL, &flags, ioctx, NULL);
 			
 			int err=WSAGetLastError(); if(result==SOCKET_ERROR && err!=WSA_IO_PENDING && err!=ERROR_IO_PENDING){ delete ioctx;
 				print("Failed addSocket -> WSARecv failed: "); print(dtos(err)); print("\n"); return false; } return true; }
@@ -74,14 +77,14 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 			int err=WSAGetLastError(); if(!result && err!=ERROR_IO_PENDING){ delete ioctx; print("Failed initServAccept -> AcceptEx failed: "); 
 				print(dtos(err)); print(" (result = "); print(dtos(result)); print(")\n"); return false; } return true; }
 	#else // Linux code
-		SocketPool() : servfd(-1), onConnect(NULL), onData(NULL), onError(NULL), onClose(NULL){ _type=FD_SOCK; 
+		SocketPool() : servfd(-1), onConnect(NULL), onData(NULL), onError(NULL), onClose(NULL){
 		#ifdef EPOLL_CLOEXEC
 			epfd = epoll_create1(EPOLL_CLOEXEC); //epfd = epoll_create1(0);
 		#else
 			epfd = epoll_create(1); fcntl(epfd, F_SETFD, FD_CLOEXEC);
 		#endif
 			if(epfd == -1){ print("Failed to create epoll file descriptor\n"); exit(EXIT_FAILURE); } }
-		~SocketPool(){ close(epfd); sockets.clear_ptr(); }
+		~SocketPool(){ close(epfd); } //sockets.clear_ptr();
 		
 		inline bool addServSocket(Socket* srvsock){ servfd=srvsock->sockfd; return addSocket(srvsock); }
 		bool addSocket(Socket* socket){ struct epoll_event event; event.events = EPOLLIN | EPOLLERR | EPOLLHUP; // | EPOLLOUT | EPOLLET
@@ -91,7 +94,7 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		void removeSocket(int sockfd){ if(epoll_ctl(epfd, EPOLL_CTL_DEL, sockfd, NULL) == -1){ 
 			print("Failed to remove socket from epoll: "); print(strerror(errno)); print("\n"); } }
 		
-		void waitAndProcess(int timeout=-1){ std::vector<struct epoll_event> events(10);
+		void waitAndProcess(int timeout=-1){ Array<struct epoll_event> events(10);
 			while(true){ int nfds = epoll_wait(epfd, events.data(), events.size(), timeout);
 				if (nfds == -1){ print("epoll_wait failed: "); print(strerror(errno)); print("\n"); continue; }
 				for(int i = 0; i < nfds; ++i){ TCPSocket& socket=*(TCPSocket*)events[i].data.ptr;
@@ -111,21 +114,33 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		private: int epfd;
 	#endif
 		public: bool addSocket(int sockfd){ return addSocket(new TCPSocket(sockfd)); }
-		inline void removeSocket(Socket* socket){ removeSocket(socket->sockfd); sockets.erase_ptr(socket); }
-		void _runSelect(int timeout=-1){ std::vector<Socket> sockets; Buffer buff; buff.reserve(DEF_BUFF_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
-			TCPSocket servsock(servfd); struct timeval tv; tv.tv_sec = timeout; tv.tv_usec = 0;
+		inline void removeSocket(Socket* socket){ removeSocket(socket->sockfd); } //sockets.erase_ptr(socket);
+		void _runSelect(int timeout=-1){ Buffer buff; buff.reserve(DEF_SOCK_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
+			TCPSocket servsock(servfd); struct timeval tv; if(timeout>=0){ tv.tv_sec = timeout/1000; tv.tv_usec = (timeout%1000)*1000; }
 			while(true){ fd_set read_fds; FD_ZERO(&read_fds); FD_SET(servfd, &read_fds); int max_sd = servfd;
-				for (size_t i=0;i<sockets.size();i++){ FD_SET(sockets[i].sockfd, &read_fds); if(sockets[i].sockfd > max_sd) max_sd = sockets[i].sockfd; }
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ if(!*it) continue; Socket& s = **it;
+					if(s.sockfd==-1){ delete &s; it = sockets.erase(it); continue; }
+					FD_SET(s.sockfd, &read_fds); if(s.sockfd > max_sd) max_sd = s.sockfd; ++it; }
 				int activity = ::select(max_sd+1, &read_fds, NULL, NULL, timeout>0?&tv:NULL);
-				if (activity<0&&Socket::GetLastErr()!=EINTR){ print("SelectPool: select error.\n"); }
-				if (FD_ISSET(servfd, &read_fds)){ TCPSocket socket = servsock._accept().own(false); if(socket.sockfd<0){ print("select: (!) Accept error: "); print(dtos(socket.GetErr())); print("\n"); break; }
-					sockets.push_back((Socket)socket.own(false)); _onConnect(socket); }
-				for(std::vector<Socket>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = *it; if(!FD_ISSET(socket.sockfd, &read_fds)){ ++it; continue; }
-					buff.resize(DEF_BUFF_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)&buff[0], DEF_BUFF_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
+				if(activity<0){ int err1=Socket::GetLastErr(); print("(!) SelectPool: select error: "); print(err1); print("\n"); if(err1==EINTR) continue; return; }
+				if(FD_ISSET(servfd, &read_fds)){ TCPSocket& socket = *servsock.accept(); if(socket.sockfd<0){ print("(!) select: Accept error: "); print(dtos(socket.GetErr())); print("\n"); break; }
+					sockets.insert((Socket*)&socket); _onConnect(socket); }
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = **it; if(!FD_ISSET(socket.sockfd, &read_fds)){ ++it; continue; }
+					buff.resize(DEF_SOCK_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)buff.data(), DEF_SOCK_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
 					if(bytesRead<=0){ if(bytesRead<0){ socket.GetErr(); if(onError!=NULL) onError((TCPSocket&)socket); } _onClose((TCPSocket&)socket); 
-						socket.destroy(); it = sockets.erase(it); continue; } buff.resize(bytesRead); _onData((TCPSocket&)socket, buff); ++it; } 
-				//std::cout << "DEBUG: Select std::vector<Socket> size: " << sockets.size() << std::endl; 
+						socket.destroy(); delete &socket; it = sockets.erase(it); continue; } buff.resize(bytesRead); _onData((TCPSocket&)socket, buff); ++it; }
+				//print("DEBUG: Select HashSet<Socket*> size: "); print(sockets.size()); print("\n");
 			} }
+		bool _waitSelectWriteOne(int timeout=-1){
+			while(true){ fd_set write_fds; FD_ZERO(&write_fds); int max_sd = -1; if(sockets.empty()&&servfd == -1) return false;
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end(); ++it){ Socket* s = *it;
+					if(!s || s->sockfd==-1) continue; FD_SET(s->sockfd, &write_fds); if(s->sockfd > max_sd) max_sd = s->sockfd; }
+				if(max_sd == -1) return false; struct timeval tv; if(timeout>=0){ tv.tv_sec = timeout/1000; tv.tv_usec = (timeout%1000)*1000; }
+				int activity = ::select(max_sd + 1, NULL, &write_fds, NULL, timeout>0?&tv:NULL);
+				if(activity<0){ int err1=Socket::GetLastErr(); if(err1==EINTR) continue; return false; } return activity > 0; } }
+		//err == EWOULDBLOCK || err == EAGAIN -> "Места нет, подожди"; err == EINTR -> "Прервано сигналом, попробуй еще раз немедленно"
+		bool waitWriteOne(int timeout=-1){ return _waitSelectWriteOne(timeout); }
+				
 		void (*onConnect)(TCPSocket& socket);
 		void (*onData)(TCPSocket& socket, const Buffer& data);
 		void (*onError)(TCPSocket& socket);
@@ -135,48 +150,69 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 			virtual void _onClose(TCPSocket& socket){ if(onClose!=NULL) onClose(socket); }
 	};
 	
-	struct TCPServer : SocketPool, TCPSocket { //threads
+	struct TCPServer : SocketPool { TCPSocket sock; //threads
 		TCPServer(){}
-		TCPServer(int port, const std::string& bindip="::"){ init(port, bindip); }
-		#if __cplusplus >= 201103L
-		//TCPServer(TCPServer&& other){ _move(other); }
-		TCPServer& operator=(TCPServer&& other){ _move(other); return *this; }
-		#else
-		//TCPServer(TCPServer& other){ _move(other); } //"передача" права на уничтожение дескриптора.
-		TCPServer& operator=(TCPServer other){ _move(other); return *this; }
-		//TCPServer(const TCPServer& other){ _move((Socket&)other); } // UB: non-const violation
-		//TCPServer& operator=(const TCPServer& other){ _move((Socket&)other); return *this; } // UB: non-const violation
-		#endif
-		~TCPServer(){ if(autodestroy) close(); }
+		TCPServer(int port, const CString& bindip="::"){ bind(port, bindip); 
+			#ifndef _WIN32
+			signal(SIGPIPE, SIG_IGN);
+			#endif
+		}
+		~TCPServer(){ if(sock.autodestroy) close(); }
+		bool bind(int port, const CString& bindip="::"){
+			if(!sock.bind(port, bindip)){ print("(!) TCPServer: bind failed on port: "+dtos(port)+"\n"); return false; }
+			if(!sock.listen()){ print("(!) TCPServer: listen failed on port: "+dtos(port)+"\n"); return false; } servfd=sock.sockfd; return true; }
+		BindInfo address(){ return Socket::address(sock.sockfd); }
+		void close(){ sock.destroy(); }
 		
-		void broadcast(const Buffer& buff){ for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();++it){ ((TCPSocket*)*it)->send(buff); } }
-		void run(){ servfd=sockfd; _runSelect();
+		//TODO: (TCPSocket*)(Socket*)*it -> (TCPSocket*)*it
+		void broadcast(const Buffer& buff){ for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();++it){ ((TCPSocket*)(Socket*)*it)->send(buff); } }
+		void run(){ _runSelect();
 			//addServSocket((Socket*)this); sockets.erase((Socket*)this); waitAndProcess(); 
 		}
-		void close(){}
-		//bool _bind(){ return Socket::bind(); }
-		//void bind(int port, const std::string& bindip="::"){ init(port, bindip); }
 		
-		void init(int port, const std::string& bindip="::"){
-			if(!bind(port, bindip)){ throw Err("[Error] TCPServer: bind failed on port: "+dtos(port)); }
-			if(!listen()){ throw Err("[Error] TCPServer: listen failed on port: "+dtos(port)); } }
+		#if __cplusplus >= 201103L //move for C++11
+		TCPServer(TCPServer&& tmp) noexcept { move(*this, tmp); }
+		TCPServer& operator=(TCPServer&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+		TCPServer(const TCPServer&) = delete; TCPServer& operator=(const TCPServer&) = delete; //Запрет копирования.
+		TCPServer& steal(TCPServer& tmp){ move(*this, tmp); return *this; }
+		TCPServer& steal(TCPServer&& tmp){ move(*this, tmp); return *this; }
+		friend void move(TCPServer& dst, TCPServer&& tmp){ move(dst, (TCPServer&)tmp); }
+		#else //move for C++98
+		private: TCPServer(const TCPServer&); TCPServer& operator=(const TCPServer&); public: //Скрытие копирования.
+		TCPServer& steal(const TCPServer& victim){ move(*this, (TCPServer&)victim); return *this; }
+		friend void move(TCPServer& dst, const TCPServer& victim){ move(dst, (TCPServer&)victim); }
+		//TCPServer& operator=(TCPServer other){ move(*this, other); return *this; } //Old UB rvalue copy imitator
+		#endif
+		friend void move(TCPServer& dst, TCPServer& tmp){ if(&dst==&tmp) return; move(dst.sock, tmp.sock); }
 	};
 	
-	struct ReqCache { bool bodywait; Buffer rbuff; };
-	struct HTTPServer : TCPServer { HashMap<Socket*, Buffer> rcache; unsigned int max_headersize; unsigned int max_bodysize; unsigned int max_sockets;
+	struct ReqCache { http::Req req; bool headwait; Buffer bf, wsbf; unsigned int bodylen; bool ws; ReqCache() : headwait(true), bodylen(0), ws(false){} };
+	struct HTTPServer : TCPServer { HashMap<Socket*, ReqCache> rcache; 
+		unsigned int max_headerlen; unsigned int max_bodylen; unsigned int max_sockets; bool wsmode;
 		HTTPServer() : TCPServer(), onRequest(NULL){ _initSets(); }
-		HTTPServer(int port, const std::string& bindip="::") : TCPServer(port, bindip), onRequest(NULL){ _initSets(); }
+		HTTPServer(int port, const CString& bindip="::") : TCPServer(port, bindip), onRequest(NULL){ _initSets(); }
 		
-		void (*onRequest)(http::Req req, http::Res res);
-		private: void _initSets(){ if(http::ErrCodes.size()==0){ http::_initErrCodes(); }
-			max_headersize=8*1024; max_bodysize=4*1048576; max_sockets=1000; }
-		void _onConnect(TCPSocket& socket){ if(onConnect!=NULL) onConnect(socket); }
-		void _onData(TCPSocket& socket, const Buffer& data){ if(onData!=NULL) onData(socket, data); if(onRequest==NULL) return; rcache[&socket]+=data;
-			if(rcache[&socket].size()>max_headersize){ http::Res res_err(socket); res_err.SendErr(431); return; }
-			long hEnd = rcache[&socket].indexOf("\r\n\r\n"); if(hEnd<=0){ return; }
-			http::Req req=http::ReqParse(rcache[&socket]); http::Res res(socket); 
-			if(req.headers.has("connection")){ res.headers["connection"]=req.headers["connection"]; }
-			onRequest(req, res); rcache[&socket].clear(); }
+		void (*onRequest)(http::Req& req, http::Res& res);
+		void (*onUpgrade)(TCPSocket& socket, http::Req& req, Buffer& data);
+		protected: void _initSets(){ if(http::ErrCodes.size()==0){ http::_initErrCodes(); }
+			max_headerlen=8*1024; max_bodylen=4*1048576; max_sockets=1000; wsmode=false; }
+		//void _onConnect(TCPSocket& socket){ if(onConnect!=NULL) onConnect(socket); }
+		void _onData(TCPSocket& socket, const Buffer& data){ if(onData!=NULL) onData(socket, data); if(onRequest==NULL&&!wsmode) return;
+			http::Req& req=rcache[&socket].req; Buffer& rbuff=rcache[&socket].bf; rbuff+=data;
+			if(rcache[&socket].headwait){
+				if(rbuff.size()>max_headerlen){ http::Res res_err(socket); res_err.SendErr(431); rcache.erase(&socket); 
+					print("(#DEBUG) 431 Headers Too Large error responsed.\n"); return; }
+				if(rbuff.indexOf("\r\n\r\n")==NPOS){ return; } req=http::ReqParse(rbuff); rbuff.clear(); //res.hver=req.hver;
+				if(rcache[&socket].req.bad){ http::Res res_err(socket); res_err.SendErr(400); rcache.erase(&socket); 
+					print("(#DEBUG) 400 Bad Req responsed.\n"); return; } rcache[&socket].headwait = false; }
+			if(wsmode&&req.headers["connection"]=="Upgrade"&&req.headers["upgrade"]=="websocket") return; //WS redirect
+			if(max_bodylen>0&&req.headers.has("content-length")){ if(rcache[&socket].bodylen==0){ rcache[&socket].bodylen=stoin(req.headers["content-length"]); }
+			    //print("(#DEBUG) HTTPServ body part: body+rbuff size: "); print(req.body.size()+rbuff.size()); print(" | "); print(rcache[&socket].bodylen); print("\n"); 
+				if(req.body.size()+rbuff.size()>max_bodylen){ http::Res res_err(socket); res_err.SendErr(413); rcache.erase(&socket); 
+					print("(#DEBUG) 413 Payload Too Large error responsed.\n"); return; }
+				if(req.body.size()+rbuff.size()<rcache[&socket].bodylen){ return; } req.body+=rbuff; rbuff.clear(); }
+			http::Res res(socket); if(req.headers.has("connection")){ res.headers["connection"]=req.headers["connection"]; } 
+			if(onRequest!=NULL) onRequest(req, res); rcache.erase(&socket); }
 		void _onClose(TCPSocket& socket){ if(onClose!=NULL) onClose(socket); rcache.erase(&socket); }
 	};
 }

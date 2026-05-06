@@ -10,8 +10,8 @@ struct MD5 { static const unsigned char s[64]; static const unsigned int K[64];
 		
 	MD5& update(const Buffer& input){ size_t index = 0; totalSize += input.size();
         while(index < input.size()){
-            size_t toCopy = std::min(input.size() - index, 64 - bufferSize);
-            std::memcpy(buffer + bufferSize, &input[0]+index, toCopy); bufferSize += toCopy; index += toCopy;
+            size_t toCopy = min(input.size() - index, 64 - bufferSize);
+            memcpy(buffer + bufferSize, &input[0]+index, toCopy); bufferSize += toCopy; index += toCopy;
             if(bufferSize == 64){ processBlock(buffer); bufferSize = 0; } } return *this; }
     
     Buffer digest(){ unsigned long long bitLen = totalSize * 8; buffer[bufferSize++] = 0x80;

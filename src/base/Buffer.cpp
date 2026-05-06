@@ -49,28 +49,22 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 		if(_ptr==NULL){ Except("ncpp::Buffer realloc error: Out of memory\n", 0, ERR_OOM); } return *this; }
 	Buffer& resize(size_t len){ reserve(len); _len=len; return *this; }
 	
-	void insert(Iter ipos, const void* dptr, size_t len){ if(len==0) return; size_t pos=_len;
-		if(ipos!=NULL && ipos >= _ptr && ipos <= _ptr+_len){ pos = ipos-_ptr; } size_t len0=_len; size_t nlen = _len+len; reserve(nlen);
-		if(pos < len0){ memmove(ipos+len, ipos, len0-pos); }
-        memcpy(_ptr+pos, dptr, len); _len = nlen; return; }
+	void insert(size_t pos, const void* dptr, size_t len){ if(len==0) return;
+		if(pos > _len){ pos = _len; } size_t len0 = _len; size_t nlen = _len+len; reserve(nlen);
+		if(pos < len0){ memmove(_ptr+pos+len, _ptr+pos, len0-pos); } memcpy(_ptr+pos, dptr, len); _len = nlen; }
+	void insert(size_t pos, size_t n, unsigned char c){ if(n==0) return;
+		if(pos > _len){ pos = _len; } size_t len0 = _len; size_t nlen = _len+n; reserve(nlen);
+		if(pos < len0){ memmove(_ptr+pos+n, _ptr+pos, len0-pos); } for(size_t i=0; i<n; ++i){ _ptr[pos+i] = c; } _len = nlen; }
+	void insert(size_t pos, const char* cstr){ return insert(pos, cstr, strlen(cstr)); }
+	void insert(size_t pos, unsigned char v){ insert(pos, &v, 1); }
+	void insert(size_t pos, const Buffer& bf){ insert(pos, bf.data(), bf.size()); }
+	/*void insert(Iter ipos, const void* dptr, size_t len){ if(len==0) return; size_t pos=_len;
+		if(ipos!=NULL && ipos >= _ptr && ipos <= _ptr+_len){ pos = ipos-_ptr; } insert(pos, dptr, len); }
 	void insert(Iter ipos, const void* first, const void* last){ const unsigned char *b=(const unsigned char*)first, *e=(const unsigned char*)last;
-		size_t len = (e > b)?(e-b) : 0; insert(ipos, b, len); }
-	void insert(Iter ipos, size_t n, unsigned char v){ if(n == 0) return; size_t pos=_len;
-		if(ipos!=NULL && ipos >= _ptr && ipos <= _ptr+_len){ pos = ipos-_ptr; } size_t len0=_len; size_t nlen = _len+n; reserve(nlen);
-		if(pos < len0){ memmove(_ptr+pos+n, _ptr+pos, len0-pos); }
-        for(size_t i = 0; i<n; ++i){ _ptr[pos + i] = v; } _len = nlen; return; }
-	void insert(Iter ipos, unsigned char v){ insert(ipos, &v, 1); }
-	void insert(Iter ipos, const Buffer& other){ insert(ipos, other.data(), other.size()); }
+		size_t len = (e>b)?(e-b):0; insert(ipos, b, len); }*/
+	//buff.insert(buff.end(), bf2.begin(), bf2.end());
 	
-	/*Buffer& insert(size_t pos, const void* ptr, size_t len){ if(len==0) return; size_t len0=_len; size_t nlen = _len+len; reserve(nlen);
-		if(pos < len0){ memmove(ipos+len, ptr, len0-pos); }
-        memcpy(_ptr+pos, ptr, len); _len = nlen; return; }
-	Buffer& insert(size_t pos, const char* cstr){ return insert(pos, cstr, strlen(cstr)); }
-	Buffer& insert(size_t pos, const Buffer& buff){ return insert(pos, buff.data(), buff.size()); }
-	Buffer& insert(size_t pos, size_t n, unsigned char c){ Buffer buff(n, c); return insert(pos, buff.data(), buff.size()); }
-	Buffer& insert(size_t p, char c);*/
-	
-	Buffer& erase(size_t pos=0, size_t len = NPOS){ if(pos >= _len) return *this; if(len > _len-pos){ len = _len-pos; } erase(_ptr+pos, _ptr+pos+len); return *this; }
+	Buffer& erase(size_t pos=0, size_t len=1){ if(pos >= _len) return *this; if(len > _len-pos){ len = _len-pos; } erase(_ptr+pos, _ptr+pos+len); return *this; }
 	void erase(Iter first, Iter last){ if(first >= last || first < _ptr || last > _ptr+_len) return;
         size_t end_pos = last-_ptr; memmove(first, last, _len-end_pos); _len -= last-first; }
 	void erase(Iter ipos){ erase(ipos, ipos+1); }
@@ -78,16 +72,27 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	void push_back(unsigned char v){ push(v); }
 	void pop_back(){ resize(--_len); }
 	
-	void clear(){ _len=0; }
-	void shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP) return;
-		if(_len==0){ free(_ptr); _ptr=NULL;
+	void push_front(unsigned char v){ insert(0, v); }
+	void pop_front(){ erase((size_t)0,1); }
+	
+	Buffer& clear(){ _len=0; return *this; }
+	Buffer& shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP) return *this;
+		if(_len==0){ free(_ptr); _ptr=NULL; _msize=0;
 		#if _BF_SSO_LEN > 0
 			stack(_sso); _len=0;
 		#endif
-			return; }
-		_ptr=(unsigned char*)realloc(_ptr, _msize=_len); if(_ptr==NULL){ Except("ncpp::Buffer shrink mem error\n", 0); } return; }
+			return *this; }
+		_ptr=(unsigned char*)realloc(_ptr, _msize=_len); if(_ptr==NULL){ Except("ncpp::Buffer shrink mem error\n", 0); } return *this; }
 	void shrink_to_fit(){ shrink(); }
 	// == переобразования
+	Buffer slice(int start, int end=0) const { return _slice<Buffer>(start, end); }
+	
+	Array<Buffer> split(const char* delim, size_t len, int maxparts=-1) const { return _split<Buffer>(delim, len, maxparts); }
+	Array<Buffer> split(const char* delim) const { return _split<Buffer>(delim, strlen(delim)); }
+	Array<Buffer> split(char delim) const { return _split<Buffer>(&delim, 1); }
+	template <typename U, typename D> 
+	Array<Buffer> split(const BaseString<U, D>& s) const { return this->_split<Buffer>(s.data(), s.size()); }
+	
 	template <size_t N>
 	Buffer& push(const unsigned char (&arr)[N]){ size_t len0=_len; resize(_len+N); memcpy(_ptr+len0, arr, N); return *this; }
 	Buffer& push(const void* ptr, size_t len){ size_t len0=_len; resize(_len+len); memcpy(_ptr+len0, ptr, len); return *this; }
@@ -97,29 +102,19 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	Buffer& push(unsigned char v){ reserve(++_len); _ptr[_len-1]=v; return *this; }
 	unsigned char pop(){ if(_len>0){ resize(--_len); } return _ptr[_len]; }
 	
-	void push_front(unsigned char v){ insert(begin(), v); }
-	void pop_front(){ erase(begin()); }
-	
-	Buffer slice(int start, int end=0) const { return _slice<Buffer>(start, end); }
-	
-	Array<Buffer> split(const char* delim, size_t len, int maxparts=-1) const { return _split<Buffer>(delim, len, maxparts); }
-	Array<Buffer> split(const char* delim) const { return _split<Buffer>(delim, strlen(delim)); }
-	Array<Buffer> split(char delim) const { return _split<Buffer>(&delim, 1); }
-	template <typename U, typename D> 
-	Array<Buffer> split(const BaseString<U, D>& s) const { return this->_split<Buffer>(s.data(), s.size()); }
-	
 	Buffer& fill(unsigned char v){ memset(_ptr, v, _len); return *this; }
 	//Buffer& concat(const Buffer& buff2){ *this+=buff2; return *this; }
 	void reverse(){ ncpp::reverse(this->begin(), this->end()); }
 	
-	void read(void* dst, size_t size, size_t offset=0){ if(_len < offset+size){ size = _len-offset; } memcpy(dst, _ptr+offset, size); }
-	void write(const void* src, size_t size, size_t offset){ if(_len < offset+size){ resize(offset+size); } memcpy(_ptr+offset, src, size); }
+	void read(void* dst, size_t size, size_t offset=0){ if(offset>=_len) return; if(offset+size > _len){ size = _len-offset; } memcpy(dst, _ptr+offset, size); }
+	void write(const void* src, size_t size, size_t offset){ if(offset+size > _len){ resize(offset+size); } memcpy(_ptr+offset, src, size); }
 	void write(const char* cstr, size_t offset=0){ return write(cstr, strlen(cstr), offset); }
 	void write(const Buffer& buff, size_t offset=0){ if(buff.empty()) return; return write(buff.data(), buff.size(), offset); }
 	template <typename T, typename D>
 	void write(const BaseString<T, D>& s, size_t offset=0){ if(s.empty()) return; return write(s.data(), s.size(), offset); }
 	template <typename T>
 	T readAny(size_t offset=0){ if(ncpp::is_pointer<T>::V){ Except("readAny(T&): not accept pointers type\n", 1); return T(); }
+		if(offset+sizeof(T) > _len){ return T(); }
 		T data; read(&data, sizeof(data), offset); return data; }
 	template <typename T>
 	void writeAny(const T& data, size_t offset=0){ if(ncpp::is_pointer<T>::V){ Except("writeAny(T&): not accept pointers type\n", 1); return; }
@@ -179,10 +174,11 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	static Buffer BitsRead(const void* ptr){ return BitsRead((const unsigned char*)ptr); }
 	static void BitsWrite(void* ptr, const Buffer& bits){ BitsWrite((unsigned char*)ptr, bits); }
 	
-	static int BitsToInt(const unsigned char* bits, size_t len){ int numb = 0; for(size_t i = 0; i < len; ++i){ numb = (numb << 1) | bits[i]; } return numb; }
+	static int BitsToInt(const void* bits, size_t len){ int numb=0; for(size_t i=0; i<len; ++i){ numb = (numb << 1) | ((unsigned char*)bits)[i]; } return numb; }
 	static int BitsToInt(const Buffer& bits){ return BitsToInt(bits.data(), bits.size()); }
-	static void IntToBits(unsigned char* dst, int numb, size_t bitlen){ for(int i = bitlen - 1; i >= 0; --i){ dst[i] = (numb >> i) & 1; } }
-	static Buffer IntToBits(int numb, size_t bitlen=sizeof(int)*8){ Buffer bits(bitlen); IntToBits(bits.data(), numb, bits.size()); return bits; }
+	//static void IntToBits(void* dst, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ ((unsigned char*)dst)[i] = (numb >> i) & 1; } } // LE Order
+	static void IntToBits(void* dst, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ ((unsigned char*)dst)[i] = (numb >> (bitlen-1-i)) & 1; } }
+	static Buffer IntToBits(int numb, int bitlen=sizeof(int)*8){ Buffer bits(bitlen); IntToBits(bits.data(), numb, bits.size()); return bits; }
 		
 	static Buffer concat(const Array<Buffer>& buffs){ Buffer result; for(size_t i=0;i<buffs.size();i++){ result+=buffs[i]; } return result; }
 	static Buffer concat(const Buffer& buff1, const Buffer& buff2){ return buff1+buff2; }
@@ -230,7 +226,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	static void increment(Buffer& buff, unsigned int value=1, bool insert = false){
 		if(value==1&&!insert){ for(int j = buff.size() - 1; j >= 0; --j){ if(++buff[j] != 0) return; } return; } unsigned int carry = value;
 		for(int i = buff.size() - 1; i >= 0; --i){ unsigned int sum = buff[i] + carry; buff[i] = sum & 0xFF; carry = sum >> 8; }
-		if(insert && carry != 0){ while(carry != 0){ buff.insert(buff.begin(), carry & 0xFF); carry >>= 8; } } }
+		if(insert && carry != 0){ while(carry != 0){ buff.insert(0, carry & 0xFF); carry >>= 8; } } }
 
 	static void decrement(Buffer& buff, unsigned int value=1, bool erase = false){ unsigned int borrow = value;
 		if(value==1&&!erase){ for(int j = buff.size() - 1; j >= 0; --j){ if(--buff[j] != 0xFF) return; } return; }
@@ -240,7 +236,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 		
 	static void multiply_single(Buffer& buff, unsigned int value, bool insert = true){ unsigned int carry = 0;
 		for(int i = buff.size() - 1; i >= 0; --i){ unsigned int product = buff[i] * value + carry; buff[i] = product & 0xFF; carry = product >> 8; }
-		if (insert && carry != 0){ while(carry != 0){ buff.insert(buff.begin(), carry & 0xFF); carry >>= 8; } } }
+		if (insert && carry != 0){ while(carry != 0){ buff.insert(0, carry & 0xFF); carry >>= 8; } } }
 
 	static unsigned int divide_single(Buffer& buff, unsigned int value, bool erase = true){
 		if(value == 0){ Except("Matan rule 0: Never divide by zero :)\n", 1); return 0; } unsigned int remainder = 0;
@@ -290,6 +286,9 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 
 	String toHex() const { String out; out.reserve(_len*2); char hex[3]; hex[2]=0;
 		for(size_t i = 0;i<_len;i++){ ctoh(hex, (*this)[i]); out+=hex; } return out; }
+	
+	String toBase64() const { return base64_encode(_ptr, _len); }
+		
 	String toIntString() const { if(this->empty()){ return "0"; } String result; Buffer temp(*this); 
 		 if(temp.size() == 1 && temp[0] == 0){ return "0"; } Buffer newTemp; newTemp.reserve(temp.size()); 
 		 while(!temp.empty()){ unsigned int remainder = 0; bool leading_zeros_in_newTemp = true; 
@@ -307,13 +306,13 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	
 	static unsigned char htoc(const char hex[2]){ char res[2]; memset(res, 0, 2); //high,low;
 		for(unsigned char i=0;i<2;i++){ char c = hex[i];
-			if(c >= '0' && c <= '9'){ res[i] = c - '0'; } 
+			if(c >= '0' && c <= '9'){ res[i] = c - '0'; }
 			else if(c >= 'A' && c <= 'F'){ res[i] = c - 'A' + 10; }
 			else if(c >= 'a' && c <= 'f'){ res[i] = c - 'a' + 10; } } return ((res[0] << 4) | res[1]); }
 	static void ctoh(char hex[2], unsigned char value){ char high = (value >> 4) & 0x0F; char low = value & 0x0F;
 		hex[0] = (high < 10) ? ('0' + high) : ('a' + (high - 10)); hex[1] = (low < 10) ? ('0' + low) : ('a' + (low - 10)); }
-	static unsigned long long htoll(const char* hex, char len){ unsigned long long num = 0; len=len/2; if(len>8) len=8;
-		for(int i = 0; i < len; ++i){ num = (num << 8) | htoc(&hex[i*2]); } return num; }
+	static unsigned long long htoll(const char* hex, char len){ unsigned long long num = 0; char rem=len%2; len=len/2; if(len>8) len=8;
+		for(int i = 0; i < len; ++i){ num = (num << 8) | htoc(&hex[i*2]); } if(rem){ char h[]={'0',hex[len-1]}; num = (num << 4) | htoc(h); } return num; }
 	static unsigned long long htoll(const char* hex){ return htoll(hex, strlen(hex)); }
 	static unsigned long long htoll(const String& str){ return htoll(str.data(), str.size()); }
 	static void lltoh(char hex[16], unsigned long long value){ for(int i = 7; i >= 0; --i){ ctoh(&hex[i*2], value & 0xFF); value >>= 8; } }
@@ -323,15 +322,15 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 		
 	operator Array<char>() const { return Array<char>((char*)_ptr, (char*)_ptr+_len); }
 	
-	void swap(Buffer& other){ ncpp::swap(*this, other); }
+	void swap(Buffer& other){ using ncpp::swap; swap(*this, other); }
 	friend void swap(Buffer& a, Buffer& b){ unsigned char* tmpc = a._ptr; a._ptr = b._ptr; b._ptr = tmpc;
 		size_t tmp = a._len; a._len = b._len; b._len = tmp;
 		tmp = a._msize; a._msize = b._msize; b._msize = tmp;
 		tmp = a._mode; a._mode = b._mode; b._mode = tmp; }
 		
 	#if __cplusplus >= 201103L //move for C++11
-	Buffer(Buffer&& tmp) noexcept { move(*this, tmp); }
-	Buffer& operator=(Buffer&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+	Buffer(Buffer&& tmp) noexcept { _init(0); move(*this, tmp); }
+	Buffer& operator=(Buffer&& tmp) noexcept { move(*this, tmp); return *this; }
 	Buffer& steal(Buffer& tmp){ move(*this, tmp); return *this; }
 	Buffer& steal(Buffer&& tmp){ move(*this, tmp); return *this; }
 	friend void move(Buffer& dst, Buffer&& tmp){ move(dst, (Buffer&)tmp); }
@@ -339,9 +338,10 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	Buffer& steal(const Buffer& victim){ move(*this, (Buffer&)victim); return *this; }
 	friend void move(Buffer& dst, const Buffer& victim){ move(dst, (Buffer&)victim); }
 	#endif
-	friend void move(Buffer& dst, Buffer& tmp){ if(dst._mode==HEAP&&dst._ptr!=NULL) free(dst._ptr);
+	friend void move(Buffer& dst, Buffer& tmp){ if(&dst==&tmp) return; dst._reinit();
 		#if _BF_SSO_LEN > 0
-		if(tmp._isSSO()){ dst=tmp; tmp.clear(); return; } dst._ptr = tmp._ptr; tmp._ptr = tmp._sso; dst._msize = tmp._msize; tmp._msize=_BF_SSO_LEN;
+		if(tmp._isSSO()){ dst._set(tmp._sso, tmp._len); tmp.clear(); return; }
+		dst._ptr = tmp._ptr; tmp._ptr = tmp._sso; dst._msize = tmp._msize; tmp._msize=_BF_SSO_LEN;
 		#else
 		dst._ptr = tmp._ptr; tmp._ptr = NULL; dst._msize = tmp._msize; tmp._msize = 0;
 		#endif
@@ -362,6 +362,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 			if(_ptr==NULL){ Except("ncpp::Buffer malloc error: Out of memory\n", 0, ERR_OOM); } if(copy&&ptr0!=NULL){ memcpy(_ptr, ptr0, _len); } _mode=HEAP; }
 			
 		void _set(const void* ptr, size_t len){ if(len<=0){ _len=0; return; } resize(len); memcpy(_ptr, ptr, len); }
+		void _reinit(){ if(_mode==HEAP&&_ptr!=NULL){ free(_ptr); _init(0); } }
 		//== ==
 		static bool is_base64(unsigned char c){ return (isalnum(c) || (c == '+') || (c == '/')); }
 }; 

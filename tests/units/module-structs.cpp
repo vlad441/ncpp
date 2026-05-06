@@ -138,7 +138,7 @@ void cbor_test(){ Buffer cbor; Object obj; obj["test"]="txt"; obj["double"]=12.3
 	cons << "== cbor parsed 2: " << obj << "\n";	
 }
 
-void Structs_module_test(){
+void Module_Structs_test(){
 	bigint_test();
 	__int128_test();
 }

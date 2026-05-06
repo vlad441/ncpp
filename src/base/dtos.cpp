@@ -40,35 +40,29 @@ namespace ncpp{
 		if(precision!=0){ str[i++] = '.'; num=(long long)d; d-=num; if(precision==-1) precision=D_PRECISION;
 			for(int j = 0; j<precision; j++){ char digit=(char)d; d*=10; digit=(int)d; str[i++] = digit + '0'; d -= digit; } } return String(str, i); };
 	String dtos(float num, char precision=-1) noexcept { return dtos((double)num, precision==-1?F_PRECISION:precision); };
-	
-	#define INTMAX_HALF10 INT_MAX/10
-	#define INTMAX_MOD10 INT_MAX%10
+	 
 	int stoin(const char* cstr, unsigned char len) noexcept { unsigned char i=0;
 		while(i<len&&cstr[i]==' ') i++; if(!IsInt(cstr+i, len-i)) return 0; bool nsign=false;
 		long long value = 0; if(cstr[i]=='-'){ i+=1; nsign=true; }else if(cstr[i]=='+') i+=1;
 		for(; i < len; ++i){ unsigned char digit = cstr[i]-'0';
-			if(value > INTMAX_HALF10||(value==INTMAX_HALF10&&digit > INTMAX_MOD10)){ return nsign?INT_MIN:INT_MAX; }
+			if(value > INT_MAX/10||(value==INT_MAX/10&&digit > INT_MAX%10)){ return nsign?INT_MIN:INT_MAX; }
 			value=value*10+digit; } if(nsign) return -value; return value; }
 	int stoin(const char* cstr) noexcept { return stoin(cstr, strlen(cstr)); }
 	int stoin(const String& s) noexcept { return stoin(s.c_str(), s.size()); }
 	
-	#define LLMAX_HALF10 LLONG_MAX/10
-	#define LLMAX_MOD10 LLONG_MAX%10
 	long long stolln(const char* cstr, unsigned char len) noexcept { unsigned char i=0;
 		while(i<len&&cstr[i]==' ') i++; if(!IsInt(cstr+i, len-i)) return 0; bool nsign=false;
 		long long value = 0; if(cstr[i]=='-'){ i+=1; nsign=true; }else if(cstr[i]=='+') i+=1;
 		for(; i < len; ++i){ unsigned char digit = cstr[i]-'0';
-			if(value > LLMAX_HALF10||(value==LLMAX_HALF10&&digit > LLMAX_MOD10)){ return nsign?LLONG_MIN:LLONG_MAX; }
+			if(value > LLONG_MAX/10||(value==LLONG_MAX/10&&digit > LLONG_MAX%10)){ return nsign?LLONG_MIN:LLONG_MAX; }
 			value=value*10+digit; } if(nsign) return -value; return value; }
 	long long stolln(const char* cstr) noexcept { return stolln(cstr, strlen(cstr)); }
 	long long stolln(const String& s) noexcept { return stolln(s.c_str(), s.size()); }
 	
-	#define ULLMAX_HALF10 ULLONG_MAX/10
-	#define ULLMAX_MOD10 ULLONG_MAX%10
-	unsigned long long stoulln(const char* cstr, unsigned char len) noexcept { unsigned char i=0; 
+	unsigned long long stoulln(const char* cstr, unsigned char len) noexcept { unsigned char i=0;
 		while(i<len&&cstr[i]==' ') i++; if(!IsInt(cstr+i, len-i)) return 0; unsigned long long value = 0; i+=cstr[i]=='-'?1:cstr[i]=='+'?1:0; 
 		for(; i < len; ++i){ unsigned char digit = cstr[i]-'0';
-			if(value > ULLMAX_HALF10||(value==ULLMAX_HALF10&&digit > ULLMAX_MOD10)){ return ULLONG_MAX; }
+			if(value > ULLONG_MAX/10||(value==ULLONG_MAX/10&&digit > ULLONG_MAX%10)){ return ULLONG_MAX; }
 			value=value*10+digit; } return value; }
 	unsigned long long stoulln(const char* cstr) noexcept { return stoulln(cstr, strlen(cstr)); }
 	unsigned long long stoulln(const String& s) noexcept { return stoulln(s.c_str(), s.size()); }

@@ -1,10 +1,11 @@
 #ifdef _WIN32 // == Windows Headers ==
+#include <windows.h>
 #include <winsock2.h> // (includes <windows.h>)
 #include <ws2tcpip.h>
 #include <mswsock.h>  // for AcceptEx
 #include <wchar.h> // for wcslen()
 #if defined(__GNUC__) && __GNUC__ < 4
-#include "sys/gcc3_winxpdef.hpp"
+#include "gcc3_winxpdef.hpp"
 #endif
 
 //namespace ncpp { typedef HMODULE LibHandle; } //Windows Dynamic Lib Loader 
@@ -24,11 +25,11 @@
 namespace ncpp {
 #ifdef _WIN32
 	struct _WString : Array<wchar_t> {
-		_WString(const wchar_t* wptr, size_t len) : Array(wptr, wptr+len){};
-		_WString(const wchar_t* wptr) : Array(wptr, wptr+wcslen(wptr)){};
-		_WString(const void* begin, const void* end) : Array((const wchar_t*)begin, (const wchar_t*)end){};
-		_WString(size_t len=0) : Array(len){}
-		_WString(size_t len, wchar_t v) : Array(len, v){}
+		_WString(const wchar_t* wptr, size_t len) : Array<wchar_t>(wptr, wptr+len){};
+		_WString(const wchar_t* wptr) : Array<wchar_t>(wptr, wptr+wcslen(wptr)){};
+		_WString(const void* begin, const void* end) : Array<wchar_t>((const wchar_t*)begin, (const wchar_t*)end){};
+		_WString(size_t len=0) : Array<wchar_t>(len){}
+		_WString(size_t len, wchar_t v) : Array<wchar_t>(len, v){}
 		const wchar_t* c_str() const { return _ptr; } };
 
 	long long _FtToUnixTime(FILETIME& ft, char type='s'){ ULARGE_INTEGER t; t.LowPart = ft.dwLowDateTime; t.HighPart = ft.dwHighDateTime;
@@ -41,7 +42,7 @@ namespace ncpp {
 	_WString _toWStr(const char* cptr, size_t len, UINT fromp=CP_UTF8){ size_t wideLen = MultiByteToWideChar(fromp, 0, cptr, len, NULL, 0);
 		if(wideLen == 0){ Except("Error in _toWStr: "+dtos(GetLastError())+"\n"); return L""; }
 		_WString wStr(wideLen+1); MultiByteToWideChar(fromp, 0, cptr, len, wStr.data(), wideLen+1); return wStr; }
-	_WString _toWStr(const char* cstr){ return _toWStr(cstr, sizeof(cstr)); }
+	_WString _toWStr(const char* cstr){ return _toWStr(cstr, strlen(cstr)); }
 	_WString _toWStr(const CString& utf8str){ return _toWStr(utf8str.c_str(), utf8str.size()); }
 	String _OEMtoUTF8(const char* oemptr, size_t len=0){ if(len<=0){ len=strlen(oemptr); } return _toUTF8(_toWStr(oemptr, len, CP_OEMCP)); }
 #else
@@ -78,12 +79,12 @@ String readline(){ Buffer input; const char BLOCK_SIZE = 64; char buff[BLOCK_SIZ
 #endif
 }
 	
-struct Err { int code; virtual ~Err() noexcept {}
+/*struct Err { int code; virtual ~Err() noexcept {}
 	Err() : code(0), _err("Unspecified error"){}
 	Err(CString msg, int ecode=0) : code(ecode), _err(msg){}
 	Err(int ecode) : code(ecode), _err("Code: "){ _err+=dtos(code); }
 	virtual const char* what() const throw(){ return _err.c_str(); }
-	private: String _err; };
+	private: String _err; };*/
 	
 #ifdef _WIN32
 	//void Sleep(unsigned int msec){ ::Sleep(msec); }

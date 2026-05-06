@@ -8,6 +8,7 @@ Console cons;
 
 //#define FNAME "Again - fragm1"
 //#define FNAME "OST Classroom of the Elite Soundtrack(ver2)"
+//#define FNAME "OST Re:ZERO -Starting Life in Another World- Ending 1 | Styx Helix"
 
 void mp3_frames(){ Buffer mp3 = fs::readFile(FNAME ".mp3"); MP3Frame header;
     size_t pos=MP3Frame::skipID3v2(mp3.data()), frames=0, frameBytes=0, TotalPCMSize=0; //unsigned char buffer[4];

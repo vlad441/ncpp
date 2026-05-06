@@ -214,31 +214,38 @@ namespace ncpp {
 	template<typename T> struct UPtr : UniquePtr<T>{};
 	#endif
 	
-	namespace Timers { bool _run=false; Thread _TimerThr; static void _handler();
-		struct Timer { void(*func)(void*); long long msec; long long last; bool once; void* arg; }; Array<Timer> List;
+	namespace Timers { Mutex _ThrMtx; bool _run=false; Thread _TimerThr; int _tMaxIdx=0; static void _handler();
+		struct Timer { void(*func)(void*); long long msec; long long last; bool once; void* arg; }; typedef HashMap<int, Timer> TimersL;
+		TimersL tList;
 		template<typename F>
-		void add(F func, int msec, bool once=false, void* arg=NULL){ Timer timer; timer.func=(void(*)(void*))func; 
-			timer.arg=(void*)arg; timer.msec=msec; timer.last=GetTimestamp('m'); timer.once=once; bool empty=List.empty();
-			List.push_back(timer); if(empty){ _TimerThr=Thread(_handler); _TimerThr.detach(); } }
+		int add(F func, int msec, bool once=false, void* arg=NULL){ Timer timer; timer.func=(void(*)(void*))func; 
+			timer.arg=(void*)arg; timer.msec=msec; timer.last=GetTimestamp('m'); timer.once=once; 
+			_ThrMtx.lock(); bool empty=tList.empty(); tList[_tMaxIdx]=timer; /*tList.push(timer);*/ int idx=_tMaxIdx++; _ThrMtx.unlock();
+			if(empty){ _TimerThr=Thread(_handler); /*_TimerThr.detach();*/ } return idx; }
 		
 		static void _handler(){ _run=true;
-			while(!List.empty()){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m');
-				for(size_t i=0; i<List.size(); ++i){ long long timeLeft = List[i].msec-(now-List[i].last);
-					if(timeLeft < minTime){ minTime = timeLeft; } }
+			while(!tList.empty()){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m');
+				for(TimersL::Iter it = tList.begin(); it != tList.end(); ++it){ Timer& t = it->second;
+					long long timeLeft = t.msec-(now-t.last); if(timeLeft < minTime){ minTime = timeLeft; } }
 				
 				if(minTime>0&&minTime!=LLONG_MAX){ Sleep((int)minTime); } now = GetTimestamp('m');
-				for(Array<Timer>::iterator it = List.begin(); it != List.end(); ){ if(!_run){ List.clear(); break; } Timer& timer = *it;
-					if((now-timer.last) >= timer.msec){ timer.func(timer.arg); timer.last += timer.msec;
-						if(timer.once){ it = List.erase(it); continue; } } ++it; } 
+				for(TimersL::Iter it = tList.begin(); it != tList.end(); ){ if(!_run){ _ThrMtx.lock(); tList.clear(); _ThrMtx.unlock(); break; } 
+					Timer& t = it->second;
+					if((now-t.last) >= t.msec){ t.func(t.arg); t.last += t.msec;
+						if(t.once){ _ThrMtx.lock(); it = tList.erase(it); _ThrMtx.unlock(); continue; } } ++it; }
 			} }
-		void clear(){ _run=false; }
-		void wait(){ if(_TimerThr.joinable()) _TimerThr.join(); } //_TimerThr.detach();
+		void clear(){ _run=false; _tMaxIdx=0; }
+		void wait(){ if(_TimerThr.joinable()) _TimerThr.join(); }
+		void detach(){ if(_TimerThr.joinable()) _TimerThr.detach(); }
+		void Delete(int idx){ _ThrMtx.lock(); tList.erase(idx); if(tList.empty()){ _tMaxIdx=0; } _ThrMtx.unlock(); }
 	}
 	
+	void clearInterval(int id){ Timers::Delete(id); }
 	template<typename T>
-	void setInterval(void(*func)(T*), int msec, void* arg=NULL){ Timers::add(func, msec, false, arg); };
-	void setInterval(void(*func)(), int msec){ Timers::add(func, msec, false); };
+	int setInterval(void(*func)(T*), int msec, void* arg=NULL){ return Timers::add(func, msec, false, arg); };
+	int setInterval(void(*func)(), int msec){ return Timers::add(func, msec, false); };
 	template<typename T>
-	void setTimeout(void(*func)(T*), int msec, void* arg=NULL){ Timers::add(func, msec, true, arg); };
-	void setTimeout(void(*func)(), int msec){ Timers::add(func, msec, true); };
+	int setTimeout(void(*func)(T*), int msec, void* arg=NULL){ return Timers::add(func, msec, true, arg); };
+	int setTimeout(void(*func)(), int msec){ return Timers::add(func, msec, true); };
+	
 }

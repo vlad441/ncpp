@@ -69,7 +69,7 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
     struct Iter : _Iter<KVData, Array<Entry>, Iter> { Iter() : _Iter<KVData, Array<Entry>, Iter>(){}
 		Iter(Array<Entry>* table, size_t idx1=0) : _Iter<KVData, Array<Entry>, Iter>(table, idx1){}
 		operator ConstIter() const { return ConstIter(this->tbl, this->idx); } };
-	typedef Iter iterator; typedef ConstIter const_iterator;
+	typedef ConstIter CIter; typedef Iter iterator; typedef ConstIter const_iterator;
     
 	ConstIter begin() const { size_t i = 0; while(i < table.size() && !table[i].occupied) ++i; return ConstIter(&table, i); }
 	Iter begin(){ size_t i = 0; while(i < table.size() && !table[i].occupied) ++i; return Iter(&table, i); }
@@ -105,7 +105,7 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
 	
 	Iter erase(Iter pos){ if(pos == end() || pos.tbl != &table) return end(); 
 		size_t idx = pos.idx; if(!table[idx].occupied) return ++pos;
-		table[idx].occupied = false; --_size; _del_reinsert(idx); return ++pos; }
+		table[idx].occupied = false; --_size; _del_reinsert(idx); if(idx<table.size()&&!table[idx].occupied) ++pos; return pos; }
     
 	V& operator[](const K& key){ Iter it = find(key); if(it!=end()) return it->value(); return insert(key, V()).first->value(); }
 	// == ==
@@ -116,7 +116,6 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
 	static Derived& assign(Derived& target, const Derived& map2){
 		for(ConstIter it = map2.begin(); it != map2.end(); ++it){ target[it->first]=it->second; } return target; }
 	static Derived& assign(Derived& target, const Array<Derived>& maps){ for(size_t i=0;i<maps.size();i++){ target.assign(target, maps[i]); } return target; }
-	void erase_ptr(K key){ erase(key); delete key; }
 	String cout() const { String ss("{");
 		for(ConstIter it = this->begin(); it != this->end(); ++it){ ss << "\n  \"" << it->first << "\": " << it->second << ", "; } ss+="}"; return ss; }
 	String toJSON() const { String ss("{"); for(ConstIter it = this->begin(); it != this->end(); ++it){ ss << "\"" << it->first << "\":" << it->second<<","; }

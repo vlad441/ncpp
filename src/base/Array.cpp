@@ -31,10 +31,11 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	size_t size() const { return _len; }
 	size_t capacity() const { return _msize; }
 	
-	void reserve(size_t len){ if(len<=_msize) return; if(_ptr==NULL||_mode!=HEAP){ _alloc(len); return; } _realloc((len<_msize*2)?_msize*2:len); }
-	void resize(size_t len, const T& val=T()){ if(_len==len) return;
+	Array<T>& reserve(size_t len){ if(len<=_msize) return *this; if(_ptr==NULL||_mode!=HEAP){ _alloc(len); return *this; } 
+		_realloc((len<_msize*2)?_msize*2:len); return *this; }
+	Array<T>& resize(size_t len, const T& val=T()){ if(_len==len) return *this;
 		if(len>_len){ reserve(len); for(size_t i=_len;i<len;i++){ new (_ptr+i) T(val); } }
-		else{ for(size_t i=_len; i-- > len; ){ _ptr[i].~T(); } } _len=len; }
+		else{ for(size_t i=_len; i-- > len; ){ _ptr[i].~T(); } } _len=len; return *this; }
 		
 	void assign(const T* begin, const T* end){ _copy(begin, ((end > begin)?(end-begin) : 0)); }
 	void assign(size_t n, const T& val){ if(n<=0) return; clear(); reserve(n); 
@@ -43,7 +44,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	void insert(Iter ipos, const T* dptr, size_t len){ if(len==0) return; size_t pos=_len;
 		if(ipos!=NULL && ipos >= _ptr && ipos <= _ptr+_len){ pos = ipos-_ptr; } size_t len0=_len; size_t nlen = _len+len; reserve(nlen);
 		if(pos < len0){ _move_right(pos, len); } _copy(dptr, len, pos); _len = nlen; return; }
-	void insert(Iter ipos, const T* first, const T* last){ const T *b=first, *e=last; size_t len = (e > b)?(e-b) : 0; insert(ipos, b, len); }
+	void insert(Iter ipos, const T* first, const T* last){ const T *b=first, *e=last; size_t len = (e>b)?(e-b):0; insert(ipos, b, len); }
 	void insert(Iter ipos, size_t n, const T& v);
 	void insert(Iter ipos, const T& v){ insert(ipos, &v, 1); }
 	void insert(Iter ipos, const Array& other){ insert(ipos, other.data(), other.size()); }
@@ -51,17 +52,22 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	Iter erase(Iter first, Iter last){ if(first >= last || first < _ptr || last > _ptr+_len) return end();
 		_move_left((size_t)(first-_ptr), (size_t)(last-first)); return first; }
 	Iter erase(Iter ipos){ return erase(ipos, ipos+1); }
+	void erase(size_t pos, size_t count=1){ if(this->empty()) return; _move_left(pos, count); }
 		
 	void push_back(const T& val){ push(val); }
 	void pop_back(){ resize(_len-1); }
+	
+	void push_front(const T& v){ insert(begin(), v); }
+	void pop_front(){ erase(begin()); }
 	
 	T& front(){ return *_ptr; }
 	const T& front() const { return *_ptr; }
 	T& back(){ return *(_ptr+_len-1); }
 	const T& back() const { return *(_ptr+_len-1); }
 	
-	void clear(){ for(size_t i=0;i<_len;i++){ _ptr[i].~T(); } _len=0; }
-	void shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP) return; if(_len==0){ free(_ptr); _ptr=NULL; return; } _reallocT(_len); }
+	Array<T>& clear(){ for(size_t i=0;i<_len;i++){ _ptr[i].~T(); } _len=0; return *this; }
+	Array<T>& shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP) return *this; if(_len==0){ free(_ptr); _ptr=NULL; _msize=0; return *this; }
+		_reallocT(_len); return *this; }
 	void shrink_to_fit(){ shrink(); }
 	// == ==
 	size_t indexOf(const T& value, size_t start=0) const { for(size_t i=start; i<_len; ++i){ if(_ptr[i] == value){ return i; } } return -1; }
@@ -78,11 +84,12 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	Array<T>& push(const T (&arr)[N]){ size_t len0=_len; resize(_len+N); _copy(arr, N, len0); return *this; }
 	Array<T>& push(const T* ptr, size_t len){ size_t len0=_len; resize(_len+len); _copy(ptr, len, len0); return *this; }
 	Array<T>& push(const T& val){ reserve(_len+1); ++_len; new (&_ptr[_len-1]) T(val); return *this; }
+	
+	#if __cplusplus >= 201103L
+	//Array<T>& push(T&& val);
+	#endif
 	//void push(const T& val){ reserve(_len+1); ++_len; if(is_pod<T>::V){ _ptr[_len-1]=val; }else{ new (&_ptr[_len-1]) T(val); } } //type traits example
 	T pop(){ T val(_ptr[_len-1]); resize(_len-1); return val; }
-	
-	void push_front(const T& v){ insert(begin(), v); }
-	void pop_front(){ erase(begin()); }
 	
 	Array<T>& concat(const Array<T>& arr2){ push(arr2.data(), arr2.size()); return *this; }
 	static Array<T> concat(const Array<T>& arr1, const Array<T>& arr2){ Array<T> ret = arr1; ret.concat(arr2); return ret; }
@@ -96,7 +103,8 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	
 	T& operator[](size_t pos){ return _ptr[pos]; }
 	const T& operator[](size_t pos) const { return _ptr[pos]; }
-	const T& at(size_t pos) const { static const T cval=T(); return (_ptr&&pos<_len)?_ptr[pos]:cval; }
+	//const T& at(size_t pos) const { static const T cval=T(); return (_ptr&&pos<_len)?_ptr[pos]:cval; } // (!) UB
+	const T& at(size_t pos) const { static const T cval=T(); if(_ptr&&pos<_len){ return _ptr[pos]; } return cval; }
 	//const T& at(size_t pos) const { if(_len==0||!_ptr||pos>=_len){ Except("Array::at() error: Out of range.\n", 1, ERR_RANGE); return; } return _ptr[pos]; }
 	
 	//bool operator==(const Array& arr) const;
@@ -108,15 +116,15 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	
 	String cout() const;
 	
-	void swap(Array& other){ ncpp::swap(*this, other); }
+	void swap(Array& other){ using ncpp::swap; swap(*this, other); }
 	friend void swap(Array& a, Array& b){ char* tmpc = a._ptr; a._ptr = b._ptr; b._ptr = tmpc;
 		size_t tmp = a._len; a._len = b._len; b._len = tmp;
 		tmp = a._msize; a._msize = b._msize; b._msize = tmp;
 		tmp = a._mode; a._mode = b._mode; b._mode = tmp; }
 	
 	#if __cplusplus >= 201103L //move for C++11
-	Array(Array&& tmp) noexcept { move(*this, tmp); }
-	Array& operator=(Array&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+	Array(Array&& tmp) noexcept : _ptr(NULL){ move(*this, tmp); }
+	Array& operator=(Array&& tmp) noexcept { move(*this, tmp); return *this; }
 	Array& steal(Array& tmp){ move(*this, tmp); return *this; }
 	Array& steal(Array&& tmp){ move(*this, tmp); return *this; }
 	friend void move(Array& dst, Array&& tmp){ move(dst, (Array&)tmp); }
@@ -124,7 +132,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	Array& steal(const Array& victim){ move(*this, (Array&)victim); return *this; }
 	friend void move(Array& dst, const Array& victim){ move(dst, (Array&)victim); }
 	#endif
-	friend void move(Array& dst, Array& tmp){ dst.clear(); if(dst._mode==HEAP&&dst._ptr!=NULL) free(dst._ptr);
+	friend void move(Array& dst, Array& tmp){ if(&dst==&tmp) return; dst._reinit();
 		dst._ptr = tmp._ptr; tmp._ptr = NULL; 
 		dst._len = tmp._len; tmp._len = 0;
 		dst._msize = tmp._msize; tmp._msize = 0;
@@ -160,6 +168,8 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 			
 		void _reallocPOD(size_t nsize){ _msize=nsize; _ptr=(T*)realloc(_ptr, _msize*sizeof(T));
 			if(_ptr==NULL){ Except("ncpp::Array realloc error: Out of memory\n", 0, ERR_OOM); } }
+			
+		void _reinit(){ clear(); if(_mode==HEAP&&_ptr!=NULL){ free(_ptr); } }
 };
 
 //template <typename T> void Array<T*>::resize(size_t len){ reserve(len); _len=len; }

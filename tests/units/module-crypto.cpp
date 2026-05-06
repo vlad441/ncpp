@@ -49,7 +49,7 @@ void testDH(){ double dh_time=GetTimestamp('u');
 	TIME_DIFF("[DH] --- Time: ", dh_time); TEST_EQ(secretA, secretB); TEST_EQ(secretA.toHex(), secretB.toHex());
 }
 
-void Crypto_module_test(){
+void Module_Crypto_test(){
 	rsa_test(); //rsa_test_simple();
 	testDH();
 }

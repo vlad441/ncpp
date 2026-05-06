@@ -2,9 +2,19 @@
 set currpath=%CD%
 set gccpath=
 
+set STDCXX=c++98
+if "%~1"=="C++98" (set "STDCXX=c++98" & shift)
+if "%~1"=="C++11" (set "STDCXX=c++11" & shift)
+if "%~1"=="C++17" (set "STDCXX=c++17" & shift)
+if "%~1"=="C++23" (set "STDCXX=c++23" & shift)
+
+set ARCH_FLAG=-m32
+if "%~1"=="x64" (set "ARCH_FLAG=-m64" & shift)
+if "%~1"=="x32" (set "ARCH_FLAG=-m32" & shift)
+
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
-set OPT_FLAGS=-O2 -std=c++98 -fno-exceptions -fno-rtti
-set D_LNK_FLAGS=-s -m32 -lws2_32 -lpsapi -liphlpapi -lopengl32 -lgdi32
+set OPT_FLAGS=-O2 -std=%STDCXX% -fno-exceptions -fno-rtti -fwhole-program
+set D_LNK_FLAGS=-s %ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi -lopengl32 -lgdiplus -lgdi32 -lole32
 set LNK_FLAGS=-static %D_LNK_FLAGS%
 
 if "%~1"=="" (set fname=gui-testapp) else (set fname=%1)

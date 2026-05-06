@@ -127,7 +127,7 @@ namespace ncpp{ namespace crypto{ namespace RSA{
 	Pair<BigInt, BigInt> recoverPQ(const BigInt& n, const BigInt& d, const BigInt& e=PUBLIC_EXPONENT, int attempts=1000){
 		BigInt k = e * d - 1; BigInt t = k; int s = 0; while(t % 2 == 0){ t = t / 2; ++s; }
 		for (int i = 0; i < attempts; ++i){
-			BigInt a = BigInt::random(n.size());  // Выбор случайного a от 2 до n-2
+			BigInt a = BigInt::rand(n.size());  // Выбор случайного a от 2 до n-2
 			BigInt x = BigInt::powMod(a, t, n); if(x == 1 || x == n-1) continue;
 			for (int j = 0; j < s - 1; ++j){ x = BigInt::powMod(x, 2, n); if(x == n - BigInt(1)) break;
 				if (x == 1){ BigInt p = gcd(x - BigInt(1), n); BigInt q = n / p; return Pair<BigInt, BigInt>(p, q); } }

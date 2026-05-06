@@ -1,15 +1,9 @@
-TODO v0.0.1:
-- DoubleMap -> Int64Map? UllMap? (ncpp-system)? Или может структурку сделать?
--- Не разбрасываться noexept
-- HTTP: вспомогательные функции: cookie parser, qparse, etc.
-- WebSocket::_onClose();
-- excmd() -> execShell(): whar_t декодинг.
-- Buffer::insert();
-
 - print(long long v): SFINAE use for numbers.
 - Array: _reallocT(): move семантика, type traits.
 - Стандартизация обработки ошибок.
 - Стандартные алгоритмы и нейминг
+- WebSocket::_onClose();
+- excmd() -> execShell(): whar_t декодинг.
 - Stream
 -- Socket
 --- UnixStream (+/-)
@@ -25,17 +19,18 @@ TODO v0.0.1:
 -- File Async
 -- TCP Server (+/-)
 --- HTTP (+/-)
+---- HTTP: вспомогательные функции: cookie parser, qparse, etc.
 ---- HTTPServer (+/-)
 ----- Res: socket ownership transfer (SlotMap?)
 ----- setThreadNum?
----- WebSocket
+---- WebSocket (+/-)
 -- Promise?
 - System
 -- CPU getCoresTime()
+--- CPU: temperature
 -- Memory: Used = Total-Available; (Выгружаемый+Невыгружаемый пул?)
 -- Disk (wmic -> WinApi)
 -- readline(): ReadFileW()
-- Date (+/-)
 - Threads (+/-)
 -- Thread (Event) Pool?
 -- ncpp::Thread::Signal.emit() (EventEmiter?) (condition_variable)?
@@ -54,22 +49,17 @@ TODO v0.0.1:
 - GUI
 -- Минимальный набор(Кнопки, Input, Label, ...);
 -- Image (Win: GDI/GDI+, X11: XPutImage/XRender(GPU?), Wayland: ?)(Cairo: example)
---- BMP parser? (Подбор оптимальный осруктуры для быстрой обработки? Лучшие практики Cairo)
 - Media
--- Image-parser
+-- Images (+/-)
 -- Audio
 -- Video?
 - Закрыть все TODO?
 - Разобрать реализацию sqlite3.c?
 - clang 3.5 support, Linux 3.10.0 and 2.6.18 (Debian4)
 -- Поддержка gcc3_winxpdef.h
--- CI/CD?
+-- CI/CD (+/-)
 - Упаковать либу в .deb пакет?
 - Производительность: Минимизация вызовов malloc/free, SSO, SlabAllocator?
-
-Если вы используете строгие режимы компиляции или специфические флаги компилятора, которые исключают функции стандартной библиотеки (например, для защиты от ошибок или для контроля размера кода), то memmove() может быть недоступна.
-
-- OpenPGP?
 
 https://en.wikipedia.org/wiki/Windows_Native_API
 https://emn178.github.io/online-tools/

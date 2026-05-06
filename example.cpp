@@ -3,25 +3,18 @@ using namespace ncpp;
 Console cons;
 
 #include "tests/tests-header.h"
-//#include <typeinfo>
 
-///Thread::Signal sg1;
-///void timer_test(){ sg1.notify(); }
+int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); //arch_current();
 
-//void timer_test(Thread::Signal* sgn1){ (*sgn1).notify(); }
-
-int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); arch_current();
-
-	cons.setColor(2) << " colored output\n"; cons.reset();
-	print("Hi, Julien Lete\n - Is a print()\n\n");
+	cons << "1) "; cons.setColor(2) << "Hi, Julien Lete\n"; cons.reset();
+	print("2) Is a simple print()\n");
+	print("3) Array print: "); print(" "); print(String("Splited,String,Array").split(",")); print("\n");
+	print("4) Console print: "); cons.setColor(3) << Array<String>().push("Array").push("for").push("Console") << "\n\n"; cons.reset();
 	
 	Buffer buff("Hi, ncpp");
 	cons << "buff.toString(): " << buff.toString() << "\n";
 	cons << "buff.toString(\"hex\"): " << buff.toString("hex") << "\n";
 	cons << "buff.cout(): " << buff << "\n";
 	
-	//std::cout << "sizeof(std::mutex): " << sizeof(std::mutex) << std::endl;
-	//std::cout << "sizeof(std::condition_variable): " << sizeof(std::condition_variable) << std::endl; 
-	//std::cout << "sizeof(Thread::Signal): " << sizeof(Thread::Signal) << std::endl;
-	//std::cout << "crypto::MD5().digest(): " << crypto::MD5("md5").digest() << std::endl;
+	//cons << "crypto::MD5().digest(): " << crypto::MD5("md5").digest() << std::endl;
 }

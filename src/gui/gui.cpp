@@ -3,7 +3,7 @@ namespace ncpp { namespace GUI { struct App; App* mainApp=NULL; struct Window; s
 #define DEF_HWND_Y 50
 #define DEF_HWND_WIDTH 300
 #define DEF_HWND_HEIGHT 200
-struct WEvent { Window* wnd; unsigned char id; int key; int x; int y; String name;
+struct WEvent { Window* wnd; int id; int key, x, y; String name;
 	WEvent(Window* wnd1=NULL, unsigned char id1=0) : wnd(wnd1), id(id1), key(-1), x(0), y(0){};
 	enum EvType { OTHER, CLICK, MOUSEUP, MOUSEMOVE, KEYDOWN, KEYUP };
 	enum MouseBtn { LBTN, RBTN, MBTN };
@@ -155,17 +155,7 @@ int _FromNativeKeyID(int kid){
 			case NCPP_VKEYS+35: return "Down"; case NCPP_VKEYS+36: return "Left"; case NCPP_VKEYS+37: return "Right"; 
 			case NCPP_VKEYS_FN+34: return "Num +"; case NCPP_VKEYS_FN+35: return "Num -"; case NCPP_VKEYS_FN+36: return "Num *"; 
 			case NCPP_VKEYS_FN+37: return "Num /"; case NCPP_VKEYS_FN+38: return "Num . (Del)"; } return "(Unknown)"; }
-}
-/*#if __cplusplus >= 201103L
-	void move(GUI::Window& dst, GUI::Window& tmp);
-	void move(GUI::Window& dst, GUI::Window&& tmp);
-	void move(GUI::GLWindow& dst, GUI::GLWindow& tmp);
-	void move(GUI::GLWindow& dst, GUI::GLWindow&& tmp);
-#else
-	void move(GUI::Window& dst, const GUI::Window& victim);
-	void move(GUI::GLWindow& dst, const GUI::GLWindow& victim);
-#endif*/
-}
+} }
 
 // - **Поддержка графики:**
 // - - [x] OpenGL 2.0+
@@ -180,7 +170,7 @@ int _FromNativeKeyID(int kid){
 #elif USE_WAYLAND //XDG Portals?
 #include <wayland-client.h>
 
-#else //USE_X11_ONLY?
+#else //USE_X11_ONLY? Dependencies:
 //X11 needs packages: libx11-dev libxtst-dev
 //OpenGL needs packages: libgl1-mesa-dev
 #define Window XWindowID //Подмена Window для устранения конфликта имен.

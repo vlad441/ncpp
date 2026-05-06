@@ -24,12 +24,12 @@ namespace ncpp{ struct UnixSocket : TCPSocket { char _utype; String path;
 			rsetErr(); DWORD rbytes; ReadFile(hPipe, buff->data(), buff->size(), &rbytes, NULL);
 			if(rbytes<=0){ buff->resize(0); if(rbytes==0){ destroy(); }else{ GetErr(); } }
 			else{ buff->resize(rbytes); } return rbytes; }
-	Buffer recv(){ Buffer buff(DEF_BUFF_SIZE); recv(&buff); return buff; }
+	Buffer recv(){ Buffer buff(DEF_SOCK_SIZE); recv(&buff); return buff; }
 	private: 
 		inline void pathNormalize(){ if(path.startsWith("\\\\.\\pipe\\")) return; 
 			if(isAbstract()){ path=path.slice(1); } if(path.startsWith("/tmp/")){ path=path.slice(5); } path="\\\\.\\pipe\\"+path; }
 		HANDLE _bind(){ pathNormalize(); return CreateNamedPipe(TEXT(path.c_str()), PIPE_ACCESS_DUPLEX, 
-			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, DEF_BUFF_SIZE, DEF_BUFF_SIZE, 0, NULL); }
+			PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, DEF_SOCK_SIZE, DEF_SOCK_SIZE, 0, NULL); }
 	
 	#else
 	//UnixSocket() : TCPSocket(), _utype(SOCK_STREAM){ _type=Socket::UNIX; }

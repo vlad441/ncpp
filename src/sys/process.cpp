@@ -1,16 +1,17 @@
 namespace ncpp{
-	String excmd(const CString& cmd, Stream* stream){ String ss; char buf[1024];
+	//String execShell(const CString& cmd, Stream* stream=NULL);
+	String execShell(const CString& cmd, Stream* stream){ String ss; char buf[1024]; //int execpid=-1;
 	#ifdef _WIN32
 		String ecmd="cmd /c "+cmd; PROCESS_INFORMATION pi; STARTUPINFOW si; ZeroMemory(&si, sizeof(STARTUPINFO)); SECURITY_ATTRIBUTES sa; 
 		HANDLE newstdout,hRead; sa.lpSecurityDescriptor = NULL; sa.nLength = sizeof(SECURITY_ATTRIBUTES); sa.bInheritHandle = true;
 		if(!CreatePipe(&hRead,&newstdout,&sa,0)){ return "(CreatePipe Error)"; } GetStartupInfoW(&si); 
 		si.dwFlags = STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW; si.hStdOutput = newstdout; si.hStdError = newstdout; si.wShowWindow = SW_HIDE;
 		if(!CreateProcessW(NULL, (LPWSTR)_toWStr(ecmd).c_str(), NULL,NULL,true,CREATE_NO_WINDOW,NULL,NULL,&si,&pi))
-		{ CloseHandle(newstdout); CloseHandle(hRead); return "(CreateProcess Error)"; } unsigned long exit=0, bread, avail; String str;
-	
-		while(true){ PeekNamedPipe(hRead,buf,sizeof(buf),&bread,&avail,NULL); if(bread>0){ do{ ReadFile(hRead,buf,sizeof(buf),&bread,NULL);
-				if(stream==NULL){ str+=_OEMtoUTF8(&buf[0], bread); }else{ (*stream)<<_OEMtoUTF8(&buf[0], bread); }
-			}while(bread >= sizeof(buf)); } GetExitCodeProcess(pi.hProcess,&exit); if(exit!=STILL_ACTIVE){ break; } Sleep(200); }
+		{ CloseHandle(newstdout); CloseHandle(hRead); return "(CreateProcess Error)"; } unsigned long bread; String str;
+			
+		while(ReadFile(hRead, buf, sizeof(buf), &bread, NULL) && bread>0){
+			String chunk = _OEMtoUTF8(buf, bread); if(stream==NULL){ str+=chunk; }else{ (*stream)<<chunk; } }
+			
 		CloseHandle(pi.hThread); CloseHandle(pi.hProcess); CloseHandle(newstdout); CloseHandle(hRead); return str;
 	#else
 		String ecmd="/bin/sh -c \""+cmd+" 2>&1\""; FILE* pipe = popen(ecmd.c_str(), "r"); if(!pipe){ Except("popen() failed!"); return ""; }
@@ -59,13 +60,13 @@ namespace ncpp{
 			if(hSnap == NULL){ return pinfo; } PROCESSENTRY32 proc; proc.dwSize = sizeof(PROCESSENTRY32);
 			if(Process32First(hSnap, &proc)){ do{ if((int)proc.th32ProcessID!=pid){ continue; } pinfo.name=proc.szExeFile; 
 				pinfo.pid=proc.th32ProcessID; pinfo.threads=proc.cntThreads; pinfo.parent=proc.th32ParentProcessID;
-				pinfo.priority=proc.pcPriClassBase; CloseHandle(hSnap); DoubleMap rinfo = system::RAM::usage(pinfo.pid); 
+				pinfo.priority=proc.pcPriClassBase; CloseHandle(hSnap); ULLMap rinfo = system::RAM::usage(pinfo.pid); 
 				pinfo.rss=rinfo["rss"]; pinfo.virt=rinfo["virt"]; return pinfo; }while(Process32Next(hSnap, &proc)); } return pinfo; }
 		static Array<ProcessInfo> GetList(){ Array<ProcessInfo> plist; HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0); 
 			if(hSnap == NULL){ return plist; } PROCESSENTRY32 proc; proc.dwSize = sizeof(PROCESSENTRY32);
 			if(Process32First(hSnap, &proc)){ do{ ProcessInfo pinfo; pinfo.name=proc.szExeFile; 
 				pinfo.pid=proc.th32ProcessID; pinfo.threads=proc.cntThreads; pinfo.parent=proc.th32ParentProcessID;
-				pinfo.priority=proc.pcPriClassBase; DoubleMap rinfo = system::RAM::usage(pinfo.pid); 
+				pinfo.priority=proc.pcPriClassBase; ULLMap rinfo = system::RAM::usage(pinfo.pid); 
 				pinfo.rss=rinfo["rss"]; pinfo.virt=rinfo["virt"]; plist.push(pinfo); }while(Process32Next(hSnap, &proc)); } CloseHandle(hSnap); return plist; }
 		struct { HANDLE hRead;
 			int read(Buffer* buff){ if(buff==NULL) return -1; if(buff->size()<buff->capacity()){ buff->resize(buff->capacity()); } DWORD rbytes=0; 
@@ -90,26 +91,36 @@ namespace ncpp{
 		#endif
 		
 		private:
-			static int _run(const CString& execpath, const ProcessOpts& opts=ProcessOpts(), Process* proc=NULL){ int pid=-1;
-		#ifdef _WIN32
-			String ecmd="cmd /c "+execpath; STARTUPINFOW si; PROCESS_INFORMATION pi; ZeroMemory(&si, sizeof(si)); si.cb = sizeof(si); ZeroMemory(&pi, sizeof(pi));
-			DWORD procFlag=CREATE_NO_WINDOW; //if(opts.detach<2){ si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_HIDE; } - Hide GUI Window
-			if(opts.detach==1){ procFlag=CREATE_NO_WINDOW|DETACHED_PROCESS; }else if(opts.detach>=2){ procFlag=CREATE_NEW_CONSOLE; }
-			if(opts.getpid){ ecmd=execpath; } if(!CreateProcessW(NULL, &_toWStr(ecmd)[0], NULL, NULL, FALSE, procFlag, NULL, NULL, &si, &pi)){ return pid; }
-			pid = pi.dwProcessId; CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
-		#else
-			if(opts.getpid){ posix_spawnattr_t attr; posix_spawnattr_init(&attr); if(opts.detach >= 1){
-				#ifdef POSIX_SPAWN_SETSID
-				posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
-				#else
-				pid_t p = fork(); if(p==0){ setsid(); }else if(p > 0){ return p; }else{ return -1; }
-				#endif
-				} Array<String> args = execpath._split<String>(" "); Array<char*> argv; for(size_t i=0;i<args.size();i++){ argv.push((char*)args[i].c_str()); }
-				argv.push(NULL); int status = posix_spawn(&pid, argv[0], NULL, &attr, argv.data(), environ);
-				posix_spawnattr_destroy(&attr); if (status != 0){ Except("(!) posix_spawn failed: "+String(strerror(status))+"\n"); } }
-			else{ pid_t p = fork(); if(opts.detach >= 1){ setsid(); } if(p == -1){ return -1; } 
-				else if(p == 0){ execl("/bin/sh", "sh", "-c", execpath.c_str(), (char *)0); exit(EXIT_FAILURE); } else { pid = p; } }
+		#ifndef _WIN32
+			static Array<String> _ParseArgs(const CString& argstr){ Array<String> args; String str; bool in_quotes = false;
+				for(size_t i=0; i<argstr.size(); ++i){ char c = argstr[i];
+					if(c == '"'){ in_quotes = !in_quotes; continue; }
+					if(c == ' '&&!in_quotes){ if(!str.empty()){ args.push(str); str.clear(); } }else{ str += c; } }
+				if(!str.empty()){ args.push(str); } return args; }
 		#endif
-			return pid; }
+			static int _run(const CString& execpath, const ProcessOpts& opts=ProcessOpts(), Process* proc=NULL){ int pid=-1;
+			#ifdef _WIN32
+				String ecmd="cmd /c "+execpath; STARTUPINFOW si; PROCESS_INFORMATION pi; ZeroMemory(&si, sizeof(si)); si.cb = sizeof(si); ZeroMemory(&pi, sizeof(pi));
+				DWORD procFlag=CREATE_NO_WINDOW; //if(opts.detach<2){ si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_HIDE; } - Hide GUI Window
+				if(opts.detach==1){ procFlag=CREATE_NO_WINDOW|DETACHED_PROCESS; }else if(opts.detach>=2){ procFlag=CREATE_NEW_CONSOLE; }
+				if(opts.getpid){ ecmd=execpath; } if(!CreateProcessW(NULL, &_toWStr(ecmd)[0], NULL, NULL, FALSE, procFlag, NULL, NULL, &si, &pi)){ return pid; }
+				pid = pi.dwProcessId; CloseHandle(pi.hProcess); CloseHandle(pi.hThread);
+			#else
+				if(opts.getpid){ posix_spawnattr_t attr; posix_spawnattr_init(&attr); if(opts.detach >= 1){
+					#ifdef POSIX_SPAWN_SETSID
+						posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
+					#else
+						pid_t p = fork(); if(p==0){ setsid(); }else if(p > 0){ return p; }else{ return -1; }
+					#endif
+					} Array<String> args = _ParseArgs(execpath); Array<char*> argv; for(size_t i=0;i<args.size();i++){ argv.push((char*)args[i].c_str()); }
+					argv.push(NULL); int status = posix_spawn(&pid, argv[0], NULL, &attr, argv.data(), environ);
+					posix_spawnattr_destroy(&attr); if (status != 0){ Except("(!) posix_spawn failed: "+String(strerror(status))+"\n"); 
+						print("(#DEBUG) _run path: "); print(execpath); print("\n");
+						print("(#DEBUG) _run array:"); print(args); print("\n");
+					} }
+				else{ pid_t p = fork(); if(opts.detach >= 1){ setsid(); } if(p == -1){ return -1; } 
+					else if(p == 0){ execl("/bin/sh", "sh", "-c", execpath.c_str(), (char *)0); exit(EXIT_FAILURE); } else { pid = p; } }
+			#endif
+				return pid; }
 	};
 }

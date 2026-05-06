@@ -1,132 +1,103 @@
 [![doc-link](https://img.shields.io/badge/Введение%20main-gray)](introduction.md)
 
-- [ncpp::Object](#ncppobject)
-	- [Object.keys()](#objectkeys)
-	- [Object.has()](#objecthas)
-	- [Object.cout()](#objectcout)
-	- [Object.toString()](#objecttostring)
-	- [Object.type()](#objecttype)
-	- [Object::getNestedValue()](#objectgetnestedvalue)
-	- [Object::setNestedValue()](#objectsetnestedvalue)
 - [ncpp::Variant](#ncppvariant)
 - [ncpp::VArray](#ncppvarray)
+
 - [ncpp::ObjectValue](#ncppobjectvalue)
-	- [ObjectValue.clear()](#objectvalueclear)
-	- [ObjectValue.set()](#objectvalueset)
-	- [ObjectValue.isInt32()](#objectvalueisint32)
-	- [ObjectValue.isInt64()](#objectvalueisint64)
-	- [ObjectValue.isDouble()](#objectvalueisdouble)
-	- [ObjectValue.isNumber()](#objectvalueisnumber)
-	- [ObjectValue.isBool()](#objectvalueisbool)
-	- [ObjectValue.isString()](#objectvalueisstring)
-	- [ObjectValue.isBuff()](#objectvalueisbuff)
-	- [ObjectValue.isObj()](#objectvalueisobj)
-	- [ObjectValue.isArray()](#objectvalueisarray)
-	- [ObjectValue.isNull()](#objectvalueisnull)
-	- [ObjectValue.isUndefined()](#objectvalueisundefined)
-	- [ObjectValue.asDouble()](#objectvalueasdouble)
-	- [ObjectValue.asBool()](#objectvalueasbool)
-	- [ObjectValue.asString()](#objectvalueasstring)
-	- [ObjectValue.asBuff()](#objectvalueasbuff)
-	- [ObjectValue.asObj()](#objectvalueasobj)
-	- [ObjectValue::compare()](#objectvaluecompare)
-	- [ObjectValue.type()](#objectvaluetype)
-	- [ObjectValue.toString()](#objectvaluetostring)
-	- [ObjectValue.toNumber()](#objectvaluetonumber)
-	- [ObjectValue.toInt32()](#objectvaluetoint32)
-	- [ObjectValue.toInt64()](#objectvaluetoint64)
-	- [ObjectValue.toBuff()](#objectvaluetobuff)
-	- [ObjectValue.toBool()](#objectvaluetobool)
-- [ncpp::JSON::stringify()](#ncppjsonstringify)
+    - [ObjectValue.set()](#objectvalueset)
+    - [ObjectValue.setNull()](#objectvaluesetnull)
+    - [ObjectValue.setUndefined()](#objectvaluesetundefined)
+    - [ObjectValue.clear()](#objectvalueclear)
+    - [ObjectValue.type()](#objectvaluetype)
+    - [ObjectValue.toString()](#objectvaluetostring)
+    - [ObjectValue.toNumber()](#objectvaluetonumber)
+    - [ObjectValue.toInteger()](#objectvaluetointeger)
+    - [ObjectValue.toInt64()](#objectvaluetoint64)
+    - [ObjectValue.toInt32()](#objectvaluetoint32)
+    - [ObjectValue.toInt16()](#objectvaluetoint16)
+    - [ObjectValue.toInt8()](#objectvaluetoint8)
+    - [ObjectValue.toBuff()](#objectvaluetobuff)
+    - [ObjectValue.toBool()](#objectvaluetobool)
+    - [ObjectValue.isInt8()](#objectvalueisint8)
+    - [ObjectValue.isInt16()](#objectvalueisint16)
+    - [ObjectValue.isInt32()](#objectvalueisint32)
+    - [ObjectValue.isInt64()](#objectvalueisint64)
+    - [ObjectValue.isDouble()](#objectvalueisdouble)
+    - [ObjectValue.isInteger()](#objectvalueisinteger)
+    - [ObjectValue.isNumber()](#objectvalueisnumber)
+    - [ObjectValue.isBool()](#objectvalueisbool)
+    - [ObjectValue.isString()](#objectvalueisstring)
+    - [ObjectValue.isBuff()](#objectvalueisbuff)
+    - [ObjectValue.isObj()](#objectvalueisobj)
+    - [ObjectValue.isArray()](#objectvalueisarray)
+    - [ObjectValue.isNull()](#objectvalueisnull)
+    - [ObjectValue.isUndefined()](#objectvalueisundefined)
+    - [ObjectValue.asDouble()](#objectvalueasdouble)
+    - [ObjectValue.asBool()](#objectvalueasbool)
+    - [ObjectValue.asString()](#objectvalueasstring)
+    - [ObjectValue.asBuff()](#objectvalueasbuff)
+    - [ObjectValue.asObj()](#objectvalueasobj)
+    - [ObjectValue::compare()](#objectvaluecompare)
+
+- [ncpp::Object](#ncppobject) (inherits `HashMap<String, ObjectValue>`)
+    - [Object.cout()](#objectcout)
+    - [Object.toString()](#objecttostring)
+    - [Object.type()](#objecttype)
+    - [Object::getNestedValue()](#objectgetnestedvalue)
+    - [Object::setNestedValue()](#objectsetnestedvalue)
+    - [Object::deepCopy()](#objectdeepcopy)
+
 - [ncpp::JSON::parse()](#ncppjsonparse)
+- [ncpp::JSON::stringify()](#ncppjsonstringify)
+- [ncpp::JSON::escapeString()](#ncppjsonescapestring)
+- [ncpp::JSON::unescapeString()](#ncppjsonunescapestring)
+
 - [ncpp::BSON::serialize()](#ncppbsonserialize)
 - [ncpp::BSON::parse()](#ncppbsonparse)
+
 - [ncpp::CBOR::serialize()](#ncppcborserialize)
 - [ncpp::CBOR::parse()](#ncppcborparse)
-
-## ncpp::Object
-```cpp
-Object();
-Object(String json);
-```
-Структура динамического вложенного объекта, которая может вместить JSON или иное представление вложенного объекта, основаного на `std::map<std::string, ObjectValue>`.
-
-### Object.keys()
-```cpp
-Array<String> keys() const;
-```
-Вернуть массив с ключами.
-
-### Object.has()
-```cpp
-bool has(std::string key) const;
-```
-Проверить наличие этого ключа в объекте.
-
-### Object.cout()
-```cpp
-std::string cout(int depth=2, int bias=2) const;
-```
-Вывести строковое представление объекта на указанную глубину.
-
-### Object.toString()
-```cpp
-String toString(int depth=2) const;
-```
-Вывести строковое представление объекта на указанную глубину.
-
-### Object.type()
-```cpp
-std::string type();
-```
-Вывести тип текущего объекта.
-
-### Object::getNestedValue()
-```cpp
-static const ObjectValue& getNestedValue(const Object* obj, const Array<String>& path);
-static const ObjectValue& getNestedValue(const Object& obj, const String& path);
-static ObjectValue& getNestedValue(Object* obj, Array<String> path);
-static ObjectValue& getNestedValue(Object& obj, String path);
-```
-Достает вложенное значение. Если передан `String`, разбивает ее по разделителю `.` в массив `Array<String>` и рекурсивно берет значение.
-
-### Object::setNestedValue()
-```cpp
-static void setNestedValue(Object* obj, const Array<String>& path, const ObjectValue& value);
-static void setNestedValue(Object& obj, const String& path, const ObjectValue& value);
-```
-Устанавливает вложенное значение. Если передан `String`, разбивает ее по разделителю `.` в массив `Array<String>` и рекурсивно устанавливает значение.
+- [ncpp::CBOR::parseValue()](#ncppcborparsevalue)
 
 ## ncpp::Variant
 Является `typedef ObjectValue Variant;`
 
 ## ncpp::VArray
-Является `typedef Array<Variant> VArray;` 
+Является `typedef Array<Variant> VArray;`
 
 ## ncpp::ObjectValue
-Структура динамического значения, которое может хранить в себе одновременно 1 тип данных, имея возможность динамически его изменять.
+Структура для хранения значений с динамической сменой типа, которое может хранить в себе одновременно 1 тип данных, имея возможность динамически его изменять.
 Имеет перегрузки оператора `operator=`, `operator==`, `operator ()` и прочие аналогичные типам в `set()`.
+
+### ObjectValue.set()
+```cpp
+ObjectValue& set(double d);
+ObjectValue& set(long long ll);
+ObjectValue& set(bool b);
+ObjectValue& set(const String& s);
+ObjectValue& set(const Buffer& bf);
+ObjectValue& set(const Object& o);
+ObjectValue& set(const VArray& arr);
+```
+Устанавливает значение и соответствующий тип объекта.
+
+### ObjectValue.setNull()
+```cpp
+ObjectValue& setNull();
+```
+Устанавливает тип `NIL`.
+
+### ObjectValue.setUndefined()
+```cpp
+ObjectValue& setUndefined();
+```
+Устанавливает тип `UNDEFINED`.
 
 ### ObjectValue.clear()
 ```cpp
 void clear();
 ```
-Очистить и сброить текущее значение.
-
-### ObjectValue.set()
-```cpp
-ObjectValue& set(double d);
-ObjectValue& set(const std::string& s);
-ObjectValue& set(const Buffer& bf);
-ObjectValue& set(const char* c);
-ObjectValue& set(const Object& o);
-ObjectValue& set(const StringMap& map);
-ObjectValue& set(const DoubleMap& map);
-ObjectValue& set(const Array<T>& arr);
-ObjectValue& setNull();
-ObjectValue& setUndefined();
-```
-Установить новое значение, заменяет старое.
+Освобождает выделенную память (для строк, буферов, объектов и массивов) и сбрасывает тип в `NIL`.
 
 ### ObjectValue.isInt32()
 ```cpp
@@ -150,7 +121,13 @@ bool isDouble() const;
 ```cpp
 bool isNumber() const;
 ```
-Проверяет, является ли численным типом в целом. (`double`/`int32`/`int64`)
+Проверяет, является ли численным типом в целом. (`double`/`int32`/`int64`/ etc.)
+
+### ObjectValue.isInteger()
+```cpp
+bool isInteger() const;
+```
+Проверяет, является ли любым целочисленным типом. (`int8`/`int32`/`int64`/ etc.)
 
 ### ObjectValue.isBool()
 ```cpp
@@ -237,7 +214,7 @@ static bool compare(const ObjectValue& val1, const ObjectValue& val2, bool stron
 
 ### ObjectValue.type()
 ```cpp
-std::string type() const noexcept;
+String type() const noexcept;
 ```
 Вернуть тип текущего значения.
 
@@ -277,6 +254,60 @@ bool toBool() const noexcept;
 ```
 Переобразовать значаение в `bool` и вернуть его.
 
+## ncpp::Object
+Структура динамического вложенного объекта, которая может вместить JSON или иное представление вложенного объекта, основаного на `HashMap<String, ObjectValue>`.
+
+```cpp
+Object();
+Object(String json);
+```
+
+### Object.keys()
+```cpp
+Array<String> keys() const;
+```
+Вернуть массив с ключами.
+
+### Object.has()
+```cpp
+bool has(String key) const;
+```
+Проверить наличие этого ключа в объекте.
+
+### Object.cout()
+```cpp
+String cout(int depth=2, int bias=2) const;
+```
+Вывести строковое представление объекта на указанную глубину.
+
+### Object.toString()
+```cpp
+String toString(int depth=2) const;
+```
+Вывести строковое представление объекта на указанную глубину.
+
+### Object.type()
+```cpp
+String type();
+```
+Вывести тип текущего объекта.
+
+### Object::getNestedValue()
+```cpp
+static const ObjectValue& getNestedValue(const Object* obj, const Array<String>& path);
+static const ObjectValue& getNestedValue(const Object& obj, const String& path);
+static ObjectValue& getNestedValue(Object* obj, Array<String> path);
+static ObjectValue& getNestedValue(Object& obj, String path);
+```
+Достает вложенное значение. Если передан `String`, разбивает ее по разделителю `.` в массив `Array<String>` и рекурсивно берет значение.
+
+### Object::setNestedValue()
+```cpp
+static void setNestedValue(Object* obj, const Array<String>& path, const ObjectValue& value);
+static void setNestedValue(Object& obj, const String& path, const ObjectValue& value);
+```
+Устанавливает вложенное значение. Если передан `String`, разбивает ее по разделителю `.` в массив `Array<String>` и рекурсивно устанавливает значение.
+
 ## ncpp::JSON::stringify()
 ```cpp
 String stringify(const Object& obj);
@@ -290,7 +321,7 @@ Object parse(String jsonstr);
 ```
 Распарсить JSON строку в `Object`.
 
-## ncpp::BSON::stringify()
+## ncpp::BSON::serialize()
 ```cpp
 Buffer serialize(const Object& obj, bool ex=false);
 Buffer serialize(const StringMap& map, bool ex=false);
@@ -312,50 +343,7 @@ Buffer serialize(const StringMap& map);
 
 ## ncpp::CBOR::parse()
 ```cpp
+Object parse(const Buffer& cbor, size_t& offset);
 Object parse(const Buffer& cbor);
 ```
 Распарсить CBOR буфер в `Object`.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-		 
-
-

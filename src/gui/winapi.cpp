@@ -77,7 +77,7 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 		}
 			
 		#if __cplusplus >= 201103L //move for C++11
-		Window(Window&& tmp) noexcept { move(*this, tmp); }
+		Window(Window&& tmp) noexcept : wndID(NULL){ move(*this, tmp); }
 		Window& operator=(Window&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
 		Window(const Window&) = delete; Window& operator=(const Window&) = delete; //Запрет копирования.
 		Window& steal(Window& tmp){ move(*this, tmp); return *this; }
@@ -88,7 +88,7 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 		Window& steal(const Window& victim){ move(*this, (Window&)victim); return *this; }
 		friend void move(Window& dst, const Window& victim){ move(dst, (Window&)victim); }
 		#endif
-		friend void move(Window& dst, Window& tmp){ dst.destroy(); dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = NULL; }
+		friend void move(Window& dst, Window& tmp){ if(&dst==&tmp) return; dst.destroy(); dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = NULL; }
 		
 		private:
 			void createWindow(App* app1, const char* name="", int x=DEF_HWND_X, int y=DEF_HWND_Y, int width=DEF_HWND_WIDTH, int height=DEF_HWND_HEIGHT, HWND hWndParent=NULL)
@@ -106,7 +106,7 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 		private:
 		void createButton(Window* parent, const char* text="", int x=0, int y=0, int width=50, int height=20, int id=1)
 		{ app=parent->app; wndID = CreateWindowEx(0, "BUTTON", text, WS_CHILD | WS_TABSTOP | WS_VISIBLE | BS_DEFPUSHBUTTON,
-			x, y, width, height, parent->wndID, (HMENU)id, app->hInstance, NULL);
+			x, y, width, height, parent->wndID, (HMENU)(size_t)id, app->hInstance, NULL);
 		  if(wndID==NULL){ MessageBox(NULL, "Button Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; } }
 	};
 	
@@ -155,7 +155,7 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 		private:
 		void createCheckBox(Window* parent, const char* text, int x, int y, int width, int height, int id){
 			app = parent->app; wndID = CreateWindowEx(0, "BUTTON", text, WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 
-				x, y, width, height, parent->wndID, (HMENU)id, app->hInstance, NULL);
+				x, y, width, height, parent->wndID, (HMENU)(size_t)id, app->hInstance, NULL);
 
 			if(wndID == NULL){ MessageBox(NULL, "CheckBox Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; } }
 	};

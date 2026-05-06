@@ -131,7 +131,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		for (size_t i = 0; i < dataSize; i += blockSize){
 			Buffer block = value.slice(i, i+blockSize);
 			Buffer encryptedBlock = encryptBlock(roundKeys, block, rounds);
-			encryptedData.insert(encryptedData.end(), encryptedBlock.begin(), encryptedBlock.end());
+			encryptedData.push(encryptedBlock.data(), encryptedBlock.size());
 		} return encryptedData; }
 	
 	Buffer ECB_decrypt(const Buffer& key, Buffer value){ static const char blockSize=16; int rounds=calc_rounds(key); 
@@ -140,7 +140,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		for (size_t i = 0; i < dataSize; i += blockSize){
 			Buffer block = value.slice(i, i+blockSize);
 			Buffer decryptedBlock = decryptBlock(roundKeys, block, rounds);
-			decryptedData.insert(decryptedData.end(), decryptedBlock.begin(), decryptedBlock.end());
+			decryptedData.push(decryptedBlock.data(), decryptedBlock.size());
 		} removePKCS7Padding(decryptedData, blockSize); return decryptedData; }
 		
 	void XOR(Buffer& buff1, const Buffer& buff2){ size_t minSize = min(buff1.size(), buff2.size()); 
@@ -154,7 +154,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
         for (size_t i = 0; i < dataSize; i += blockSize){
             Buffer block = value.slice(i, i + blockSize); XOR(block, prevBlock);
             Buffer encryptedBlock = encryptBlock(roundKeys, block, rounds);
-            encryptedData.insert(encryptedData.end(), encryptedBlock.begin(), encryptedBlock.end());
+            encryptedData.push(encryptedBlock.data(), encryptedBlock.size());
             prevBlock = encryptedBlock; } return encryptedData; }
 
     Buffer CBC_decrypt(const Buffer& key, Buffer value, Buffer iv=Buffer(16)){ static const char blockSize = 16; 
@@ -164,7 +164,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
         for (size_t i = 0; i < dataSize; i += blockSize){
             Buffer block = value.slice(i, i + blockSize);
             Buffer decryptedBlock = decryptBlock(roundKeys, block, rounds); XOR(decryptedBlock, prevBlock);
-            decryptedData.insert(decryptedData.end(), decryptedBlock.begin(), decryptedBlock.end());
+            decryptedData.push(decryptedBlock.data(), decryptedBlock.size());
             prevBlock = block; } removePKCS7Padding(decryptedData, blockSize); return decryptedData; }
 			
 	Buffer GCM_multiply(Buffer x, Buffer y){ Buffer z(16); Buffer v = y;
@@ -200,11 +200,11 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::increment(iv, 1);
 			Buffer block = value.slice(i, i + blockSize);
 			XOR(block, encryptBlock(roundKeys, iv, rounds));
-			encryptedData.insert(encryptedData.end(), block.begin(), block.end()); }
+			encryptedData.push(block.data(), block.size()); }
 		
 		Buffer h = encryptBlock(roundKeys, Buffer(blockSize), rounds);
 		Buffer tag = GCM_ghash(h, aad, encryptedData); XOR(tag, y0);
-		encryptedData.insert(encryptedData.end(), tag.begin(), tag.end());
+		encryptedData.push(tag.data(), tag.size());
 		return encryptedData; }
 
 	Buffer GCM_decrypt(const Buffer& key, Buffer value, Buffer iv=Buffer(12), Buffer aad=Buffer()){
@@ -217,7 +217,7 @@ namespace ncpp{ namespace crypto{ namespace AES{
 		for (size_t i = 0; i < dataSize; i += blockSize){ Buffer::increment(iv, 1);
 			Buffer block = value.slice(i, i + blockSize);
 			XOR(block, encryptBlock(roundKeys, iv, rounds));
-			decryptedData.insert(decryptedData.end(), block.begin(), block.end()); }
+			decryptedData.push(block.data(), block.size()); }
 			
 		Buffer h = encryptBlock(roundKeys, Buffer(blockSize), rounds);
 		Buffer expectedTag = GCM_ghash(h, aad, value); XOR(expectedTag, y0);

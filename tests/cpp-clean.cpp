@@ -70,3 +70,14 @@ int main(){ cpp_version(); gcc_version();
 
 //GCC 4.9.2 musl - Linux 64bit file size:
 //musl-gcc print();
+
+//=== Linking example.cpp Test ===
+// 305 kb - default
+// 305 kb -fvisibility=hidden
+// 306 kb -ffunction-sections -fdata-sections -Wl,--gc-sections
+// 153 kb NOUSE_OBJECT
+// 155 kb -flto=thin
+// 155 kb -flto
+// 155 kb -flto=thin -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,--gc-sections
+// 155 kb -flto -fvisibility=hidden -Dexternally_visible='visibility("default")'
+// 29 kb -fwhole-program

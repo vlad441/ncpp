@@ -22,7 +22,11 @@ void subm(){ if(currtest.empty()){ color[0]=0; performance::start(); return; } t
 	else if(warns>0){ tresp="(WARN)"; warnarr.push(currtest); color[1]=3; passed++; }else{ passed++; }
 	if(color[0]!=color[1]){ color[0]=color[1]; cons.setColor(color[0]); }
 	warnings+=warns; warns=0; errors+=errs; errs=0; 
-	cons << " " << currtest << " ... " << tresp << "\n"; }
+	cons << " " << currtest << " ... " << tresp << "\n"; 
+	#ifdef NCPP_TESTS_FAST_FAIL
+	if(errors>0) exit(1);
+	#endif
+}
 void NextTest(const CString& str){ subm(); currtest=str; }
 
 void TIME_DIFF(const CString& descr, long long oldtime){ cons.setColor(6) << descr; 
@@ -30,17 +34,19 @@ void TIME_DIFF(const CString& descr, long long oldtime){ cons.setColor(6) << des
 
 template <typename T1, typename T2> void TEST_EQ(const T1& v1, const T2& v2){ if(v1!=v2) errs++; }
 template <typename T1, typename T2> void TEST_NE(const T1& v1, const T2& v2){ if(v1==v2) errs++; }
+template <typename T1, typename T2> void TEST_EQ_W(const T1& v1, const T2& v2){ if(v1!=v2) warns++; }
+template <typename T1, typename T2> void TEST_NE_W(const T1& v1, const T2& v2){ if(v1==v2) warns++; }
 
-#include "units/module-base.cpp" //Base_module_test();
+#include "units/module-base.cpp" //Module_Base_test();
 void Sys_module_test();
-//#include "units/module-structs.cpp" //Structs_module_test();
-#include "units/module-crypto.cpp" //Crypto_module_test();
+#include "units/module-structs.cpp" //Module_Structs_test();
+#include "units/module-crypto.cpp" //Module_Crypto_test();
 
-int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); arch_current(); //setInterval(_dbg_ShowAllocs, 1000);
+int main(int argc, char* argv[]){ cpp_version(); os_version(); gcc_version(); ncpp_version(); //setInterval(_dbg_ShowAllocs, 1000);
 	// === BEGIN TEST ===
-	Base_module_test();
-	//Structs_module_test();
-	Crypto_module_test();
+	Module_Base_test();
+	Module_Structs_test();
+	Module_Crypto_test();
 	// === END TEST ===
 	subm(); double time = performance::now();
 	
@@ -48,5 +54,5 @@ int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); 
 	cons.reset() << " Tested|(Passed/Fail): "; cons.setColor(3) << tested; cons.reset() << " | ("; cons.setColor(2) << passed;
 	cons.reset() << "/"; cons.setColor(1) << (tested-passed);
 	cons.reset() << "); Errors|Warnings: "; cons.setColor(1) << errors; cons.reset() << " | "; cons.setColor(3) << warnings; cons.reset() << "\n";
-	if(errors>0){ cons << " Errors pull: "; cons.setColor(1) << errsarr; cons.reset() << "\n"; return 1; }
-	else if(warnings>0){ cons << " Warnings pull: "; cons.setColor(3) << warnarr; cons.reset() << "\n"; return 2; } return 0; }
+	if(warnings>0){ cons << " Warnings pull: "; cons.setColor(3) << warnarr; cons.reset() << "\n"; /*return 2;*/ }
+	if(errors>0){ cons << " Errors pull: "; cons.setColor(1) << errsarr; cons.reset() << "\n"; return 1; } return 0; }

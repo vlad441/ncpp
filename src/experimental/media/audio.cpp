@@ -3,6 +3,7 @@
 #else
 #include <alsa/asoundlib.h> // -lasound //PulseAudio / PipeWire ?
 #endif
+//Linux packages: libasound2-dev
 //MP3: https://github.com/lieff/minimp3/blob/master/minimp3.h
 //FLAC: libFLAC?
 // - https://github.com/mackron/dr_libs/blob/master/dr_flac.h?

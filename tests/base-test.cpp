@@ -20,6 +20,9 @@ RGB HexColorToFloat(unsigned int hex){ RGB rgb; rgb.r = ((hex >> 16) & 0xFF) / 2
 //#include <sys/utsname.h> //for ::uname(&sysinfo);
 #endif
 int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); arch_current();
+#ifdef _WIN32
+	//setlocale(0,""); SetConsoleCP(65001); SetConsoleOutputCP(65001);
+#endif
 	int num=1000; print("sizeof(num): "); print(sizeof(num)); print("\n");
 	print("dtos: "); print(18446744073709551615ULL); print("|\n");
 	#ifndef NCPP_LIB_USE

@@ -1,7 +1,6 @@
 // ====== Minimal CRT ======
 #define NULL 0
-int main(); typedef unsigned int size_t; typedef size_t DWORD;
-extern "C" size_t strlen(const char* c){ size_t len=0; while(*c!='\0'){ len++; c++; } return len; }
+int main(); typedef unsigned long long size_t; typedef unsigned int DWORD;
 #ifdef _WIN32
 	//#include <windows.h>
 	#define STD_OUTPUT_HANDLE ((unsigned long)-11)
@@ -14,6 +13,7 @@ extern "C" size_t strlen(const char* c){ size_t len=0; while(*c!='\0'){ len++; c
 #else
 #endif
 // ====== User-Space Code ======
+extern "C" size_t strlen(const char* c){ size_t len=0; while(*c!='\0'){ len++; c++; } return len; }
 
 #ifdef _WIN32
 	void print(const char *cptr, size_t len){ WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), cptr, (DWORD)len, NULL, NULL); }
@@ -42,9 +42,9 @@ void cpp_version(){ print("[");
 
 void gcc_version(){ print("[Compiller] ");
 #if defined(__clang__)
-	print("Clang "); print(__VERSION__); print("\n"); //std::cout << "Clang " << __clang_major__ << "." << __clang_minor__ << "." <<  __clang_patchlevel__ << std::endl;
+	print("Clang "); print(__VERSION__); print("\n");
 #elif defined(__GNUC__)
-	print("GCC "); print(__VERSION__); print("\n"); //std::cout << "GCC " << __GNUC__ << "." << __GNUC_MINOR__ << "." <<  __GNUC_PATCHLEVEL__ << std::endl;
+	print("GCC "); print(__VERSION__); print("\n");
 #elif defined(_MSC_VER)
 	print("MSVC? WTF?\n");
 #else

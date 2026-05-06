@@ -73,7 +73,7 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		if(!opts.hasLength()){ th <<"Content-Length: "<<opts.body.size()<<"\r\n"; }
 		if(!opts.headers.has("connection")){ th <<"Connection: close\r\n"; } th <<"\r\n"; Buffer resp=th;
 		if(opts.body.size()>0) resp+=opts.body; return resp; }
-		
+	
 	Buffer chunkedStreamParser(Buffer& rawbuff, unsigned int& chunkSize, bool& is_end){ Buffer chunk;
 		while(!rawbuff.empty()){
 			if(chunkSize == 0){ size_t chunkEndIndx = rawbuff.indexOf("\r\n"); if(chunkEndIndx==NPOS){ return chunk; }
@@ -117,11 +117,11 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		FStream f(fpath, FStream::IO_WRITE); if(f.destroyed){ if(err){ *err="open file err: "+fpath; } return false; } size_t datasize[2]; datasize[0]=resp.body.size(); datasize[1]=0;
 		if(resp.headers.has("content-length")){ datasize[1]=(size_t)stodn(resp.headers["content-length"]); }
 		else if(resp.headers["transfer-encoding"]=="chunked"){ chunked=true; }
-		struct { Buffer buff; unsigned int chunkSize; bool is_end;}ch_data; 
+		struct { Buffer buff; unsigned int chunkSize; bool is_end;} ch_data; 
 		if(chunked){ ch_data.chunkSize=0; ch_data.is_end=false; ch_data.buff=resp.body; datasize[0]=0; resp.body.clear(); }else{ f.write(resp.body); }
 		while((datasize[0]<datasize[1]||chunked)&&socket.recv(&chunk)>0){ if(!chunked){ f.write(chunk); }
 			else{ ch_data.buff+=chunk; f.write(chunkedStreamParser(ch_data.buff, ch_data.chunkSize, ch_data.is_end)); if(ch_data.is_end){ break; } }
-			datasize[0]+=chunk.size(); } return true; } //std::cout << "(SaveStream: BODY chunk size): " << datasize[0] << "/" << datasize[1] << " | chunked: " << chunked << std::endl;
+			datasize[0]+=chunk.size(); } return true; } //cons << "(#DEBUG) SaveStream: BODY chunk size: " << datasize[0] << "/" << datasize[1] << " | chunked: " << chunked << "\n";
 			
 	String urlDecoder(const CString& str){ String decoded; //decoded.reserve(str.size());
 		for (size_t i = 0; i < str.size(); ++i){
@@ -143,7 +143,7 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		return "application/octet-stream"; }
 		
 	Buffer getbodyreq(Req& req, Res& res){ res.socket->recvTimeout(3000);
-		char _buff[DEF_BUFF_SIZE]; size_t bodylen=0; int rbytes=0; Buffer resp(req.body); if(!req.hasLength()) return Buffer();
+		char _buff[DEF_SOCK_SIZE]; size_t bodylen=0; int rbytes=0; Buffer resp(req.body); if(!req.hasLength()) return Buffer();
 		if(req.headers.has("content-length")){ bodylen=stolln(req.headers["content-length"]); }else{ return Buffer(); } if(resp.size()>=bodylen) return resp;
 		while((rbytes=res.socket->recv(_buff, sizeof(_buff)))>0){ resp.push(_buff, rbytes); if(resp.size()>=bodylen) return resp; }; return Buffer(); }
 			
@@ -165,12 +165,12 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		"<h3>AutoIndex of " << path << "</h3><hr><pre><ul>" << fileList << "</ul><hr></pre>\nPowered by <a href=\"http://ncpp.art\">ncpp</a></body></html>"; 
 		res.end(htmlContent); }
 		
-	String RenderHtml(CString html, StringMap tokens, CString oTag = "{{%", CString cTag = "%}}"){ 
+	String RenderHtml(const CString& html, const StringMap& tokens, CString oTag = "{{%", CString cTag = "%}}"){ 
 		unsigned int cursor = 0; String result; result.reserve(html.size()); String key; 
 		while(true){
 			unsigned int startPos = html.indexOf(oTag, cursor); if(startPos == NPOS){ result+=html.slice(cursor); break; }
 			result+=html.slice(cursor, startPos);
 			unsigned int endPos = html.indexOf(cTag, startPos+oTag.size()); if(endPos == NPOS){ result+=html.slice(startPos); break; }
 			key = html.slice(startPos+oTag.size(), endPos).trim();
-			result+=tokens.has(key)?tokens[key]:""; cursor = endPos + cTag.size(); } return result; }
+			result+=tokens.has(key)?tokens.at(key):""; cursor = endPos + cTag.size(); } return result; }
 } }

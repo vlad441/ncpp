@@ -92,33 +92,9 @@ namespace ncpp { namespace GUI {
 			glTranslatef(0.0f, 0.0f, -5.0f); // Позиционируем камеру, чтобы видеть куб
 		}
 		
-		/*#if __cplusplus >= 201103L //move for C++11
-		GLWindow(GLWindow&& tmp){ move(*this, tmp); }
-		GLWindow& operator=(GLWindow&& tmp){ if(this==&tmp) return; move(*this, tmp); return *this; }
-		private: GLWindow(const GLWindow&) = delete; GLWindow& operator=(const GLWindow&) = delete; public:
-		GLWindow& steal(GLWindow& tmp){ move(*this, tmp); return *this; }
-		GLWindow& steal(GLWindow&& tmp){ move(*this, tmp); return *this; }
-		friend void move(GLWindow& dst, GLWindow& tmp){ move(dst, (GLWindow&&)tmp); }
-		friend void move(GLWindow& dst, GLWindow&& tmp)
-		#else //move for C++98
-		private: GLWindow(const GLWindow&); GLWindow& operator=(const GLWindow&); public: //Запрет копирования.
-		GLWindow& steal(const GLWindow& victim){ move(*this, victim); return *this; }
-		friend void move(GLWindow& dst, const GLWindow& victim)
-		#endif
-		{ 	
-			#if __cplusplus < 201103L
-			GLWindow& tmp = (GLWindow&)victim;
-			#endif
-			dst.destroyGLContext(); dst.destroy(); dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = NULL; 
-			dst.glCTX = tmp.glCTX; tmp.glCTX = NULL; dst.bmode = tmp.bmode;
-			#ifdef _WIN32
-			dst.hDC = tmp.hDC; tmp.hDC = NULL;
-			#endif	
-		}*/
-		
 		#if __cplusplus >= 201103L //move for C++11
-		GLWindow(GLWindow&& tmp) noexcept { move(*this, tmp); }
-		GLWindow& operator=(GLWindow&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+		GLWindow(GLWindow&& tmp) noexcept { wndID=0; move(*this, tmp); }
+		GLWindow& operator=(GLWindow&& tmp) noexcept { move(*this, tmp); return *this; }
 		GLWindow(const GLWindow&) = delete; GLWindow& operator=(const GLWindow&) = delete; //Запрет копирования.
 		GLWindow& steal(GLWindow& tmp){ move(*this, tmp); return *this; }
 		GLWindow& steal(GLWindow&& tmp){ move(*this, tmp); return *this; }
@@ -128,8 +104,8 @@ namespace ncpp { namespace GUI {
 		GLWindow& steal(const GLWindow& victim){ move(*this, (GLWindow&)victim); return *this; }
 		friend void move(GLWindow& dst, const GLWindow& victim){ move(dst, (GLWindow&)victim); }
 		#endif
-		friend void move(GLWindow& dst, GLWindow& tmp){
-			dst.destroyGLContext(); dst.destroy(); dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = 0;
+		friend void move(GLWindow& dst, GLWindow& tmp){ if(&dst==&tmp) return; dst.destroyGLContext(); dst.destroy(); 
+			dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = 0;
 			dst.glCTX = tmp.glCTX; tmp.glCTX = NULL; dst.bmode = tmp.bmode;
 			#ifdef _WIN32
 			dst.hDC = tmp.hDC; tmp.hDC = NULL;
@@ -143,8 +119,8 @@ namespace ncpp { namespace GUI {
 #define M_PI 3.14159265358979323846
 #endif
 
-namespace ncpp { namespace GL { //ncpp::GL funcs
-	void HexToRGBf(float rgb[3], unsigned int hex);
+namespace ncpp { void HexToRGBf(float rgb[3], unsigned int hex); 
+namespace GL { //ncpp::GL funcs	
 	const char* OGLVersion(){ return (const char*)glGetString(GL_VERSION); }
 	void OGLVersion(int oglv[2]){ oglv[0]=0; oglv[1]=0; glGetIntegerv(GL_MAJOR_VERSION, &oglv[0]); glGetIntegerv(GL_MINOR_VERSION, &oglv[1]); }
 	void clear(float redf, float greenf, float bluef, float alphaf=1){ glClearColor(redf, greenf, bluef, alphaf); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }	

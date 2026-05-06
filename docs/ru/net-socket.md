@@ -15,6 +15,7 @@
 	- [Socket.close()](#socketclose)
 	- [Socket.recvTimeout()](#socketrecvtimeout)
 	- [Socket.setNonBlocking()](#socketsetnonblocking)
+	- [Socket.setKeepAlive()](#socketsetkeepalive)
 	- [Socket.type()](#sockettype)
 - [ncpp::TCPSocket](#ncpptcpsocket)
 	- [TCPSocket.send()](#tcpsocketsend)
@@ -30,26 +31,32 @@
 	
 ## ncpp::BindInfo
 ```cpp
-struct BindInfo { std::string ip; int port; std::string family; std::string type; };
+struct BindInfo { String ip; int port; String family; String type; };
 ```
 Структура, содержащая информацию о привязке сокета.
 
 ## ncpp::IPAddr
 ```cpp
-IPAddr(const std::string& ip="", int port=0, char ipver=4)
+IPAddr(const String& ip="", int port=0, char ipver=4)
 ```
 Содержит информацию о IP адресе.
 
+### IPAddr.fromStr()
+```cpp
+static IPAddr fromStr(const CString& host);
+```
+Статический метод для создания объекта `IPAddr` из строки формата `IP:port`. Поддерживает IPv6 в квадратных скобках (например, `[::1]:80`).
+
 ### IPAddr.toString()
 ```cpp
-std::string toString() const;
+String toString() const;
 ```
 Выводит хранящийся адрес в строковом представлении.
 
 ## ncpp::Socket
 ```cpp
 Socket();
-Socket(const std::string& ip, int port, Type type=TCP);
+Socket(const String& ip, int port, Type type=TCP);
 Socket(int sockfd);
 ```
 Основная структура сокета, содержит реализации базовых операций с дескрипторами сокетов для их наследования в иных структурах.
@@ -68,7 +75,7 @@ Socket& own(bool en=true);
 
 ### Socket.connect()
 ```cpp
-bool connect(const std::string& ip, int port);
+bool connect(const String& ip, int port);
 bool connect(const IPAddr& a);
 bool connect();
 ```
@@ -78,14 +85,14 @@ bool connect();
 
 ### Socket.connect4()
 ```cpp
-bool connect4(const std::string& ip, int port);
+bool connect4(const String& ip, int port);
 bool connect4();
 ```
 Также как и `connect()` выполяет соединение к указанному хосту, однако поддерживает только IPv4 стек.
 
 ### Socket.bind()
 ```cpp
-bool bind(int port = 0, const std::string& bindip = "::");
+bool bind(int port = 0, const String& bindip = "::");
 ```
 Выполняет привязку сокета к порту и IP адресу. При передаче `0` для `port` сокет будет привязан динамически к случайному порту.
 
@@ -129,19 +136,26 @@ inline void setNonBlocking(bool nb_mode=true);
 ```
 Устанавливает неблокирующий режим.
 
+### Socket.setKeepAlive()
+```cpp
+static bool setKeepAlive(int sockfd1, bool en, int idle_time=720, int interval=5, int cnt=5);
+inline bool setKeepAlive(bool en=true, int idle_time=720, int interval=5, int cnt=5);
+```
+Включает и настраивает механизм TCP Keep-Alive.
+
 ### Socket.type()
 ```cpp
-std::string type();
+String type();
 ```
 Выводит протокол/тип данного сокета в строчном формате.
 
 ## ncpp::TCPSocket
 ```cpp
 TCPSocket();
-TCPSocket(const std::string& ip, int port, bool toconn=false);
+TCPSocket(const CString& ip, int port, bool toconn=false);
 TCPSocket(const IPAddr& addr, bool toconn=false);
 TCPSocket(int sockfd1);
-TCPSocket(Socket sock);
+TCPSocket(const Socket& sock);
 ```
 Наследует от `ncpp::Socket` и представляет из себя специализацию для протокола `TCP`.
 
@@ -165,16 +179,17 @@ Buffer recv();
 ```cpp
 TCPSocket* accept() const;
 TCPSocket _accept() const;
+int acceptFd() const;
+int acceptFd(IPAddr* addr) const;
 ```
 Ожидает новое подключение к сокету (возможно только после привязки `bind()` и `listen()`). Если `TCPSocket.getfd()` равен `-1`, произошла ошибка.
 
 ## ncpp::UDPSocket
 ```cpp
 UDPSocket();
-UDPSocket(const std::string& ip, int port, bool toconn=false);
+UDPSocket(const CString& ip, int port, bool toconn=false);
 UDPSocket(const IPAddr& addr, bool toconn=false);
 UDPSocket(int sockfd1);
-UDPSocket(Socket sock);
 ```
 Наследует от `ncpp::Socket` и представляет из себя специализацию для протокола `UDP`.
 
@@ -182,10 +197,10 @@ UDPSocket(Socket sock);
 ```cpp
 int send(const IPAddr& addr, const char* cstr, int len);
 int send(const IPAddr& addr, const Buffer& buffer);
-inline int send(const IPAddr& addr, const char* cstr);
-inline int send(const Buffer& buff);
-inline int send(const char* cstr, int len);
-inline int send(const char* cstr);
+int send(const IPAddr& addr, const char* cstr);
+int send(const Buffer& buff);
+int send(const char* cstr, int len);
+int send(const char* cstr);
 ```
 Выполняет отправку данных. Возвращает кол-во отправленных байт. Если возвращенный размер `<=0`, сокет недоступен для записи или был закрыт.
 
@@ -202,14 +217,14 @@ Buffer recv();
 
 ### ICMPSocket::ping4()
 ```cpp
-static double ping4(const std::string& ip);
+static double ping4(const CString& ip);
 static double ping4(const IPAddr& addr);
 ```
 Выполняет проверку доступности хоста (пинг), работает только с IPv4 протоколом. Возвращает время ответа в миллисекундах.
 
 ## ncpp::UnixSocket
 ```cpp
-UnixSocket(const std::string& sockPath, int type=SOCK_STREAM);
+UnixSocket(const String& sockPath, int type=SOCK_STREAM);
 UnixSocket(int type=SOCK_STREAM, int sockid1=-1);
 ```
 Наследует от `ncpp::TCPSocket` и представляет из себя специализацию для протокола `UNIX`.

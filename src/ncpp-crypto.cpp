@@ -4,15 +4,16 @@ namespace ncpp{ namespace crypto{
 #endif
 	Buffer randomBytes(size_t length){ Buffer bytes(length); 
 	#ifdef _WIN32
-		HCRYPTPROV hProvider = 0;
-		if(!CryptAcquireContext(&hProvider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)){ print("(!) CryptAcquireContext failed"); return Buffer(); }
-		if(!CryptGenRandom(hProvider, length, &bytes[0])){ CryptReleaseContext(hProvider, 0); 
-			print("(!) CryptGenRandom failed: "+dtos(GetLastError())); return Buffer(); } CryptReleaseContext(hProvider, 0);
+		static HCRYPTPROV hProvider = 0; 
+		if(hProvider == 0){ if(!CryptAcquireContext(&hProvider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)){ 
+				print("(!) CryptAcquireContext failed"); return Buffer(); } }
+		if(!CryptGenRandom(hProvider, length, &bytes[0])){ CryptReleaseContext(hProvider, 0); hProvider=0;
+			print("(!) CryptGenRandom failed: "+dtos(GetLastError())); return Buffer(); }
 	#else
 		FStream urand("/dev/urandom", FStream::IO_READ); if(!urand.isOpen()){ print("(!) Failed to open /dev/urandom"); return Buffer(); }
 		if(urand.read((char*)&bytes[0], length)<=0){ print("(!) Failed to read from /dev/urandom"); return Buffer(); }
 	#endif
-	return bytes; }
+		return bytes; }
 
 	struct Vigenere { int pos; Vigenere() : pos(0){}
 		static Buffer encode(const Buffer& key, Buffer value){ for(size_t i=0;i<value.size();i++){ value[i] += key[i % key.size()]; } return value; }

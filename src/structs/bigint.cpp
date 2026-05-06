@@ -78,7 +78,7 @@ namespace ncpp{
 			
 		operator Buffer(){ return this->toBuff(); }
 			
-		static BigInt random(size_t bits){ return BigInt(Buffer::randBytes(bits/8)); } // Fast and Unsafe
+		static BigInt rand(size_t bits){ return BigInt(Buffer::randBytes(bits/8)); } // Fast and Unsafe
 		static BigInt safeRandom(size_t bits); // Slower and Safe
 		
 		//=== simple matan ===
@@ -170,13 +170,17 @@ namespace ncpp{
 		//Knuth’s Algorithm D (https://skanthak.hier-im-netz.de/division.html) - Не реализован :(
 		static Pair<BigInt,BigInt> divmod_knuth(const BigInt& a, const BigInt& b, bool resize = true);
 		
-		BigInt pow(BigInt base, BigInt exp){ BigInt result(1);
+		static BigInt pow(BigInt base, BigInt exp){ BigInt result(1);
 			while(exp > 0){ if(exp % 2 == 1){ result = (result * base); }
 				base = (base * base); exp/=2; } return result; }
 		static BigInt powMod(BigInt base, BigInt exp, const BigInt& mod){ BigInt result(1);
 			//print("(#DEBUG) BigInt::powMod() - "); print("(mod bits: "); print(mod.size()*8); print("): ");  print(base.toString()); print(" ^ "); print(exp.toString()); print(" % "); print(mod.toString()); print("\n");
 			while(exp > 0){ if(exp % 2 == 1){ result = (result * base) % mod; }
 				base = (base * base) % mod; exp /= 2; } return result; }
+		
+		//BigInt sqrt() const;
+		//BigInt gcd(const BigInt& other) const;
+		
 		// Перегрузки
 		BigInt& operator+=(const BigInt& other){ if(sign == other.sign){ _add(*this, other, true); }else{ 
 				if(compare(*this, other) >= 0){ _subtract(*this, other, true); }

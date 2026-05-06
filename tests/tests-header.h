@@ -14,7 +14,7 @@ void cpp_version(){ print("[");
 #else
 	print("C++98");
 #endif
-	print("] UTF-8 кирилица にも含み\n"); }
+	print("] UTF-8 кирилица にも含み "); }
 
 void gcc_version(){ print("[Compiller] ");
 #if defined(__clang__)
@@ -27,14 +27,6 @@ void gcc_version(){ print("[Compiller] ");
 	print("(Unknown)\n");
 #endif
 } 
-
-void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); 
-#ifdef NCPP_LIB_USE
-	print(" (Compiled via LIB)");
-#else
-	print(" (Directly compiled)");
-#endif
-	_ncpp_check_ver(); }
 
 void arch_current(){ print(" | [Arch]");
 #ifdef __x86_64__
@@ -65,5 +57,23 @@ void arch_current(){ print(" | [Arch]");
 #endif
 	print("\n");
 }
-#endif
 
+void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); 
+#ifdef NCPP_LIB_USE
+	print(" (Compiled via LIB)");
+#else
+	print(" (Directly compiled)");
+#endif
+	arch_current(); _ncpp_check_ver(); }
+
+void os_version(){ print("[OS] "); StringMap info = ::ncpp::system::os_info(); print(info["OS"]);
+#ifdef _WIN32
+	print(" | NT: "); print(info["NT"]);
+#else
+	print(" | Kernel: "); print(info["Kernel"]);
+#endif
+	print("\n"); 
+	//print(info.cout()); print("\nCPU: "); print(system::CPU::info().cout()); print("\nRAM: "); print(system::RAM::strUsage()); print("\n");
+}
+
+#endif

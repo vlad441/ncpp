@@ -31,4 +31,4 @@ function HInclude(sourceFile, outputFile, stdInclude=false){
   try{ fs.writeFileSync(outputFile, content, 'utf-8'); console.log(`\n(#) Successfully concatenated in file: ${outputFile}`); }
   catch(e){ console.error(`(!) Error writing to file: ${outputFile}`); } }
 
-HInclude("../src/ncpp.cpp", "../tests/test-ncpp-included.cpp");
+HInclude("../src/ncpp.cpp", "../tests/ncpp-unity-bundle.cpp");

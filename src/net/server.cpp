@@ -60,8 +60,8 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 			//std::cerr << "IOCP new addSocket: " << socket->sockfd <<  std::endl; 
 			return true; }
 		bool initSockRecv(Socket* socket){ WSABUF wsabuf; IOEvent* ioctx = new IOEvent(); ZeroMemory(ioctx, sizeof(IOEvent)); 
-			ioctx->hEvent = (HANDLE)IO_READ; ioctx->buff.reserve(DEF_BUFF_SIZE); ioctx->buff.resize(DEF_BUFF_SIZE); wsabuf.buf = (char*)&ioctx->buff[0]; 
-			wsabuf.len = DEF_BUFF_SIZE; DWORD flags = 0; int result = WSARecv(socket->sockfd, &wsabuf, 1, NULL, &flags, ioctx, NULL);
+			ioctx->hEvent = (HANDLE)IO_READ; ioctx->buff.reserve(DEF_SOCK_SIZE); ioctx->buff.resize(DEF_SOCK_SIZE); wsabuf.buf = (char*)&ioctx->buff[0]; 
+			wsabuf.len = DEF_SOCK_SIZE; DWORD flags = 0; int result = WSARecv(socket->sockfd, &wsabuf, 1, NULL, &flags, ioctx, NULL);
 			
 			int err=WSAGetLastError(); if(result==SOCKET_ERROR && err!=WSA_IO_PENDING && err!=ERROR_IO_PENDING){ delete ioctx;
 				print("Failed addSocket -> WSARecv failed: "); print(dtos(err)); print("\n"); return false; } return true; }
@@ -115,22 +115,32 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 	#endif
 		public: bool addSocket(int sockfd){ return addSocket(new TCPSocket(sockfd)); }
 		inline void removeSocket(Socket* socket){ removeSocket(socket->sockfd); } //sockets.erase_ptr(socket);
-		void _runSelect(int timeout=-1){ Buffer buff; buff.reserve(DEF_BUFF_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
-			TCPSocket servsock(servfd); struct timeval tv; tv.tv_sec = timeout; tv.tv_usec = 0;
+		void _runSelect(int timeout=-1){ Buffer buff; buff.reserve(DEF_SOCK_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
+			TCPSocket servsock(servfd); struct timeval tv; if(timeout>=0){ tv.tv_sec = timeout/1000; tv.tv_usec = (timeout%1000)*1000; }
 			while(true){ fd_set read_fds; FD_ZERO(&read_fds); FD_SET(servfd, &read_fds); int max_sd = servfd;
-				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = **it;
-					if(socket.sockfd==-1){ delete &socket; it = sockets.erase(it); continue; }
-					FD_SET(socket.sockfd, &read_fds); if(socket.sockfd > max_sd) max_sd = socket.sockfd; ++it; }
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ if(!*it) continue; Socket& s = **it;
+					if(s.sockfd==-1){ delete &s; it = sockets.erase(it); continue; }
+					FD_SET(s.sockfd, &read_fds); if(s.sockfd > max_sd) max_sd = s.sockfd; ++it; }
 				int activity = ::select(max_sd+1, &read_fds, NULL, NULL, timeout>0?&tv:NULL);
-				if(activity<0){ int err1=Socket::GetLastErr(); print("(!) SelectPool: select error: "); print(err1); print("\n"); if(err1==EINTR) return; }
+				if(activity<0){ int err1=Socket::GetLastErr(); print("(!) SelectPool: select error: "); print(err1); print("\n"); if(err1==EINTR) continue; return; }
 				if(FD_ISSET(servfd, &read_fds)){ TCPSocket& socket = *servsock.accept(); if(socket.sockfd<0){ print("(!) select: Accept error: "); print(dtos(socket.GetErr())); print("\n"); break; }
 					sockets.insert((Socket*)&socket); _onConnect(socket); }
 				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = **it; if(!FD_ISSET(socket.sockfd, &read_fds)){ ++it; continue; }
-					buff.resize(DEF_BUFF_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)buff.data(), DEF_BUFF_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
+					buff.resize(DEF_SOCK_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)buff.data(), DEF_SOCK_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
 					if(bytesRead<=0){ if(bytesRead<0){ socket.GetErr(); if(onError!=NULL) onError((TCPSocket&)socket); } _onClose((TCPSocket&)socket); 
 						socket.destroy(); delete &socket; it = sockets.erase(it); continue; } buff.resize(bytesRead); _onData((TCPSocket&)socket, buff); ++it; }
 				//print("DEBUG: Select HashSet<Socket*> size: "); print(sockets.size()); print("\n");
 			} }
+		bool _waitSelectWriteOne(int timeout=-1){
+			while(true){ fd_set write_fds; FD_ZERO(&write_fds); int max_sd = -1; if(sockets.empty()&&servfd == -1) return false;
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end(); ++it){ Socket* s = *it;
+					if(!s || s->sockfd==-1) continue; FD_SET(s->sockfd, &write_fds); if(s->sockfd > max_sd) max_sd = s->sockfd; }
+				if(max_sd == -1) return false; struct timeval tv; if(timeout>=0){ tv.tv_sec = timeout/1000; tv.tv_usec = (timeout%1000)*1000; }
+				int activity = ::select(max_sd + 1, NULL, &write_fds, NULL, timeout>0?&tv:NULL);
+				if(activity<0){ int err1=Socket::GetLastErr(); if(err1==EINTR) continue; return false; } return activity > 0; } }
+		//err == EWOULDBLOCK || err == EAGAIN -> "Места нет, подожди"; err == EINTR -> "Прервано сигналом, попробуй еще раз немедленно"
+		bool waitWriteOne(int timeout=-1){ return _waitSelectWriteOne(timeout); }
+				
 		void (*onConnect)(TCPSocket& socket);
 		void (*onData)(TCPSocket& socket, const Buffer& data);
 		void (*onError)(TCPSocket& socket);
@@ -173,7 +183,7 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		friend void move(TCPServer& dst, const TCPServer& victim){ move(dst, (TCPServer&)victim); }
 		//TCPServer& operator=(TCPServer other){ move(*this, other); return *this; } //Old UB rvalue copy imitator
 		#endif
-		friend void move(TCPServer& dst, TCPServer& tmp){ move(dst.sock, tmp.sock); }
+		friend void move(TCPServer& dst, TCPServer& tmp){ if(&dst==&tmp) return; move(dst.sock, tmp.sock); }
 	};
 	
 	struct ReqCache { http::Req req; bool headwait; Buffer bf, wsbf; unsigned int bodylen; bool ws; ReqCache() : headwait(true), bodylen(0), ws(false){} };

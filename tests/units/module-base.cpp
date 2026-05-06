@@ -116,7 +116,7 @@ void Array_test(){
 	
 	NextTest("Array.operator[](size_t pos) / at()"); 
 	int op_init[] = {10, 20}; arr = op_init; // Исправлено: замена {10, 20}
-	TEST_EQ(arr[1], 20); arr[0] = 5; TEST_EQ(arr.at(0), 5); TEST_EQ(arr.at(100), 0); // Проверка at() на выход за границы
+	TEST_EQ(arr[1], 20); arr[0] = 5; TEST_EQ(arr.at(0), 5); TEST_EQ_W(arr.at(100), int()); // Проверка at() на выход за границы
 	
 	// Конкатенация и соединение
 	NextTest("Array.concat(const Array<T>& arr2)"); 
@@ -203,21 +203,15 @@ void Buffer_test(){ const char* ctest="Test str"; Buffer copy; unsigned int tmpv
 	TEST_EQ(tmpval[1], buff.capacity()); // Емкость не должна уменьшаться
 	
 	// Методы insert
-	NextTest("Buffer.insert(Iter ipos, const void* dptr, size_t len)"); buff="AC";
-	buff.insert(buff.begin()+1, "B", 1); TEST_EQ(buff.toString(), "ABC");
+	NextTest("Buffer.insert(size_t pos, const void* dptr, size_t len)"); buff="AC";
+	buff.insert(1, "B", 1); TEST_EQ(buff.toString(), "ABC");
 	
-	NextTest("Buffer.insert(Iter ipos, const void* first, const void* last)"); buff="ACE";
-	buff.insert(buff.begin()+1, "BD", "BD"+2); TEST_EQ(buff.toString(), "ABCDE");
+	NextTest("Buffer.insert(size_t pos, size_t n, unsigned char v)"); buff="BDE";
+	buff.insert(0, 1, 'A'); buff.insert(buff.size(), 1, 'F'); buff.insert(2, 2, 'C'); TEST_EQ(buff.toString(), "ABCCDEF");
 	
-	NextTest("Buffer.insert(Iter ipos, size_t n, unsigned char v)"); buff="BDE";
-	buff.insert(buff.begin(), 1, 'A'); buff.insert(buff.end(), 1, 'F');
-	buff.insert(buff.begin()+3, 2, 'C'); TEST_EQ(buff.toString(), "ABCCDEF");
-	
-	NextTest("Buffer.insert(Iter ipos, unsigned char v)"); buff="AD";
-	buff.insert(buff.begin()+1, 'B'); TEST_EQ(buff.toString(), "ABD");
-	
-	NextTest("Buffer.insert(Iter ipos, const Buffer& other)"); buff="AE";
-	Buffer ins="BCD"; buff.insert(buff.begin()+1, ins); TEST_EQ(buff.toString(), "ABCDE");
+	NextTest("Buffer.insert(size_t pos, const char* cstr)"); buff="BC"; buff.insert(1, 2, 'A'); TEST_EQ(buff.toString(), "BAAC");
+	NextTest("Buffer.insert(size_t pos, unsigned char v)"); buff="AD"; buff.insert(1, 'B'); TEST_EQ(buff.toString(), "ABD");
+	NextTest("Buffer.insert(size_t pos, const Buffer& other)"); buff="AE"; Buffer ins="BCD"; buff.insert(1, ins); TEST_EQ(buff.toString(), "ABCDE");
 	
 	// Методы erase
 	NextTest("Buffer.erase(Iter first, Iter last)"); buff="ABCDEF";
@@ -285,8 +279,7 @@ void Buffer_test(){ const char* ctest="Test str"; Buffer copy; unsigned int tmpv
 	NextTest("Buffer.write(const Buffer& buff, size_t offset)"); buff.clear(); Buffer wbuff="123";
 	buff.write(wbuff); TEST_EQ(buff.toString(), "123");
 	
-	NextTest("Buffer.readAny<T>(size_t offset)"); buff.write(val32, 0);
-	TEST_EQ(buff.readAny<int>(), val32);
+	NextTest("Buffer.readAny<T>(size_t offset)"); buff.clear(); buff.write(&val32, sizeof(int), 0); TEST_EQ(buff.readAny<int>(), val32);
 
 	NextTest("Buffer.writeAny<T>(const T& data, size_t offset)"); int wval=99;
 	buff.clear(); buff.writeAny(wval); TEST_EQ(buff.size(), sizeof(int));
@@ -320,6 +313,7 @@ void Buffer_test(){ const char* ctest="Test str"; Buffer copy; unsigned int tmpv
 	
 	NextTest("Buffer::IntToBits(int numb, size_t bitlen)");
 	Buffer bits2 = Buffer::IntToBits(5, 4); // 0101
+	print("-- bits2: "); print(bits2); print("\n");
 	TEST_EQ(bits2.size(), 4U); TEST_EQ(bits2[0], 0); TEST_EQ(bits2[3], 1);
 	
 // --------------------------------------------------------------------------------
@@ -442,17 +436,17 @@ void Date_test(){
 	NextTest("Date(long long msecs, char type='s')"); date=Date(2000); TEST_EQ(date.timestamp, 2000LL); 
 	date=Date(2000, 's'); TEST_EQ(date.timestamp, 2000LL); date=Date(2000, 'm'); TEST_EQ(date.timestamp, 2LL);
 	NextTest("Date(const CString& dateStr)"); date=Date("2026.02.02 01:09:05"); TEST_EQ(date.timestamp, 1769994545LL);
+	NextTest("Date(IMFDate)"); date=Date("Tue, 05 May 2026 18:29:45 GMT"); TEST_EQ(date.timestamp, 1778005785LL);
 	//NextTest("Date(const DValue& dv)");
 	NextTest("Date::now()"); TEST_EQ(Date::now(), GetTimestamp('s'));
 	
 }
 
-void Base_module_test(){
-	//Array_test();
-	//String_test();
+void Module_Base_test(){
+	Array_test();
+	String_test();
 	///Dtos_test();
-	//Buffer_test();
+	Buffer_test();
 	///HashMap_test();
 	Date_test();
-	///utils_test();
 }

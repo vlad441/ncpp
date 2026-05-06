@@ -1,9 +1,9 @@
 #include "gl-math.cpp"
 // ========= GL Engine =========
-namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
+namespace ncpp { namespace GL { unsigned int VBO, IBO, VAO;
 	void clear(unsigned int hex=0, float alphaf=1){ if(hex==0){ clear(0.0f, 0.0f, 0.0f, alphaf); return; } float rgb[3]; HexToRGBf(rgb, hex); clear(rgb[0], rgb[1], rgb[2], alphaf); }
 	//=== OpenGL 2.0 API ===
-	struct ShaderInfo { GLuint program; unsigned int vShader, fShader; GLint mvpLoc, posLoc, colorLoc; 
+	struct ShaderInfo { GLuint program; unsigned int vShader, fShader; GLint mvpLoc, posLoc, colorLoc, rectParamsLoc; 
 		ShaderInfo() : program(-1), vShader(0), fShader(0){}
 		
 		bool compile(const char* vShader_src, const char* fShader_src){ //Вершинный шейдер (GLSL 1.10)
@@ -23,11 +23,14 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 			colorLoc = glGetAttribLocation(program, "color"); 
 			//GLint baseColorLoc = glGetUniformLocation(shinfo.program, "uBaseColor");
 			return true; }
+		bool initRectParamsLoc(){ rectParamsLoc = glGetUniformLocation(program, "uRectParams"); return true; }
 	};
 	namespace Shaders { ShaderInfo shDef; //стандартные шейдеры
-		ShaderInfo shDef_sim; } //примитивные шейдеры
+		ShaderInfo shDef_sim; //Шейдер-пример
+		ShaderInfo shDefTex; //Шейдер с поддержкой текстур
+	}
 	
-	bool InitSimpleShaders(){ //Использует GLSL 1.10
+	bool InitExampleShaders(){ //Использует GLSL 1.10
 		//Вершинный шейдер: Возвращает вершины без изменений
 		const char* vShader_src = "#version 110\n"
 			"attribute vec2 pos;\n"
@@ -36,25 +39,52 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 		const char* fShader_src = "#version 110\n" "void main(){ gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }";
 		if(!Shaders::shDef_sim.compile(vShader_src, fShader_src)) return false; return true; }
 		
-	bool InitMinimalShaders(){ //Вершинный шейдер (GLSL 1.10)
+	bool InitMinimalShaders(){ using namespace Shaders; //Вершинный шейдер (GLSL 1.10)
 		const char* vShader_src = "#version 110\n"
 			"attribute vec3 pos;\n"
 			"attribute vec4 color;\n"
 			"varying vec4 vColor;\n"
 			"uniform mat4 uMVP;\n"
-			"void main(){ gl_Position = uMVP * vec4(pos, 1.0); vColor = color; }\n";
+			//"varying vec2 vTexCoord;\n"
+			"void main(){ gl_Position = uMVP * vec4(pos, 1.0); vColor = color; }\n"; //vTexCoord = pos.xy;
 
 		// Фрагментный шейдер
 		const char* fShader_src = "#version 110\n"
 			"varying vec4 vColor; // Цвет от вершин (интерполированный)\n"
-			"//uniform vec4 uBaseColor; // Базовый цвет из glUniform4f\n"
+			//"uniform vec4 uBaseColor; // Базовый цвет из glUniform4f\n"
+			//"varying vec2 vTexCoord;\n"
 			"void main(){ gl_FragColor = vColor; }\n"; //gl_FragColor = vColor * uBaseColor;
-		if(!Shaders::shDef.compile(vShader_src, fShader_src)) return false; return Shaders::shDef.initLoc(); }
+		if(!shDef.compile(vShader_src, fShader_src)) return false; return shDef.initLoc(); }
+		
+	bool InitOtherShaders(){ using namespace Shaders;
+		//=== Шейдер с поддержкой текстур ===
+		// --- Vetex ---
+		const char* vShader_src = "#version 110\n"
+			"attribute vec3 pos;\n"
+			"attribute vec4 color;\n"
+			"varying vec4 vColor;\n"
+			"uniform mat4 uMVP;\n"
+			"varying vec2 vTexCoord; //UV cords\n"
+			"uniform vec4 uRectParams; //x: minX, y: minY, z: width, w: height\n"
+			"void main(){\n"
+			"  gl_Position = uMVP * vec4(pos, 1.0); vColor = color;\n"
+			"  vTexCoord = (pos.xy - uRectParams.xy) / uRectParams.zw; // Вычисляем UV на основе позиции\n"
+			"  vTexCoord.y = 1.0-((pos.y - uRectParams.y) / uRectParams.w); } // Инверсия UV для y\n";
+		// --- Fragment ---
+		const char* fShader_src = "#version 110\n"
+			"varying vec4 vColor; // Цвет от вершин (интерполированный)\n"
+			"varying vec2 vTexCoord;\n"
+			"uniform sampler2D uTexture;\n"
+			"void main(){\n"
+			"  gl_FragColor = texture2D(uTexture, vTexCoord) * vColor;\n"
+			"}\n";
+		if(!shDefTex.compile(vShader_src, fShader_src)) return false; return shDefTex.initLoc()&&shDefTex.initRectParamsLoc(); }
 		
 	bool InitDefaultShaders(){ if(!LoadOGL_20()){ print("(!) GL::InitDefaultShaders failed: OpenGL 2.0 extensions unavailable.\n"); return false; }
 		if(!LoadOGL_30()){ print("(!) Loading extensions OpenGL 3.0 failed.\n"); }
 		if(!LoadOGL_31()){ print("(!) Loading extensions OpenGL 3.1 failed.\n"); }
-		if(!InitSimpleShaders()) return false; if(!InitMinimalShaders()) return false; 
+		if(!InitExampleShaders()) return false; if(!InitMinimalShaders()) return false; 
+		if(!InitOtherShaders()){ print("(!) GL::InitOtherShaders: Compile Shaders failed.\n"); }
 		
 		glGenBuffers(1, &VBO); glBindBuffer(GL_ARRAY_BUFFER, VBO); //glBufferData(GL_ARRAY_BUFFER, MAX_SIZE, NULL, GL_DYNAMIC_DRAW);
 		if(glGenVertexArrays){ glGenVertexArrays(1, &VAO); glBindVertexArray(VAO); } //VAO для новых драйверов.
@@ -64,17 +94,17 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 	//void SetLineWidth(float sz=1.0f){ glLineWidth(sz); } //deprecated
 	void SetFillMode(bool mode=true){ FillMode=mode; if(!mode){ glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); }else{ glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); } }
 	
-	//void _applyState(const Matrix4& mvp=Matrix4().setMatrix2DPreset(), GLenum mode=GL_POINTS, const ShaderInfo& shinfo=Shaders::shDef);
-	
-	void RenderVertices(const Array<Vertex>& vertices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), GLenum mode=GL_POINTS, const ShaderInfo& shinfo=Shaders::shDef){ 
-		if(vertices.empty()) return; glUseProgram(shinfo.program); glUniformMatrix4fv(shinfo.mvpLoc, 1, GL_FALSE, mvp.m); //передача MVP в шейдер.
+	void _applyState(const Array<Vertex>& vertices, const Matrix4& mvp, GLenum mode, const ShaderInfo& shinfo){
+		glUseProgram(shinfo.program); glUniformMatrix4fv(shinfo.mvpLoc, 1, GL_FALSE, mvp.m); //передача MVP в шейдер.
 		glBindBuffer(GL_ARRAY_BUFFER, VBO); glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(Vertex), vertices.data(), GL_STREAM_DRAW);
 		
 		glEnableVertexAttribArray(shinfo.posLoc); glEnableVertexAttribArray(shinfo.colorLoc);
 		glVertexAttribPointer(shinfo.posLoc, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0); // Указываем откуда брать позицию
-		glVertexAttribPointer(shinfo.colorLoc, 4, ColorGL_T, ColorGL_Norm, sizeof(Vertex), (void*)offsetof(Vertex, _color)); // Указываем откуда брать цвет
-		
-		glDrawArrays(mode, 0, vertices.size()); glDisableVertexAttribArray(shinfo.posLoc); glDisableVertexAttribArray(shinfo.colorLoc);
+		glVertexAttribPointer(shinfo.colorLoc, 4, ColorGL_T, ColorGL_Norm, sizeof(Vertex), (void*)offsetof(Vertex, _color)); } // Указываем откуда брать цвет
+	
+	void RenderVertices(const Array<Vertex>& vertices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), GLenum mode=GL_POINTS, const ShaderInfo& shinfo=Shaders::shDef){ 
+		if(vertices.empty()) return; _applyState(vertices, mvp, mode, shinfo); 
+		glDrawArrays(mode, 0, vertices.size()); glDisableVertexAttribArray(shinfo.posLoc); glDisableVertexAttribArray(shinfo.colorLoc); 
 	}
 	void RenderTriangles(const Array<Vertex>& vertices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){ RenderVertices(vertices, mvp, GL_TRIANGLES, shinfo); }
 	void RenderLines(const Array<Vertex>& vertices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){ RenderVertices(vertices, mvp, GL_LINES, shinfo); }
@@ -83,14 +113,8 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 	void RenderLineStrip(const Array<Vertex>& vertices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){ RenderVertices(vertices, mvp, GL_LINE_STRIP, shinfo); }
 		
 	void RenderVerticesIdx(const Array<Vertex>& vertices, const Array<unsigned int>& indices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), GLenum mode=GL_TRIANGLES, const ShaderInfo& shinfo=Shaders::shDef){
-		if(vertices.empty() || indices.empty()) return; glUseProgram(shinfo.program); glUniformMatrix4fv(shinfo.mvpLoc, 1, GL_FALSE, mvp.m); //передача MVP в шейдер.
-		glBindBuffer(GL_ARRAY_BUFFER, VBO); glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(Vertex), vertices.data(), GL_STREAM_DRAW);
+		if(vertices.empty() || indices.empty()) return; _applyState(vertices, mvp, mode, shinfo);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO); glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size()*sizeof(unsigned int), indices.data(), GL_STREAM_DRAW);
-
-		glEnableVertexAttribArray(shinfo.posLoc); glEnableVertexAttribArray(shinfo.colorLoc);
-		glVertexAttribPointer(shinfo.posLoc, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-		glVertexAttribPointer(shinfo.colorLoc, 4, ColorGL_T, ColorGL_Norm, sizeof(Vertex), (void*)offsetof(Vertex, _color));
-
 		glDrawElements(mode, indices.size(), GL_UNSIGNED_INT, 0); glDisableVertexAttribArray(shinfo.posLoc); glDisableVertexAttribArray(shinfo.colorLoc); 
 	}
 	void RenderLinesIdx(const Array<Vertex>& vertices, const Array<unsigned int>& indices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){ RenderVerticesIdx(vertices, indices, mvp, GL_LINES, shinfo); }
@@ -98,67 +122,6 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 	
 	void RenderTriangleStripIdx(const Array<Vertex>& vertices, const Array<unsigned int>& indices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){ RenderVerticesIdx(vertices, indices, mvp, GL_TRIANGLE_STRIP, shinfo); }
 	void RenderLineStripIdx(const Array<Vertex>& vertices, const Array<unsigned int>& indices, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){ RenderVerticesIdx(vertices, indices, mvp, GL_LINE_STRIP, shinfo); }
-	
-	void addRect(Array<Vertex>& v, float width=1, float height=1, unsigned int color=0xFFFFFFFF, float x=0, float y=0, bool fill=true, bool center=true){
-		Vertex v1(x, y, 0); Vertex v2(x + width, y + height, 0); unsigned int color1=color, color2=color;
-		if(center){ v1.x -= width/2.0f; v2.x -= width/2.0f; v1.y -= height/2.0f; v2.y -= height/2.0f; }
-		if(fill){
-			v.push(Vertex(v1.x, v1.y, v1.z, color1)); // ЛВ
-			v.push(Vertex(v2.x, v1.y, v1.z, color1)); // ПВ (цвет от ЛВ)
-			v.push(Vertex(v1.x, v2.y, v2.z, color2)); // ЛН (цвет от ПН)
-			// Треугольник 2
-			v.push(Vertex(v2.x, v1.y, v1.z, color1)); // ПВ
-			v.push(Vertex(v2.x, v2.y, v2.z, color2)); // ПН
-			v.push(Vertex(v1.x, v2.y, v2.z, color2)); // ЛН
-		}else{
-			v.push(v1); v.push(Vertex(v2.x, v1.y, v1.z, color1)); // Верхняя линия
-			v.push(Vertex(v2.x, v1.y, v1.z, color1)); v.push(v2); // Правая линия
-			v.push(v2); v.push(Vertex(v1.x, v2.y, v2.z, color2)); // Нижняя линия
-			v.push(Vertex(v1.x, v2.y, v2.z, color2)); v.push(v1); } // Левая линия
-	}
-	
-	void addCube(Array<Vertex>& v, Array<unsigned int>& idx, float width=1, float height=1, float l=1, unsigned int color=0xFFFFFFFF, 
-		float x=0, float y=0, float z=0, bool fill=true, bool center=true, bool indexed=true)
-	{	float x1 = x, y1 = y, z1 = z; float x2 = x + width, y2 = y + height, z2 = z + l;
-
-		if(center){ float dx = width/2.0f; float dy = height/2.0f; float dz = l/2.0f; x1-=dx; x2-=dx; y1-=dy; y2-=dy; z1-=dz; z2-=dz; }
-		Vertex vertices[8] = { // 8 вершин куба
-			Vertex(x1, y1, z1, color), // 0: ЛНБ (Лево-Низ-Ближ)
-			Vertex(x2, y1, z1, color), // 1: ПНБ
-			Vertex(x2, y2, z1, color), // 2: ПВБ
-			Vertex(x1, y2, z1, color), // 3: ЛВБ
-			Vertex(x1, y1, z2, color), // 4: ЛНД (Лево-Низ-Даль)
-			Vertex(x2, y1, z2, color), // 5: ПН开
-			Vertex(x2, y2, z2, color), // 6: ПВ开
-			Vertex(x1, y2, z2, color)  // 7: ЛВ开
-		};
-
-		if(fill){
-			unsigned int indices[] = { // Индексы для 12 треугольников (6 граней)
-				0, 1, 2,  2, 3, 0,   // Передняя
-				1, 5, 6,  6, 2, 1,   // Правая
-				7, 6, 5,  5, 4, 7,   // Задняя
-				4, 0, 3,  3, 7, 4,   // Левая
-				4, 5, 1,  1, 0, 4,   // Нижняя
-				3, 2, 6,  6, 7, 3 }; // Верхняя
-			if(indexed){ for(int i=0; i<36; i++) idx.push((unsigned int)v.size() + indices[i]); for(int i=0; i<8; i++) v.push(vertices[i]); }
-			else{ for(int i=0; i<36; i++){ v.push(vertices[indices[i]]); } } // No Indexed (Native)
-		}else{
-			unsigned int edges[] = { // Проволочный каркас (12 ребер)
-				0, 1, 1, 2, 2, 3, 3, 0,   // Передний квадрат
-				4, 5, 5, 6, 6, 7, 7, 4,   // Задний квадрат
-				0, 4, 1, 5, 2, 6, 3, 7 }; // Перемычки
-			if(indexed){ for(int i=0; i<24; i++) idx.push((unsigned int)v.size() + edges[i]); for(int i=0; i<8; i++) v.push(vertices[i]); }
-			else{ for(int i=0; i<24; i++){ v.push(vertices[edges[i]]); } } // No Indexed (Native)
-		}
-	}
-	
-	void RenderRects(const Array<Vertex>& v, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef){
-		if(FillMode){ RenderTriangles(v, mvp, shinfo); }else{ RenderLines(v, mvp, shinfo); } }
-	
-	// void TestDraw(){ for(int i = 0; i < 100; i++){ 
-		// glUniformMatrix4fv(location, 1, GL_FALSE, &players[i].mvp); // Обновляем матрицу 
-		// glDrawArrays(GL_TRIANGLES, 0, 10000); } } // Рисуем одного игрока
 		
 	struct Entity { double x, y, z; float aX, aY, aZ; float sX, sY, sZ;
 		Entity(double x1=0, double y1=0, double z1=0) : x(x1), y(y1), z(z1), aX(0), aY(0), aZ(0), sX(1), sY(1), sZ(1){}
@@ -182,8 +145,8 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 		Entity& moveUp(float dist){ return move(getUp()*dist); }
 	};
 
-	struct Camera : Entity { float sensitivity; float speed; char mouseCapt;
-		Camera(double x1=0, double y1=0, double z1=0) : Entity(x1, y1, z1), sensitivity(1.0f), speed(1.0f), mouseCapt(0){}
+	struct Camera : Entity { float sensitivity; float speed; float angleFog; float aspect; char mouseCapt; 
+		Camera(double x1=0, double y1=0, double z1=0) : Entity(x1, y1, z1), sensitivity(1.0f), speed(1.0f), angleFog(60.0f), aspect(1.0f), mouseCapt(0){}
 		
 		Camera& rotate(float aX1, float aY1, float aZ1){ return (Camera&)Entity::rotate(aX1, aY1, aZ1); }
 		//Matrix4 getMatrix() const { Matrix4 V; V.rotate(-aX, -aY, -aZ).translate(-x, -y, -z); return V; } //Old Abs Pos+Angle
@@ -216,22 +179,63 @@ namespace ncpp { namespace GL { unsigned int VBO, VAO, IBO;
 		} return false; }
 	};
 	
-	struct Model : Entity { Array<Vertex> v, l; Array<unsigned int> idx; enum RenderMode { TRIANGLES, LINES } mode;
+	struct Model : Entity { Array<Vertex> v, l; Array<unsigned int> idx; enum RenderMode { TRIANGLES, LINES } mode; //unsigned int VBO, IBO;
 		Model(double x1=0, double y1=0, double z1=0) : Entity(x1, y1, z1), mode(TRIANGLES){}
-		void render(const Matrix4& vp=Matrix4().setMatrix2DPreset()){ Matrix4 model=getMatrix(); ShaderInfo shinfo=Shaders::shDef;
+		void render(const Matrix4& model, const Matrix4& vp, const ShaderInfo& shinfo=Shaders::shDef){
 			switch(mode){ 
 				case TRIANGLES: if(idx.empty()){ RenderTriangles(v, vp*model, shinfo); }else{ RenderTrianglesIdx(v, idx, vp*model, shinfo); } break;
 				case LINES: if(idx.empty()){ RenderLines(v, vp*model, shinfo); }else{ RenderLinesIdx(v, idx, vp*model, shinfo); } break; break; } 
 			if(!l.empty()){ RenderLines(l, vp*model, shinfo); } } //borders (lines)
+		void render(const Entity& entity, const Matrix4& vp=Matrix4().setMatrix2DPreset(), const ShaderInfo& shinfo=Shaders::shDef)
+		{ Matrix4 model=entity.getMatrix(); render(model, vp, shinfo); }
+		void render(const Matrix4& vp=Matrix4().setMatrix2DPreset()){ Matrix4 model=getMatrix(); render(model, vp); }
+		
+		static void moveVertices(Array<Vertex>& v, float x, float y, float z=0){ for(size_t i=0;i<v.size();i++){ v[i].x+=x; v[i].y+=y; v[i].z+=z; } }
+		static void rotateVerticesX(Array<Vertex>& v, float aX){ float rad = aX * (float)M_PI / 180.0f; float c = cosf(rad);  float s = sinf(rad);
+			for(size_t i=0; i<v.size(); i++){ float oldY = v[i].y; float oldZ = v[i].z; v[i].y = oldY*c-oldZ*s; v[i].z = oldY*s+oldZ*c; } }
+		static void rotateVerticesY(Array<Vertex>& v, float aY){ float rad = aY * M_PI / 180.0f; float c = cosf(rad); float s = sinf(rad);
+			for(size_t i=0; i<v.size(); i++){ float oldX = v[i].x; float oldZ = v[i].z; v[i].x = oldX*c-oldZ*s; v[i].z = oldX*s+oldZ*c; } }
+		static void rotateVerticesZ(Array<Vertex>& v, float aZ){ float rad = aZ * (float)M_PI / 180.0f; float c = cosf(rad); float s = sinf(rad);
+			for(size_t i=0; i<v.size(); i++){ float oldX = v[i].x; float oldY = v[i].y; v[i].x = oldX*c - oldY*s; v[i].y = oldX*s + oldY*c; } }
+		static void rotateVertices(Array<Vertex>& v, float aX, float aY, float aZ){ rotateVerticesX(v, aX); rotateVerticesY(v, aY); rotateVerticesZ(v, aZ); }
+		
+		Model& moveVertices(float x1, float y1, float z1=0){ moveVertices(v, x1, y1, z1); return *this; }
+		Model& applyMatrix(const Matrix4& M){ Vertex::applyMatrix(v, M); return *this; }
+		
 		Model& setVertexColor(unsigned int hex){ for(size_t i=0;i<v.size();i++){ v[i].setColor(hex); } return *this; }
 		Model& setLinesColor(unsigned int hex){ for(size_t i=0;i<l.size();i++){ l[i].setColor(hex); } return *this; }
+		Model& randVertexColor(){ for(size_t i=0;i<v.size();i++){ v[i].setColor(0xFF000000+randInt(0, 0xFFFFFF)); } return *this; }
+		Model& randLinesColor(){ for(size_t i=0;i<v.size();i++){ l[i].setColor(0xFF000000+randInt(0, 0xFFFFFF)); } return *this; }
+		
+		Model& pushVRAM();
+		Model& freeVRAM();
+		Model& freeRAM(){ v.clear().shrink(); l.clear().shrink(); idx.clear().shrink(); return *this; }
+		
 		bool loadOBJ(const CString& fname);
 	};
 	
 } }
 #include "gl-vfont.cpp"
+#include "gl-geometry.cpp"
 
 namespace ncpp { namespace GL {
+	struct Texture { unsigned int tID; Texture() : tID(0){}
+		void load(void* px, int width, int height){ if(tID!=0) free(); glGenTextures(1, &tID); glBindTexture(GL_TEXTURE_2D, tID);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, px); }
+		void free(){ if(tID==0) return; glDeleteTextures(1, &tID); tID = 0; }
+		
+		//unsigned int loadImg(const Image& img){ tyan.load(img.px.data(), img.w, img.h); }
+		//unsigned int loadImg(const CString& fpath){ loadImg(Image::fromFile(fpath)); }
+		
+		void render(const Array<Vertex>& v, float x, float y, float w, float h, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), float scale=1.0f){
+			glUseProgram(Shaders::shDefTex.program); glUniform4f(Shaders::shDefTex.rectParamsLoc, x, y, w*scale, h*scale);
+			glBindTexture(GL_TEXTURE_2D, tID); RenderTriangles(v, mvp, Shaders::shDefTex); }
+		
+		void renderRect(float x, float y, float w, float h, const Matrix4& mvp=Matrix4().setMatrix2DPreset(), float scale=1.0f)
+		{	Array<Vertex> tmpV; genRect(tmpV, w, h, 0xFFFFFFFF, x, y, true, false); render(tmpV, x, y, w, h, mvp, scale); }
+	};
+	
 	struct GConsole { String inpbuff, outbuff; bool enabled;
 		GConsole() : enabled(false), onCommand(NULL){}
 		
@@ -245,7 +249,7 @@ namespace ncpp { namespace GL {
 		GConsole& operator<<(const String& s){ outbuff << s; return *this; }
 		GConsole& operator<<(long long num){ outbuff << num; return *this; }
 		
-		void render(float aspect=1.0f){ if(!enabled) return; DrawString("Console> "+inpbuff+"\n\n"+outbuff,0.005f,0.85f, 0.02f, 0xFFFFFF, aspect); }
+		void render(float aspect=1.0f){ if(!enabled) return; RenderString("Console> "+inpbuff+"\n\n"+outbuff,0.005f,0.85f, 0.02f, 0xFFFFFFFF, aspect); }
 		
 		void (*onCommand)(const String& cmdtxt);
 		static void defCmdHandle(const String& cmdtxt, GConsole& cons){ if(cmdtxt=="cls"||cmdtxt=="clear"){ cons.outbuff.clear(); }

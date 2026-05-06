@@ -1,34 +1,64 @@
-[![doc-link](https://img.shields.io/badge/Введение%20main-gray)](introduction.md)
+Модуль предоставляет кроссплатформенную реализацию асинхронных серверов.
 
+- [ncpp::SocketPool](#ncppsocketpool)
+    - [SocketPool.waitWriteOne()](#socketpoolwaitwriteone)
 - [ncpp::TCPServer](#ncpptcpserver)
-	- [TCPServer.broadcast()](#tcpserverbroadcast)
-	- [TCPServer.run()](#tcpserverrun)
+    - [TCPServer.bind()](#tcpserverbind)
+    - [TCPServer.broadcast()](#tcpserverbroadcast)
+    - [TCPServer.run()](#tcpserverrun)
 	- [TCPServer.close()](#tcpserverclose)
 	- [TCPServer.onConnect](#tcpserveronсonnect)
 	- [TCPServer.onData](#tcpserverondata)
 	- [TCPServer.onError](#tcpserveronerror)
 	- [TCPServer.onClose](#tcpserveronclose)
 - [ncpp::HTTPServer](#ncpphttpserver)
+    - [HTTPServer.run()](#httpserverrun)
 	- [HTTPServer.onRequest](#httpserveronrequest)
 
+## ncpp::SocketPool
+Базовый класс для управления пулом сокетов и обработки асинхронных событий.
+
+```cpp
+struct SocketPool : AsyncIO { HashSet<Socket*> sockets; int servfd;
+    // Коллбэки событий
+    void (*onConnect)(TCPSocket& socket);
+    void (*onData)(TCPSocket& socket, const Buffer& data);
+    void (*onError)(TCPSocket& socket);
+    void (*onClose)(TCPSocket& socket);
+};
+```
+
+### SocketPool.waitWriteOne()
+```cpp
+bool waitWriteOne(int timeout=-1)
+```
+Ждет пока хотя бы один сокет станет доступен для записи. Возвращает `true` если хотя бы 1 открыт для записи.
+
 ## ncpp::TCPServer
+Наследуется от `SocketPool`. Реализует логику стандартного TCP сервера.
+
 ```cpp
 TCPServer();
-TCPServer(int port, const std::string& bindip="::");
+TCPServer(int port, const CString& bindip="::");
 ```
-Структура `TCP` сервера. При указании параметров автоматически выполняет `init()`.
+
+### TCPServer.bind()
+```cpp
+bool bind(int port, const CString& bindip = "::");
+```
+Привязывает сервер к указанному порту и IP-адресу, после чего переходит в режим прослушивания (`listen`).
 
 ### TCPServer.broadcast()
 ```cpp
 void broadcast(const Buffer& buff);
 ```
-Выполняет отправку всем подключенным сокетам.
+Рассылает данные буфера всем подключенным в данный момент клиентам.
 
 ### TCPServer.run()
 ```cpp
 void run();
 ```
-Запускает сервер, активируя event-loop обработки сокетов. Блокирует поток.
+Блокирует поток, запуская цикл обработки событий сервера.
 
 ### TCPServer.close()
 ```cpp
@@ -61,14 +91,29 @@ void (*onClose)(TCPSocket& socket);
 Callback в виде указателя на функцию, который вызывается для сокета при закрытии соединения.
 
 ## ncpp::HTTPServer
+Специализированный сервер для обработки HTTP запросов, наследуется от `TCPServer`.
+
 ```cpp
 HTTPServer();
-HTTPServer(int port, const std::string& bindip="::");
+HTTPServer(int port, const CString& bindip="::");
 ```
-Нследует от `ncpp::TCPServer`.
+Параметры класса:
+```cpp
+struct HTTPServer : TCPServer {
+    unsigned int max_headerlen; // По умолчанию 8 КБ
+    unsigned int max_bodylen;   // По умолчанию 4 МБ
+	//Если заголовки или тело превышают установленные, сервер автоматически отправляет ошибки `431 Request Header Fields Too Large` или `413 Payload Too Large` и закрывает соединение.
+};
+```
+
+### HTTPServer.run()
+```cpp
+void run();
+```
+Блокирует поток, запуская цикл обработки событий сервера.
 
 ### HTTPServer.onRequest
 ```cpp
-void (*onRequest)(http::Req req, http::Res res);
+void (*onRequest)(http::Req& req, http::Res& res);
 ```
 Callback в виде указателя на функцию, который вызывается при получении http запроса.

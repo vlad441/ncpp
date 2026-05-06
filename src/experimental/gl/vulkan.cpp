@@ -20,7 +20,7 @@ void* h_vulkanLib = NULL;
 //extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr; //Наша глобальная точка входа (уже определен в vulkan_core.h)
 PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = NULL;
 
-namespace ncpp { namespace GL {
+namespace ncpp { namespace VK {
 bool loadVKLib(){ 
 #ifdef _WIN32
 	h_vulkanLib = DLIB_LOAD("vulkan-1.dll");

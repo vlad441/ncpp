@@ -2,12 +2,17 @@
 #pragma once
 #ifndef NCPP_H_DEF
 #define NCPP_H_DEF
-#define NCPP_VER "v0.0.1-0-rev4"
+#define NCPP_VER "v0.0.1-0-dev"
+//#define NCPP_VER_MAJOR 0
+//#define NCPP_VER_MINOR 0
+//#define NCPP_VER_PATCH 1
+//#define NCPP_VERSION(major, minor, patch) ((major << 16) | (minor << 8) | (patch))
+//#define NCPP_VER_CODE NCPP_VERSION(NCPP_VER_MAJOR, NCPP_VER_MINOR, NCPP_VER_PATCH)
 
 /*#ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0A00 // 0x0501 - WinXP; 0x0601 - Win7; 0x0602 - Win8; 0x0A00 - Win10;
-#endif*/
+#define _WIN32_WINNT 0x0A00 // 0x0400 - Win 95; 0x0410 - Win 98; 0x0500 - Win 2000; 0x0501 - WinXP; 0x0601 - Win7; 0x0602 - Win8; 0x0A00 - Win10;
+#endif*/	
 
 #include <stdlib.h> // C lib
 #include <string.h> // strlen, memcpy, etc.
@@ -15,7 +20,7 @@
 #include <math.h>
 #include <ctype.h> // isdigit, isalpha, isalnum, etc.
 #include <errno.h> // errno: UNIX get last error;
-//#include <limits.h> // INT_MAX, LLONG_MAX, ULLONG_MAX, PATH_MAX etc.
+#include <limits.h> // INT_MAX, LLONG_MAX, ULLONG_MAX, PATH_MAX constant, etc.
 
 #ifdef _WIN32 // == Windows Headers ==
 #define WIN32_LEAN_AND_MEAN  // Исключает редко используемые компоненты из заголовков Windows
@@ -32,7 +37,6 @@
 #include <signal.h> // signals kill, etc.
 #include <sys/time.h> // time api: gettimeofday
 #include <fcntl.h> // for socket descryptor settings (non-bloking mode, etc).
-#include <limits.h> //int types limits, PATH_MAX constant
 #endif
 
 namespace ncpp { void print(const char *cptr); const char* version(); void print(long long v); } //Only declaration.
@@ -56,6 +60,10 @@ void* operator new(size_t size, void* ptr) noexcept; //Объявление си
 //#endif //NCPP_LIB_USE
 //#include "experimental/initializer_list.hpp"
 //#define NCPP_COUT_COLORED
+
+#if defined(__GNUC__) && __GNUC__ < 4
+#include "sys/gcc3_def.h"
+#endif
 
 #ifndef NCPP_LIB_BUILD
 void _ncpp_check_ver(){	if(strcmp(NCPP_VER, ncpp::version())==0) return;

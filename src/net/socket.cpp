@@ -1,8 +1,20 @@
 #ifdef _WIN32 // == Windows Headers ==
+
 #if !defined(__GNUC__) || __GNUC__ >= 4
 #include <iphlpapi.h> //icmp
 #include <icmpapi.h>
 #endif
+
+#ifndef EINTR
+#define EINTR WSAEINTR
+#endif
+#ifndef EWOULDBLOCK
+#define EWOULDBLOCK WSAEWOULDBLOCK
+#endif
+#ifndef EAGAIN
+#define EAGAIN WSAEWOULDBLOCK
+#endif
+
 #else // == Linux Headers ==
 #include <netinet/ip_icmp.h> //icmp
 #include <netinet/tcp.h> // Keep-Alive: TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
@@ -29,12 +41,16 @@ const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
   return (WSAAddressToString((struct sockaddr *)&ss, sizeof(ss), NULL, dst, &s) == 0)? dst : NULL; }
 #endif
 
-namespace ncpp{
-#define DEF_BUFF_SIZE 16384
+namespace ncpp{ 
+#define DEF_SOCK_SIZE 4096 //#define DEF_SOCK_SIZE 16384
 	struct BindInfo { String ip; int port; String family; String type; };
-	struct IPAddr { String ip; int port; char ipver;
-		IPAddr(const CString& ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){} 
+	struct IPAddr { String ip; int port; char ipver; //TODO: MMDB LPM (Radix Tree)
+		IPAddr(const CString& ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){}
 		String toString() const { if(ipver==4){ return ip+":"+dtos(port); }else{ return "["+ip+"]:"+dtos(port); } }
+		static IPAddr fromStr(const CString& host){ Array<String> ip; IPAddr addr; 
+			if(host.indexOf("]:")!=NPOS){ ip=host.split("]:", 2, 2); ip[0]=ip[0].slice(1); addr.ipver=6; }
+			else if(host.endsWith("]")){ ip.push(host.slice(1, -1)); addr.ipver=6; }else{ ip=host.split(":", 1, 2); addr.ipver=4; }
+			addr.ip=ip[0]; if(ip.size()>1){ addr.port=stoin(ip[1]); } return addr; }
 	};
 	
 	struct Socket { int sockfd; bool connected; bool isbind; enum Type { NONE, TCP, UDP, UNIX } _type;
@@ -147,7 +163,7 @@ namespace ncpp{
 		
 		static bool setKeepAlive(int sockfd1, bool en, int idle_time=720, int interval=5, int cnt=5){
 		#ifdef _WIN32
-			int bOptLen = sizeof(en); if(setsockopt(sockfd1, SOL_SOCKET, SO_KEEPALIVE, (char*)&en, bOptLen) == SOCKET_ERROR){ Except("setsockopt (SO_KEEPALIVE) failed\n"); return false; }
+			idle_time*=1000; int bOptLen = sizeof(en); if(setsockopt(sockfd1, SOL_SOCKET, SO_KEEPALIVE, (char*)&en, bOptLen) == SOCKET_ERROR){ Except("setsockopt (SO_KEEPALIVE) failed\n"); return false; }
 			if(!en||idle_time<=0) return true; tcp_keepalive ka; DWORD bytesReturned; ka.onoff = 1; ka.keepalivetime = (ULONG)idle_time; ka.keepaliveinterval = (ULONG)interval;
 			if(WSAIoctl(sockfd1, SIO_KEEPALIVE_VALS, &ka, sizeof(ka), NULL, 0, &bytesReturned, NULL, NULL) == SOCKET_ERROR){ Except("WSAIoctl (SIO_KEEPALIVE_VALS) failed\n"); return false; }
 		#else
@@ -168,16 +184,16 @@ namespace ncpp{
 		static IPAddr _from_sockaddr_in6(const sockaddr_in6* addr6){ IPAddr result; char ipstr[INET6_ADDRSTRLEN]; result.port = ntohs(addr6->sin6_port); 
 			result.ipver = 6; inet_ntop(AF_INET6, (void*)&(addr6->sin6_addr), ipstr, sizeof(ipstr)); result.ip = ipstr; return result; }
 		static IPAddr _from_sockaddr_storage(const sockaddr_storage* addr){
-			if (addr->ss_family == AF_INET){ return _from_sockaddr_in(reinterpret_cast<const sockaddr_in*>(addr)); } 
-			else if (addr->ss_family == AF_INET6){ return _from_sockaddr_in6(reinterpret_cast<const sockaddr_in6*>(addr)); } 
-			else { IPAddr result; result.ipver = '0'; return result; } }
+			if(addr->ss_family == AF_INET){ return _from_sockaddr_in(reinterpret_cast<const sockaddr_in*>(addr)); } 
+			else if(addr->ss_family == AF_INET6){ return _from_sockaddr_in6(reinterpret_cast<const sockaddr_in6*>(addr)); } 
+			else{ IPAddr result; result.ipver = 0; return result; } }
 		sockaddr_storage _to_sockaddr_storage(const IPAddr& addr){ sockaddr_storage storage; memset(&storage, 0, sizeof(storage));
-			if (addr.ipver == 4){ sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&storage);
+			if(addr.ipver == 4){ sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&storage);
 				addr_in->sin_family = AF_INET; addr_in->sin_port = htons(addr.port);
-				if(inet_pton(AF_INET, addr.ip.c_str(), (void*)&(addr_in->sin_addr)) <= 0){ Except("Invalid IPv4 address format\n"); }
-			} else{ sockaddr_in6* addr_in6 = reinterpret_cast<sockaddr_in6*>(&storage);
+				if(inet_pton(AF_INET, addr.ip.c_str(), (void*)&(addr_in->sin_addr)) <= 0){ Except("_to_sockaddr_storage: Invalid IPv4 address format\n"); } } 
+			else{ sockaddr_in6* addr_in6 = reinterpret_cast<sockaddr_in6*>(&storage);
 				addr_in6->sin6_family = AF_INET6; addr_in6->sin6_port = htons(addr.port);
-				if(inet_pton(AF_INET6, addr.ip.c_str(), (void*)&(addr_in6->sin6_addr)) <= 0){ Except("Invalid IPv6 address format\n"); } }
+				if(inet_pton(AF_INET6, addr.ip.c_str(), (void*)&(addr_in6->sin6_addr)) <= 0){ Except("_to_sockaddr_storage: Invalid IPv6 address format\n"); } }
 			return storage; }
 			
 		friend void swap(Socket& a, Socket& b){ int tmpfd = a.sockfd; a.sockfd = b.sockfd; b.sockfd = tmpfd;
@@ -201,7 +217,7 @@ namespace ncpp{
 		Socket& steal(const Socket& victim){ move(*this, (Socket&)victim); return *this; }
 		friend void move(Socket& dst, const Socket& victim){ move(dst, (Socket&)victim); }
 		#endif
-		friend void move(Socket& dst, Socket& tmp){ if(dst.autodestroy) dst.destroy();
+		friend void move(Socket& dst, Socket& tmp){ if(&dst==&tmp) return; if(dst.autodestroy) dst.destroy();
 			dst.sockfd = tmp.sockfd; tmp.sockfd = -1;
 			dst.connected = tmp.connected; tmp.connected = false;
 			dst.isbind = tmp.isbind; tmp.isbind = false;
@@ -228,7 +244,7 @@ namespace ncpp{
 		
 		int recv(char* ptr, int len){ rsetErr(); int bytesRead = ::recv(sockfd, ptr, len, 0);
 			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
-		int recv(Buffer* buff){ buff->resize(DEF_BUFF_SIZE); rsetErr(); 
+		int recv(Buffer* buff){ buff->resize(DEF_SOCK_SIZE); rsetErr(); 
 			int bytesRead = ::recv(sockfd, (char*)buff->data(), buff->size(), 0);
 			if(bytesRead<=0){ buff->resize(0); destroy(); if(bytesRead<0) GetErr(); }
 			else{ buff->resize(bytesRead); } return bytesRead; }
@@ -239,13 +255,8 @@ namespace ncpp{
 		int acceptFd(IPAddr* addr) const { sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr); 
 			int fd = ::accept(sockfd, (sockaddr*)&client_addr, &addrlen); *addr = _from_sockaddr_storage(&client_addr); return fd; }
 		
-		TCPSocket* accept() const { sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr);
-			TCPSocket* clsock = new TCPSocket(::accept(sockfd, (sockaddr*)&client_addr, &addrlen));
-			clsock->destAddr = _from_sockaddr_storage(&client_addr); return clsock; }
-			
-		TCPSocket _accept() const { sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr);
-			TCPSocket clsock(::accept(sockfd, (sockaddr*)&client_addr, &addrlen));
-			clsock.destAddr = _from_sockaddr_storage(&client_addr); return clsock; }
+		TCPSocket* accept() const { TCPSocket* s = new TCPSocket(); s->sockfd = acceptFd(&s->destAddr); return s; }
+		TCPSocket _accept() const { TCPSocket s; s.sockfd = acceptFd(&s.destAddr); return s; }
 			
 		//friend void move(TCPSocket& dst, TCPSocket& tmp){ move((Socket&)dst, (Socket&)tmp); }
 	};
@@ -273,7 +284,7 @@ namespace ncpp{
 				*rinfo=_from_sockaddr_storage(&dest_addr); }
 			else{ bytesRead = ::recvfrom(sockfd, ptr, len, 0, NULL, NULL); }
 			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
-		int recv(Buffer* buff, IPAddr* rinfo=NULL){ buff->resize(DEF_BUFF_SIZE);
+		int recv(Buffer* buff, IPAddr* rinfo=NULL){ buff->resize(DEF_SOCK_SIZE);
 			int rbytes = recv((char*)buff->data(), buff->size(), rinfo); buff->resize(rbytes>0?rbytes:0); return rbytes; }
 		Buffer recv(){ Buffer buff; recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
@@ -286,7 +297,7 @@ namespace ncpp{
 	
 	//struct UnixSocket {}
 	struct ICMPSocket {
-		static double ping4(const CString& ip){ 
+		static double ping4(const CString& ip){
 		#ifdef _WIN32
 			HANDLE hIcmpFile; char sendData[32] = "Data for ICMP packet"; hIcmpFile = IcmpCreateFile();
 			if (hIcmpFile == INVALID_HANDLE_VALUE){ Except("ICMPSocket: Create ICMP handle fail: "+dtos(GetLastError())+"\n"); return -1; }

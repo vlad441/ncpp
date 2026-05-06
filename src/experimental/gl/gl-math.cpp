@@ -3,35 +3,13 @@
 #endif
 
 namespace ncpp { namespace GL {
-#ifdef USE_FLOAT_COLORS
-    struct ColorT { float rgba[4]; }; //const int ColorT_Elems = 4;
-    const GLenum ColorGL_T = GL_FLOAT; const GLboolean Color_Norm = GL_FALSE;
-//#define GL_COLOR_NORMALIZATION GL_FALSE
+#ifdef NCPP_GL_FLOAT_COLORS
+    struct ColorT { float rgba[4]; }; const GLenum ColorGL_T = GL_FLOAT; const GLboolean Color_Norm = GL_FALSE; //const int ColorT_Elems = 4;
 #else
-    //typedef unsigned int ColorT; //const int ColorT_Elems = 4;
-	struct ColorT { unsigned char rgba[4]; };
-    const GLenum ColorGL_T = GL_UNSIGNED_BYTE; const GLboolean ColorGL_Norm = GL_TRUE;
-//#define GL_COLOR_NORMALIZATION GL_TRUE
+	struct ColorT { unsigned char rgba[4]; }; const GLenum ColorGL_T = GL_UNSIGNED_BYTE; const GLboolean ColorGL_Norm = GL_TRUE;
 #endif
 	
-// ========= Colors ========= //Y = 0.2126R + 0.7152G + 0.0722B
-unsigned int HexReverse(unsigned int hex){ return ((hex & 0xFF000000) >> 24) | ((hex & 0x00FF0000) >> 8) | ((hex & 0x0000FF00) << 8)  | ((hex & 0x000000FF) << 24); }
-// --- RGB --- Вход: 0xRRGGBB -> Выход: [R, G, B]
-void HexToRGB(unsigned char rgb[3], unsigned int hex){ rgb[0] = (hex >> 16) & 0xFF; rgb[1] = (hex >> 8) & 0xFF; rgb[2] = hex & 0xFF; }
-unsigned int RGBToHex(unsigned char rgb[3]){ return ((unsigned int)rgb[0] << 16) | ((unsigned int)rgb[1] << 8) | (unsigned int)rgb[2]; }
-
-void HexToRGBf(float rgb[3], unsigned int hex){ rgb[0] = ((hex >> 16) & 0xFF) / 255.0f; rgb[1] = ((hex >> 8) & 0xFF) / 255.0f; rgb[2] = (hex & 0xFF) / 255.0f; }
-unsigned int RGBfToHex(float rgb[3]){ return ((unsigned int)(rgb[0] * 255.0f) << 16) | ((unsigned int)(rgb[1] * 255.0f) << 8) | (unsigned int)(rgb[2] * 255.0f); }
-unsigned int RGBfToHex(float r, float g, float b){ float rgb[3]={r,g,b}; return RGBfToHex(rgb); }
-// --- RGBA --- Вход: 0xAARRGGBB -> Выход: [R, G, B, A]
-void HexToRGBA(unsigned char rgba[4], unsigned int hex){ rgba[0] = (hex >> 16) & 0xFF; rgba[1] = (hex >> 8) & 0xFF; rgba[2] = hex & 0xFF; rgba[3] = (hex >> 24) & 0xFF; }
-unsigned int RGBAToHex(unsigned char rgba[4]){ return ((unsigned int)rgba[3] << 24) | ((unsigned int)rgba[0] << 16) | ((unsigned int)rgba[1] << 8) | (unsigned int)rgba[2]; }
-
-void HexToRGBAf(float rgba[4], unsigned int hex){ rgba[0] = ((hex >> 16) & 0xFF) / 255.0f; rgba[1] = ((hex >> 8) & 0xFF) / 255.0f; 
-	rgba[2] = (hex & 0xFF) / 255.0f; rgba[3] = ((hex >> 24) & 0xFF) / 255.0f; }
-unsigned int RGBAfToHex(float rgba[4]){ return ((unsigned int)(rgba[3] * 255.0f + 0.5f) << 24) | ((unsigned int)(rgba[0] * 255.0f + 0.5f) << 16) |
-	((unsigned int)(rgba[1] * 255.0f + 0.5f) << 8) | (unsigned int)(rgba[2] * 255.0f + 0.5f); }
-unsigned int RGBAfToHex(float r, float g, float b, float a = 1.0f){ float rgba[4] = {r, g, b, a}; return RGBAfToHex(rgba); }
+#include "../media/colors.h"
 
 // ========= Matrix =========
 //Model = Translation*Rotation*Scale
@@ -115,10 +93,13 @@ Matrix4& Matrix4::rotate(float aX, float aY, float aZ){ float radX = aX * M_PI /
 // ========= Vertex/Vector4 =========
 
 struct Vertex { float x, y, z; ColorT _color; // Содержит RGBA
+#ifdef NCPP_GL_UV_CORDS
+	float u, v; // Добавлено: UV-координаты текстур (от 0.0 до 1.0)
+#endif
 	Vertex() : x(0), y(0), z(0){ memset(&_color, 0xFF, sizeof(ColorT)); }
 	Vertex(float x, float y, float z, unsigned int hex=0xFFFFFFFF) : x(x), y(y), z(z){ setColor(hex); }
 	Vertex(unsigned int hex) : x(0), y(0), z(0){ setColor(hex); }
-#ifdef USE_FLOAT_COLORS
+#ifdef NCPP_GL_FLOAT_COLORS
 	Vertex& setColor(unsigned int hex){ HexToRGBAf((float*)&_color, hex); return *this; }
 	unsigned int getColor(){ return RGBAfToHex((float*)&_color); }
 #else

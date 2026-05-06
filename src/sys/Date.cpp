@@ -2,7 +2,7 @@ namespace ncpp {
 #define UNIX_EPOCH 1970
 struct Date { long long timestamp; static char utc; struct DValue { long long year; char month, day, hour, minute; float seconds; };
 	Date() : timestamp(Date::now()){} ~Date(){} 
-	Date(long long msecs, char type='s') : timestamp(msecs){ if(type=='m') timestamp/=1000; }
+	Date(long long secs, char type='s') : timestamp(secs){ if(type=='m') timestamp/=1000; }
 	Date(const CString& dateStr) : timestamp(0){ timestamp = toTimestamp(parseDate(dateStr)); return; }
 	Date(const DValue& dv){ timestamp = toTimestamp(dv); }
 	static long long now(){ return GetTimestamp('s'); }
@@ -93,12 +93,15 @@ struct Date { long long timestamp; static char utc; struct DValue { long long ye
 		
 	private:
 		static DValue _parseIMFDate(const String& dateStr){ DValue dv; Array<String> darr = dateStr.split(" "); darr.resize(5);
-			dv.day = stoin(darr[1]); dv.month = stoin(darr[2]); dv.year = stoin(darr[3]); darr = darr[4].split(":"); darr.resize(3); 
+			dv.day = stoin(darr[1]); dv.month = getMonth_Idx(darr[2]); dv.year = stoin(darr[3]); darr = darr[4].split(":"); darr.resize(3); 
 			dv.hour = stoin(darr[0]); dv.minute = stoin(darr[1]); dv.seconds = stoin(darr[2]); return dv; }
 		
 		static String getDayWeek_Name(int day) { const char* const W_NAMES[] = { "", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }; 
 			 return (day>0&&day<=7)?W_NAMES[day]:"UNKNOWN"; }
 		static String getMonth_Name(int month) { const char* const M_NAMES[] = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }; 
 			 return (month>0&&month<=12)?M_NAMES[month]:"UNKNOWN"; }
+		static int getMonth_Idx(const CString name){ if(name=="Jan") return 1; if(name=="Feb") return 2; if(name=="Mar") return 3; if(name=="Apr") return 4;
+			if(name=="May") return 5; if(name=="Jun") return 6; if(name=="Jul") return 7; if(name=="Aug") return 8;
+			if(name=="Sep") return 9; if(name=="Oct") return 10; if(name=="Nov") return 11; if(name=="Dec") return 12; return 1; }
 		
 }; char Date::utc=0; }

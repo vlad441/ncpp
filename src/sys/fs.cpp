@@ -4,10 +4,13 @@
 #include <pwd.h>
 #include <grp.h>
 #include <stdio.h> //for ::rename() (Его нет в unistd.h? WTF?!)
+#else // == Windows Headers ==
+#include <aclapi.h> //for chown
 #endif
 
 #define DEF_SIZE 16384
-namespace ncpp{
+//#define DEF_STREAM_SZ 16384
+namespace ncpp {
 
 /*struct EventEmitter { 
 	void on(String event, void (*callback)());
@@ -45,11 +48,11 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	FStream& own(bool en=true){ autodestroy=en; return *this; }
 #ifdef _WIN32
 	~FStream(){ if(_IsValidHandle(_fd)>0&&autodestroy) close(); }
-    HANDLE _fd; size_t getfd(){ return (size_t)_fd; } 
+    typedef HANDLE FD_T; FD_T _fd; size_t getfd(){ return (size_t)_fd; } 
 	FStream(size_t fd) : autodestroy(true){ _fd=(HANDLE)fd; }
 	bool _IsValidHandle(HANDLE h){ return h!=NULL && h!=INVALID_HANDLE_VALUE; }
-	bool is_open(){ return _IsValidHandle(_fd)?true:false; }
 	bool isOpen(){ return _IsValidHandle(_fd)?true:false; }
+	bool is_open(){ return _IsValidHandle(_fd)?true:false; }
 	
 	bool open(const CString& fpath, char mode){ DWORD dwDesiredAccess = GENERIC_READ; DWORD dwCreationDisposition = OPEN_EXISTING; //IO_READ
 		if(mode == IO_WRITE){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = CREATE_ALWAYS; }
@@ -65,10 +68,10 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	void close(){ CloseHandle(_fd); _fd=0; }
 	
 	int read(char* ptr, size_t size){ DWORD bytesRead; if(ReadFile(_fd, ptr, (DWORD)size, &bytesRead, NULL)){ return (int)bytesRead; } return -1; }
-	void write(const char* ptr, size_t size){ DWORD wrbytes; WriteFile(_fd, ptr, (DWORD)size, &wrbytes, NULL); }
+	int write(const char* ptr, size_t size){ DWORD wrbytes; BOOL result = WriteFile(_fd, ptr, (DWORD)size, &wrbytes, NULL); return result?(int)wrbytes:-1; }
 #else
 	~FStream(){ if(_fd>0&&autodestroy) close(); }
-	int _fd; size_t getfd(){ return _fd; } 
+	typedef int FD_T; FD_T _fd; size_t getfd(){ return _fd; } 
 	FStream(size_t fd) : autodestroy(true){ _fd=fd; }
 	bool is_open(){ return _fd>0?true:false; }
 	bool isOpen(){ return _fd>0?true:false; }
@@ -84,7 +87,7 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	void close(){ ::close(_fd); _fd=-1; }
 	
 	int read(char* ptr, size_t size){ return ::read(_fd, ptr, size); }
-	void write(const char* ptr, size_t size){ ::write(_fd, ptr, size); }
+	int write(const char* ptr, size_t size){ return ::write(_fd, ptr, size); }
 #endif	
 	size_t tellg(){ return pos(); }
 	void seekg(size_t pos){ setPos(pos); }
@@ -96,8 +99,8 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	V _readEOF(){ V data; char _bf[DEF_SIZE]; int rbytes=0; while((rbytes=read(_bf, sizeof(_bf)))>0){ data.push(_bf, rbytes); } return data; }
 	Buffer readEOF(){ return _readEOF<Buffer>(); }
 	
-	void write(const char* c){ write(c, strlen(c)); }
-    void write(const Buffer& wrbuff){ write((const char*)wrbuff.data(), wrbuff.size()); }
+	int write(const char* c){ return write(c, strlen(c)); }
+    int write(const Buffer& wrbuff){ return write((const char*)wrbuff.data(), wrbuff.size()); }
 	
 	bool readline(String& line, bool once=false){ line.clear(); char _b[512]; String buff; buff.stack(_b); int rbytes=0; bool ok=false;
 		while((rbytes = read(_b, sizeof(_b)))>0){ ok=true; size_t nidx = buff.indexOf('\n');
@@ -113,28 +116,38 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 				if(buff[i]=='\n'){ int lnLen = i-lnSt;
 					if(lnLen>0 && buff[i-1]=='\r'){ currLine.push(buff+lnSt, lnLen-1); }else{ currLine.push(buff+lnSt, lnLen); }
 					lines.push(currLine); currLine.clear(); strsRead++;
-					startPos+=lnLen+1; lnSt=i+1; if(strsRead >= cnt){ foundInBlock = true; break; } }
-			}
-			setPos(startPos);
-
-			// Если прошли весь буфер и не нашли '\n' (или лимит строк не достигнут)
-			if(!foundInBlock && strsRead < cnt){ currLine.push(buff, rbytes); // Добавляем весь прочитанный кусок в текущую строку
-			} else if(foundInBlock){ break; } // Мы закончили чтение нужного количества строк
-		}
-		// Если файл кончился, а в currLine что-то осталось (последняя строка без \n)
-		if(!currLine.empty() && strsRead < cnt){ lines.push(currLine); strsRead++; } return strsRead; }
+					startPos+=lnLen+1; lnSt=i+1; if(strsRead >= cnt){ foundInBlock = true; break; } } } setPos(startPos);
+			if(!foundInBlock && strsRead < cnt){ currLine.push(buff, rbytes); } // Добавляем весь прочитанный кусок в текущую строку
+			else if(foundInBlock){ break; } // Мы закончили чтение нужного количества строк
+		} if(!currLine.empty() && strsRead < cnt){ lines.push(currLine); strsRead++; } return strsRead; }
 	
 	FStream& operator<<(const char* c){ write(c); return *this; }
 	template <typename T, typename D>
 	FStream& operator<<(const BaseString<T, D>& s){ write((const char*)s.data(), s.size()); return *this; }
+	
+	void swap(FStream& other){ using ncpp::swap; swap(*this, other); }
+	friend void swap(FStream& a, FStream& b){ FD_T tmpc = a._fd; a._fd = b._fd; b._fd = tmpc; }
+	
+	#if __cplusplus >= 201103L //move for C++11
+	FStream(FStream&& tmp) noexcept { move(*this, tmp); }
+	FStream& operator=(FStream&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
+	FStream& steal(FStream& tmp){ move(*this, tmp); return *this; }
+	FStream& steal(FStream&& tmp){ move(*this, tmp); return *this; }
+	friend void move(FStream& dst, FStream&& tmp){ move(dst, (FStream&)tmp); }
+	#else //move for C++98
+	FStream& steal(const FStream& victim){ move(*this, (FStream&)victim); return *this; }
+	friend void move(FStream& dst, const FStream& victim){ move(dst, (FStream&)victim); }
+	#endif
+	friend void move(FStream& dst, FStream& tmp){ dst._fd = tmp._fd; tmp._fd = 0; }
 };
 
-namespace fs{
+namespace fs {
 FStream createReadStream(const CString& path){ return FStream(path, FStream::IO_READ).own(false); }
 FStream createWriteStream(const CString& path){ return FStream(path, FStream::IO_WRITE).own(false); }
 
 bool _writeFile(const CString& path, const Buffer& data, char mode=FStream::IO_WRITE){ if(data.size()<=0){ return false; }
-	FStream f(path, mode); if(!f.isOpen()){ Except("writeFile: Open file error.\n"); return false; } f.write(data); f.close(); return true; }
+	FStream f(path, mode); if(!f.isOpen()){ Except("writeFile: Open file error.\n"); return false; } int wrbytes = f.write(data); f.close(); 
+	if(wrbytes==-1||wrbytes<(int)data.size()){ Except("writeFile: Write file error.\n"); return false; } return true; }
 bool writeFile(const CString& path, const Buffer& data){ return _writeFile(path,data); }
 bool appendFile(const CString& path, const Buffer& data){ return _writeFile(path,data,FStream::IO_APPEND); }
 
@@ -158,13 +171,13 @@ String readFstLine(const CString& path){ FStream f(path, FStream::IO_READ); if(!
 	String line; f.readline(line, true); return line; }
 
 StringMap ConfigRead(const CString& path, bool unescape=false, const CString& delim="="){ Array<String> lines=readLines(path);
-	StringMap config; for(size_t i=0;i<lines.size();i++){ if(lines[i].size()<3||lines[i].startsWith("#")) continue; Array<String> line = lines[i].split(delim); 
+	StringMap config; for(size_t i=0;i<lines.size();i++){ if(lines[i].size()<3||lines[i].startsWith("#")) continue; Array<String> line = lines[i].split(delim);
 		config[line[0]]=line.slice(1).join(delim); if(unescape&&config[line[0]][0]=='"'&&config[line[0]].back()=='"'){ config[line[0]]=config[line[0]].slice(1,-1); } } return config; }
 bool ConfigWrite(const CString& path, StringMap config, String delim="="){ Buffer data; String endl="\n";
 	for(StringMap::const_iterator it = config.begin(); it != config.end(); ++it){ data+=it->first+delim+it->second+endl; } return writeFile(path, data); }
 //bool ConfigWriteEx(Object config){}?
 
-DoubleMap stat(const CString& path){ DoubleMap stinfo;
+ULLMap stat(const CString& path){ ULLMap stinfo;
 	#ifdef _WIN32
 	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
     if(GetFileAttributesExW(_toWStr(path).c_str(), GetFileExInfoStandard, &fileInfo) == 0){ Except("stat: get file attributes fail.\n"); return stinfo; }
@@ -181,14 +194,13 @@ DoubleMap stat(const CString& path){ DoubleMap stinfo;
 	return stinfo; }
 	
 #ifdef _WIN32
-bool isDir(const DoubleMap& stat){ return ((int)stat.at("mode") & FILE_ATTRIBUTE_DIRECTORY)!=0?true:false; }
+bool isDir(const ULLMap& stat){ return ((int)stat.at("mode") & FILE_ATTRIBUTE_DIRECTORY)!=0?true:false; }
 bool copy(const CString& src, const CString& dst){ return CopyFileW(_toWStr(src).c_str(), _toWStr(dst).c_str(), false); }
 bool rename(const CString& oldpath, const CString& newpath){ return MoveFileW(_toWStr(oldpath).c_str(), _toWStr(newpath).c_str()); }
 bool unlink(const CString& path){ return DeleteFileW(_toWStr(path).c_str()); }
 bool mkdir(const CString& path){ return CreateDirectoryW(_toWStr(path).c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS; }
 bool rmdir(const CString& path){ return RemoveDirectoryW(_toWStr(path).c_str()); }
-bool chmod(const CString& path, int mode){ return false; }
-#include <aclapi.h>
+bool chmod(const CString& path, int mode){ return false; } 
 bool chown(const CString& path, const CString& uowner, const CString& ugroup=""){
     _WString wpath = _toWStr(path); _WString wuser = _toWStr(uowner); Buffer sidbuff; 
 	DWORD sidSize = 0; DWORD domainSize = 0; SID_NAME_USE sidType; _WString domainName;
@@ -198,7 +210,7 @@ bool chown(const CString& path, const CString& uowner, const CString& ugroup="")
     DWORD result = SetNamedSecurityInfoW((LPWSTR)wpath.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, &sidbuff[0], NULL, NULL, NULL);
     if(result != ERROR_SUCCESS){ return false; } return true; }
 #else
-bool isDir(const DoubleMap& stat){ return S_ISDIR((int)stat.at("mode"))?true:false; }
+bool isDir(const ULLMap& stat){ return S_ISDIR((int)stat.at("mode"))?true:false; }
 bool copy(const CString& src, const CString& dst){ FStream fsrc(src, FStream::IO_READ); FStream fdst(dst, FStream::IO_WRITE); 
 	if(!fsrc.isOpen()||!fdst.isOpen()){ return false; } char _buff[DEF_SIZE]; int rbytes=0;
 	while((rbytes=fsrc.read((char*)_buff, sizeof(_buff)))>0){ fdst.write(_buff, rbytes); } return true; }

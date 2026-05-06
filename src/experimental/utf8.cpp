@@ -2,6 +2,7 @@ namespace ncpp {
 	size_t UTF8Len(const char* cptr, size_t len){ size_t ulen = 0; //байт НЕ должен иметь вид 10xxxxxx
 		for(size_t i = 0; i < len; ++i){ if (((unsigned char)(cptr[i]) & 0xC0) != 0x80){ ulen++; } } return ulen; }
 	size_t UTF8Len(const CString& cs){ return UTF8Len(cs.c_str(), cs.size()); }
+	size_t UTF8Len(const String& s){ return UTF8Len(s.c_str(), s.size()); }
 	
 	int UTF8NextPoint(const char* cptr, size_t len, size_t& pos){ if(pos>=len) return -1; int value = 0, bCnt = 0;
         unsigned char byte1 = (unsigned char)cptr[pos];

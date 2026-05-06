@@ -8,14 +8,17 @@
 	
 Элементы управления наследуют от `Window` и имеют те же конструкторы и методы.
 
+- [ncpp::GUI::WEvent](#ncppguiwevent)
 - [ncpp::GUI::App](#ncppguiapp)
 	- [App.run()](#apprun)
+	- [App.waitOneEvent()](#appwaitoneevent)
+    - [App.hasEvents()](#apphasevents)
+    - [App.nextEvent()](#appnextevent)
 - [ncpp::GUI::Window](#ncppguiwindow)
 	- [Window.setTitle()](#windowsettitle)
 	- [Window.getText()](#windowgettext)
 	- [Window.setText()](#windowsettext)
-	- [Window.onEvent()](#windowonevent)
-	- [Window.onClick()](#windowonclick)
+	- [Window.setHandler()](#windowsethandler)
 	- [Window.getSize()](#windowgetsize)
 	- [Window.resize()](#windowresize)
 	- [Window.setpos()](#windowsetpos)
@@ -33,14 +36,55 @@
 	- [GLWindow.resetContext()](#glwindowresetcontext)
 	- [GLWindow.swapBuffers()](#glwindowswapbuffers)
 	
+Определения:
+```cpp
+typedef void (*HANDLE_FUNC)(const WEvent&);
+```
+
+## ncpp::GUI::WEvent
+`WEvent` - структура для хранения информации о событии.
+
+```cpp
+struct WEvent { Window* wnd; int id; int key, x, y; String name; };
+```
+Параметры:
+`id`: хранит `EvType` события.
+`key`: параметр события (Например, код клавиши или номер клавиши мыши `MouseBtn`).
+`x` и `y`: доп. параметры события (Например, координаты мыши).
+
+Определения `enum` для `WEvent`:
+```cpp
+enum EvType { OTHER, CLICK, MOUSEUP, MOUSEMOVE, KEYDOWN, KEYUP };
+enum MouseBtn { LBTN, RBTN, MBTN };
+};
+```
+
 ## ncpp::GUI::App
-Структура, которая представляет из себя экземпляр приложения, в котором происходит главный event-loop.
+Структура, которая представляет из себя экземпляр приложения, в котором происходит цикл обработки событий приложения.
 
 ### App.run()
 ```cpp
 void run();
 ```
-Активирует event-loop обработку событий элементов управления. Блокирует поток.
+Блокирует поток, запуская цикл обработки событий.
+
+### App.waitOneEvent()
+```cpp
+void waitOneEvent();
+```
+Ждет пока придет хотя бы одно событие в очередь.
+
+### App.hasEvents()
+```cpp
+bool hasEvents();
+```
+Проверяет, есть ли события в очереди.
+
+### App.nextEvent()
+```cpp
+bool nextEvent();
+```
+Обрабатывает одно событие из очереди. Возвращает `false` если событий в очереди нет.
 
 ## ncpp::GUI::Window
 ```cpp
@@ -57,33 +101,27 @@ Window(const char* name, int x=DEF_HWND_X, int y=DEF_HWND_Y, int width=DEF_HWND_
 
 ### Window.setTitle()
 ```cpp
-void setTitle(const std::string& title);
+void setTitle(const String& title);
 ```
 Устанавливает название окна.
 
 ### Window.getText()
 ```cpp
-std::string getText();
+String getText();
 ```
 Достает текущий текст окна/элемента.
 
 ### Window.setText()
 ```cpp
-void setText(const std::string& text);
+void setText(const String& text);
 ```
 Установить текущий текст окна/элемента.
 
-### Window.onEvent()
+### Window.setHandler()
 ```cpp
-void onEvent(std::string type, HANDLER_PTR);
+void setHandler(HANDLE_FUNC handler, const CString& type="");
 ```
-Установить обработчик элемента с указанием необходимого события.
-
-### Window.onClick()
-```cpp
-void onClick(HANDLER_PTR);
-```
-Установить обработчик элемента на событие клика.
+Установить обработчик события элемента на функцию типа `HANDLE_FUNC` (aka `void (*)(const WEvent&)`). По умолчанию обработчик регистрируется на все события.
 
 ### Window.getSize()
 ```cpp
@@ -135,7 +173,7 @@ void setDisabled(bool disabled=true);
 
 ### Window.getClass()
 ```cpp
-std::string getClass();
+String getClass();
 ```
 Вернуть текущее название класса акна.
 

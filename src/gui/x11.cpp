@@ -114,7 +114,7 @@ namespace ncpp { namespace GUI { //typedef XID XWindowID;
 			XSendEvent(app->display, app->rootID, False, SubstructureRedirectMask | SubstructureNotifyMask, &xev); XFlush(app->display); }
 			
 		#if __cplusplus >= 201103L //move for C++11
-		Window(Window&& tmp) noexcept { move(*this, tmp); }
+		Window(Window&& tmp) noexcept : wndID(0){ move(*this, tmp); }
 		Window& operator=(Window&& tmp) noexcept { if(this!=&tmp) move(*this, tmp); return *this; }
 		Window(const Window&) = delete; Window& operator=(const Window&) = delete; //Запрет копирования.
 		Window& steal(Window& tmp){ move(*this, tmp); return *this; }
@@ -125,7 +125,7 @@ namespace ncpp { namespace GUI { //typedef XID XWindowID;
 		Window& steal(const Window& victim){ move(*this, (Window&)victim); return *this; }
 		friend void move(Window& dst, const Window& victim){ move(dst, (Window&)victim); }
 		#endif
-		friend void move(Window& dst, Window& tmp){ dst.destroy(); dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = 0; }
+		friend void move(Window& dst, Window& tmp){ if(&dst==&tmp) return; dst.destroy(); dst.app = tmp.app; dst.wndID = tmp.wndID; tmp.wndID = 0; }
 
 		//protected: String text;
 		private:

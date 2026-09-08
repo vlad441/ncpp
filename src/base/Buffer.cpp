@@ -70,7 +70,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	void erase(Iter ipos){ erase(ipos, ipos+1); }
 	
 	void push_back(unsigned char v){ push(v); }
-	void pop_back(){ resize(--_len); }
+	void pop_back(){ if(_len>0) resize(--_len); }
 	
 	void push_front(unsigned char v){ insert(0, v); }
 	void pop_front(){ erase((size_t)0,1); }
@@ -100,7 +100,8 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	Buffer& push(const String& s){ push(s.data(), s.size()); return *this; }
     Buffer& push(const CString& cs){ push(cs.data(), cs.size()); return *this; }
 	Buffer& push(unsigned char v){ reserve(++_len); _ptr[_len-1]=v; return *this; }
-	unsigned char pop(){ if(_len>0){ resize(--_len); } return _ptr[_len]; }
+	unsigned char pop(){ unsigned char b=0; if(_len>0){ b=*(_ptr+--_len); } return b; }
+	
 	
 	Buffer& fill(unsigned char v){ memset(_ptr, v, _len); return *this; }
 	//Buffer& concat(const Buffer& buff2){ *this+=buff2; return *this; }

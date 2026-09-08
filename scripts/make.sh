@@ -43,8 +43,8 @@ case "$mode" in
 	"SGUI") echo "Make for SGUI..."; $gccbin -DUSE_GUI -DNOUSE_GL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" -s -static -lXtst -lXext -lX11 -lxcb -lXau -lXdmcp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive ;;
 	"GUI") echo "Make for GUI..."; $gccbin -DUSE_GUI -DNOUSE_GL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lXtst -lX11 -lpthread ;;
 	"GL") echo "Make for GL..."; $gccbin -DUSE_GUI $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lGL -lXtst -lX11 -lpthread ;;
-	"EXP") echo "Make for Experimental..."; $gccbin -DUSE_GUI $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lGL -lXtst -lX11 -lasound -lpthread ;;
-	"EXP_SAN") echo "Make using sanitizers (for Experimental)..."; $gccbin $WARN_FLAGS -g -Og -std=$STDCXX -fno-exceptions -fno-rtti "$cppfile" -o "$exefile" -lGL -lXtst -lX11 -lasound -lpthread -fsanitize=address,undefined ;;
+	"EXP") echo "Make for Experimental..."; $gccbin -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lGL -lXtst -lX11 -lasound -lpthread ;;
+	"EXP_SAN") echo "Make using sanitizers (for Experimental)..."; $gccbin -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS -g -Og -std=$STDCXX -fno-exceptions -fno-rtti "$cppfile" -o "$exefile" -lGL -lXtst -lX11 -lasound -lpthread -fsanitize=address,undefined ;;
 	*) echo "Make (default)..."; $gccbin $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_FLAGS ;;
 esac
 [ -z "$gccpath" ] && gccbin=g++ || cd "$currCD"

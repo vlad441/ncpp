@@ -47,16 +47,18 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 		void setText(const CString& text){ if(wndID==NULL) return; SetWindowText(wndID, text.c_str()); }
 		void setHandler(HANDLE_FUNC handler, const CString& type=""){ app->setEventHandler(*this, type, handler); }
 		//void setClickHandler(HANDLE_FUNC handler){ setHandler(handler, "click"); }
-		void getSize(int& width, int& height){ if(wndID == 0) return; RECT rect;
-			if(GetWindowRect(wndID, &rect)){ width = rect.right - rect.left; height = rect.bottom - rect.top; } }
-		void resize(int width, int height){ if(wndID == 0) return;
+		void getWndSize(int& width, int& height) const { if(wndID==0) return; RECT rect;
+			if(GetWindowRect(wndID, &rect)){ width = rect.right-rect.left; height = rect.bottom-rect.top; } }
+		void getSize(int& width, int& height) const { if(wndID==0) return; RECT rect;
+			if(GetClientRect(wndID, &rect)){ width = rect.right-rect.left; height = rect.bottom-rect.top; } }
+		void resize(int width, int height){ if(wndID==0) return;
 			SetWindowPos(wndID, 0, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER); SendMessage(wndID, WM_SIZE, 0, 0); }
 		void setPos(int x, int y){ if(wndID == 0) return; SetWindowPos(wndID, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER); }
 		void Show(){ ShowWindow(wndID, SW_SHOW); } void Hide(){ ShowWindow(wndID, SW_HIDE); }
 		void setVisible(bool visible=true){ if(wndID == NULL) return; ShowWindow(wndID, visible ? SW_SHOW : SW_HIDE); }
 		void setDisabled(bool disabled=true){ if(wndID == NULL) return; EnableWindow(wndID, disabled ? FALSE : TRUE); }
-		String getClass(){ char clName[32]; GetClassName(wndID, clName, 32); return clName; }
-		void getMousePos(int& x, int& y){ POINT m; GetCursorPos(&m); ScreenToClient(wndID, &m); x=m.x; y=m.y; }
+		String getClass() const { char clName[32]; GetClassName(wndID, clName, 32); return clName; }
+		void getMousePos(int& x, int& y) const { POINT m; GetCursorPos(&m); ScreenToClient(wndID, &m); x=m.x; y=m.y; }
 		void setMousePos(int x, int y){ POINT m = { x, y }; ClientToScreen(wndID, &m); SetCursorPos(m.x, m.y); }
 
 		void Update(){ UpdateWindow(wndID); }
@@ -75,6 +77,19 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 			}else{ SetWindowLong(wndID, GWL_STYLE, oldStyle); // Возвращаем как было
 				SetWindowPos(wndID, NULL, oldRect.left, oldRect.top, oldRect.right - oldRect.left, oldRect.bottom - oldRect.top, SWP_NOZORDER | SWP_FRAMECHANGED); }
 		}
+		
+		void putImage(const void* px0, int w, int h){ if(wndID == NULL || px0 == NULL) return;
+			int wndW=0, wndH=0; getSize(wndW, wndH); HDC hdc = GetDC(wndID); if(hdc==NULL) return;
+			// RGBA -> BGRA
+			Array<uint32_t> pxArr(w*h); const unsigned char* src = (const unsigned char*)px0; unsigned char* px = (unsigned char*)pxArr.data();
+			for(int i=0; i<w*h; ++i){ px[0] = src[2]; px[1] = src[1]; px[2] = src[0]; px[3] = src[3]; src+=4; px+=4; } px = (unsigned char*)pxArr.data();
+
+			BITMAPINFO bmi; ZeroMemory(&bmi, sizeof(BITMAPINFO)); // Описываем структуру Bitmap Info для DIB (Device-Independent Bitmap)
+			bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); bmi.bmiHeader.biWidth = w; bmi.bmiHeader.biHeight = -h; //Отрицательная высота означает пиксели сверху-вниз (top-down)
+			bmi.bmiHeader.biPlanes = 1; bmi.bmiHeader.biBitCount = 32; // 32 бита на пиксель (RGBA / BGRA)
+			bmi.bmiHeader.biCompression = BI_RGB; //SetDIBitsToDevice?
+			StretchDIBits(hdc, 0, 0, wndW, wndH, 0, 0, w, h, px, &bmi, DIB_RGB_COLORS, SRCCOPY); ReleaseDC(wndID, hdc); }
+		//void putImage(const Image& img){ void putImage(img.px.data(), img.w, img.h); }
 			
 		#if __cplusplus >= 201103L //move for C++11
 		Window(Window&& tmp) noexcept : wndID(NULL){ move(*this, tmp); }
@@ -92,10 +107,10 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
 		
 		private:
 			void createWindow(App* app1, const char* name="", int x=DEF_HWND_X, int y=DEF_HWND_Y, int width=DEF_HWND_WIDTH, int height=DEF_HWND_HEIGHT, HWND hWndParent=NULL)
-			{ app=app1; wndID = CreateWindowEx(WS_EX_CLIENTEDGE, "MyWindowClass", name, WS_OVERLAPPEDWINDOW, x, y, width, height, hWndParent, NULL, app->hInstance, NULL);
-			  if(wndID==NULL){ MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; } Show(); //UpdateWindow(wndID); 			
+			{ 	app=app1; wndID = CreateWindowEx(WS_EX_CLIENTEDGE, "MyWindowClass", name, hWndParent?(WS_CHILD | WS_VISIBLE):WS_OVERLAPPEDWINDOW, 
+					x, y, width, height, hWndParent, NULL, app->hInstance, NULL);
+				if(wndID==NULL){ MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK); return; } Show(); //UpdateWindow(wndID); 			
 			}
-		
 	};
 	
 	void App::setEventHandler(Window& w, const CString& type, HANDLE_FUNC handler){ eventHandlers[w.wndID] = WNDHandlerInfo(&w, handler, type); }

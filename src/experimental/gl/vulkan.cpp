@@ -1,82 +1,78 @@
-//https://github.com/KhronosGroup/Vulkan-Headers/blob/main/include/vulkan/vk_platform.h
-//https://github.com/KhronosGroup/Vulkan-Headers/blob/main/include/vulkan/vulkan_core.h
-//https://github.com/KhronosGroup/Vulkan-Headers/blob/main/include/vulkan/vulkan.h
-#ifndef VULKAN_LOADER_H
-#define VULKAN_LOADER_H
-#include "vulkan/vulkan.h"
-#endif
-
-//#include "vulkan/vulkan_win32.h" - for Windows
-//#include "vulkan/vulkan_xlib.h" - for X11
-//#include "vulkan/vulkan_xcb.h" - for xcb (X11)
-//#include "vulkan/vulkan_wayland.h" - for Wayland
-//#include "vulkan/vulkan_android.h" - for Vedroid
-
-//#include "vulkan/vulkan_loader.h"
-
-typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_vkGetInstanceProcAddr)(VkInstance instance, const char* pName); // Тип функции vkGetInstanceProcAddr
-
-void* h_vulkanLib = NULL;
-//extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr; //Наша глобальная точка входа (уже определен в vulkan_core.h)
-PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = NULL;
-
-namespace ncpp { namespace VK {
-bool loadVKLib(){ 
-#ifdef _WIN32
-	h_vulkanLib = DLIB_LOAD("vulkan-1.dll");
-#else
-    h_vulkanLib = DLIB_LOAD("libvulkan.so.1"); if(!h_vulkanLib) h_vulkanLib = DLIB_LOAD("libvulkan.so");
-#endif
-    if(!h_vulkanLib){ print("(!) Failed to load Vulkan lib\n"); return false; } return true; }
-
-void freeVKLib(){ if(h_vulkanLib){ DLIB_FREE(h_vulkanLib); h_vulkanLib=NULL; } }
-
-bool initVulkan(){ if(!loadVKLib()) return false;
-    vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)DGET_ADDR(h_vulkanLib, "vkGetInstanceProcAddr"); if(!vkGetInstanceProcAddr){ freeVKLib(); return false; } 
-	return true; }
-} }
+namespace ncpp { namespace GUI { struct GLWindow; } namespace GL { GUI::GLWindow* _glwnd=NULL; } }
 
 namespace ncpp { namespace GUI {
-    struct VKWindow : Window { VkInstance instance; VkSurfaceKHR surface; VkDevice device;
-        // ... другие объекты Vulkan (Swapchain, Queues)
+	struct GLWindow : Window { VkSurfaceKHR surface; VkSwapchainKHR swapChain;
+		VkCommandPool cmdPool; VkCommandBuffer cmdBuff;
+		VkSemaphore imageAvailableSemaphore; VkSemaphore renderFinishedSemaphore; VkFence inFlightFence;
+		uint32_t imageIndex; char bmode; float aspect;
+		
+		void createGLContext(bool useDoubleBuff = true){ useDoubleBuff?bmode=2:bmode=1;
+		#ifdef _WIN32
+			VkWin32SurfaceCreateInfoKHR surfaceInfo = {}; surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+			surfaceInfo.hwnd = wndID; surfaceInfo.hinstance = GetModuleHandle(NULL);
+			if(vkCreateWin32SurfaceKHR(GL::g_instance, &surfaceInfo, NULL, &surface) != VK_SUCCESS){ Except("Failed to create Win32 Vulkan Surface!\n"); return; }
+		#elif USE_WAYLAND
+			VkWaylandSurfaceCreateInfoKHR surfaceInfo = {}; surfaceInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+			//surfaceInfo.display = app->wl_display; // Укажите ваш wl_display*
+			//surfaceInfo.surface = (wl_surface*)wndID; // Укажите ваш wl_surface*
+			if(vkCreateWaylandSurfaceKHR(GL::g_instance, &surfaceInfo, NULL, &surface) != VK_SUCCESS){ Except("Failed to create Wayland Vulkan Surface!\n"); return; }
+		#else
+			VkXlibSurfaceCreateInfoKHR surfaceInfo = {}; surfaceInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+			surfaceInfo.dpy = app->display; surfaceInfo.window = wndID;
+			if(vkCreateXlibSurfaceKHR(GL::g_instance, &surfaceInfo, NULL, &surface) != VK_SUCCESS){ Except("Failed to create Xlib Vulkan Surface!\n"); return; }
+		#endif
+		}
 
-        VKWindow(const char* name) : Window(name){ createVulkanSurface(); }
+		void destroyGLContext(){ if(GL::g_instance&&surface){ vkDestroySurfaceKHR(GL::g_instance, surface, NULL); surface = VK_NULL_HANDLE; } }
 
-        void createVulkanSurface(){
-            VkInstanceCreateInfo createInfo; // 1. Создание Instance (нужно включить расширения для Surface)
-            vkCreateInstance(&createInfo, nullptr, &instance); // Настройка слоев и расширений...
-#ifdef _WIN32
-            // 2. Создание поверхности для Windows
-            VkWin32SurfaceCreateInfoKHR surfaceInfo = {};
-            surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-            surfaceInfo.hwnd = wndID; // Ваш ID окна из базового класса
-            surfaceInfo.hinstance = GetModuleHandle(NULL);
-            
-            if(vkCreateWin32SurfaceKHR(instance, &surfaceInfo, nullptr, &surface) != VK_SUCCESS){
-                print("(!) Failed to create Vulkan Surface (Win32)\n"); }
+		bool setContext(){ if(!GL::g_dev){ Except("setContext(): Vulkan device not created\n"); return false; } GL::_glwnd=this; return true; }
+		void resetContext(){} // Заглушка для совместимости с интерфейсом OpenGL
+				
+		void swapBuffers(){ if (!GL::g_dev || !swapChain) return;
+			VkPresentInfoKHR presentInfo = {};
+			presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+			presentInfo.waitSemaphoreCount = 0;
+			presentInfo.pWaitSemaphores = NULL;
+			presentInfo.swapchainCount = 1;
+			presentInfo.pSwapchains = &swapChain;
+			presentInfo.pImageIndices = &imageIndex;
+			vkQueuePresentKHR(GL::g_Queue, &presentInfo); }
+
+		GLWindow() : Window(), surface(NULL), swapChain(NULL){}
+		GLWindow(App* app1, const char* name = "", int x = DEF_HWND_X, int y = DEF_HWND_Y, unsigned int width = DEF_HWND_WIDTH, unsigned int height = DEF_HWND_HEIGHT) 
+			: Window(app1, name, x, y, width, height), surface(NULL), swapChain(NULL){ createGLContext(); }
+		GLWindow(const char* name, int x = DEF_HWND_X, int y = DEF_HWND_Y, unsigned int width = DEF_HWND_WIDTH, unsigned int height = DEF_HWND_HEIGHT) 
+			: Window(name, x, y, width, height), surface(NULL), swapChain(NULL){ createGLContext(); }
+
+		~GLWindow(){ destroyGLContext(); }
+
+		bool hasContext(){ return (GL::g_dev != NULL); }
+		void draw(){ if(bmode <= 1){ if(GL::g_dev) vkDeviceWaitIdle(GL::g_dev); }else{ swapBuffers(); } }
+		
+		//recreateSwapchain?
+		void recalcWndSize(){ int w=0, h=0; getSize(w, h); aspect = (float)w/h;
+			// В Vulkan вместо glViewport подменяются динамические состояния в командном буфере, 
+			// но сигнатура метода сохранена полностью.
+		}
+#if __cplusplus >= 201103L
+		GLWindow(GLWindow&& tmp) noexcept { wndID = 0; move(*this, tmp); }
+		GLWindow& operator=(GLWindow&& tmp) noexcept { move(*this, tmp); return *this; }
+		GLWindow(const GLWindow&) = delete; 
+		GLWindow& operator=(const GLWindow&) = delete;
+		GLWindow& steal(GLWindow& tmp) { move(*this, tmp); return *this; }
+		GLWindow& steal(GLWindow&& tmp) { move(*this, tmp); return *this; }
+		friend void move(GLWindow& dst, GLWindow&& tmp) { move(dst, (GLWindow&)tmp); }
 #else
-            // 2. Создание поверхности для X11 (Linux)
-            VkXlibSurfaceCreateInfoKHR surfaceInfo;
-            surfaceInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-            surfaceInfo.dpy = app->display; // Из вашего объекта App
-            surfaceInfo.window = wndID;
-
-            if(vkCreateXlibSurfaceKHR(instance, &surfaceInfo, nullptr, &surface) != VK_SUCCESS){
-                print("(!) Failed to create Vulkan Surface (Xlib)\n"); }
+		private: GLWindow(const GLWindow&); GLWindow& operator=(const GLWindow&); public:
+		GLWindow& steal(const GLWindow& victim) { move(*this, (GLWindow&)victim); return *this; }
+		friend void move(GLWindow& dst, const GLWindow& victim) { move(dst, (GLWindow&)victim); }
 #endif
-            print("(#) Vulkan Surface created successfully.\n"); }
-			
-		createGLContext(bool useDoubleBuff=false){ createVulkanSurface(); }
-		void destroyGLContext();
-		bool setContext();
-		void resetContext();
-	
-        ~VKWindow(){
-            if(surface) vkDestroySurfaceKHR(instance, surface, nullptr);
-            if(device) vkDestroyDevice(device, nullptr);
-            if(instance) vkDestroyInstance(instance, nullptr); }
-
-        // Вместо swapBuffers в Vulkan используется vkQueuePresentKHR
-        void present(){} // Логика вывода кадра на экран (Present Index, Semaphores)
-    };
+		friend void move(GLWindow& dst, GLWindow& tmp){ if(&dst == &tmp) return; dst.destroyGLContext(); dst.destroy();
+			dst.app = tmp.app;
+			dst.wndID = tmp.wndID; tmp.wndID = 0;
+			dst.surface = tmp.surface; tmp.surface = NULL;
+			dst.swapChain = tmp.swapChain; tmp.swapChain = NULL;
+			dst.bmode = tmp.bmode;
+		}
+	};
 } }

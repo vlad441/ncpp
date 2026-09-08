@@ -9,7 +9,7 @@ namespace ncpp { namespace GL {
 		if(fill){ v.push(vTop).push(vRight).push(vLeft); }else{ v.push(vTop).push(vRight).push(vRight).push(vLeft).push(vLeft).push(vTop); } }
 	
 	void genRect(Array<Vertex>& v, float width=1, float height=1, unsigned int color=0xFFFFFFFF, float x=0, float y=0, bool fill=true, bool center=true){
-		Vertex v1(x, y, 0); Vertex v2(x + width, y + height, 0); unsigned int color1=color, color2=color;
+		Vertex v1(x, y); Vertex v2(x + width, y + height); unsigned int color1=color, color2=color;
 		if(center){ v1.x -= width/2.0f; v2.x -= width/2.0f; v1.y -= height/2.0f; v2.y -= height/2.0f; }
 		if(fill){
 			v.push(Vertex(v1.x, v1.y, v1.z, color1)); // ЛВ
@@ -19,6 +19,9 @@ namespace ncpp { namespace GL {
 			v.push(Vertex(v2.x, v1.y, v1.z, color1)); // ПВ
 			v.push(Vertex(v2.x, v2.y, v2.z, color2)); // ПН
 			v.push(Vertex(v1.x, v2.y, v2.z, color2)); // ЛН
+		// #ifdef NCPP_GL_VERTEX_EXT
+			// v[0].setUV(0.0f, 0.0f); v[1].setUV(1.0f, 0.0f); v[2].setUV(0.0f, 1.0f); v[3].setUV(1.0f, 0.0f); v[4].setUV(1.0f, 1.0f); v[5].setUV(0.0f, 1.0f);
+		// #endif
 		}else{
 			v.push(v1); v.push(Vertex(v2.x, v1.y, v1.z, color1)); // Верхняя линия
 			v.push(Vertex(v2.x, v1.y, v1.z, color1)); v.push(v2); // Правая линия
@@ -26,23 +29,54 @@ namespace ncpp { namespace GL {
 			v.push(Vertex(v1.x, v2.y, v2.z, color2)); v.push(v1); } // Левая линия
 	}
 	
-	void genArc(Array<Vertex>& v, float d=1, unsigned int color=0xFFFFFFFF, float x=0, float y=0, bool fill=true, int segments=32){
-		float step = 2.0f * M_PI / (float)segments; float r=d/2;
+	//void glArc(float x, float y, float radius, float startAngle=0, float endAngle=360, float lsize=1, bool fill=false, int segments=100);
+	void genArc(Array<Vertex>& v, float d=1, unsigned int color=0xFFFFFFFF, float x=0, float y=0, bool fill=true, int segments=32, float drawCoef=1.0f){
+		float step = 2.0f*M_PIf/segments; float r=d/2; int drawSegments=segments*drawCoef;
 		if(fill){
-			for(int i = 0; i < segments; i++){ float a1 = i*step; float a2 = (i+1)*step; v.push(Vertex(x, y, 0, color));
-				v.push(Vertex(x + cosf(a1) * r, y + sinf(a1) * r, 0, color)); v.push(Vertex(x + cosf(a2) * r, y + sinf(a2) * r, 0, color)); } }
-		else{
-			for(int i = 0; i < segments; i++){ float a1 = i*step; float a2 = (i+1)*step;
+			for(int i=0; i < drawSegments; i++){ float a1 = i*step; float a2 = (i+1)*step; v.push(Vertex(x, y, 0, color));
+				v.push(Vertex(x + cosf(a1) * r, y + sinf(a1) * r, 0, color)); v.push(Vertex(x + cosf(a2) * r, y + sinf(a2) * r, 0, color)); }
+		}else{
+			for(int i = 0; i < drawSegments; i++){ float a1 = i*step; float a2 = (i+1)*step;
 				v.push(Vertex(x + cosf(a1) * r, y + sinf(a1) * r, 0, color)).push(Vertex(x + cosf(a2) * r, y + sinf(a2) * r, 0, color)); } } }
-				
-	void genHexagon(Array<Vertex>& v, float d=1, unsigned int color=0xFFFFFFFF, float x=0, float y=0, bool fill=true)
-	{ 	float r = d / 2.0f; float px[6]; float py[6]; // Оптимизацитя рендера: 6 -> 4 треугольника
-		for(int i=0; i<6; i++){ float angle = i * (M_PI / 3.0f); px[i] = x + cosf(angle)*r; py[i] = y + sinf(angle)*r; } // Генерируем 6 точек шестиугольника
-		if(fill){ // Оптимизация: 4 треугольника вместо 6 (без центральной точки). Треугольники: (0,1,2), (0,2,3), (0,3,4), (0,4,5)
-			for(int i=1; i<5; i++){ v.push(Vertex(px[0], py[0], 0, color)).push(Vertex(px[i], py[i], 0, color)).push(Vertex(px[i + 1], py[i + 1], 0, color)); }
-		}else{ // Контур: 6 линий
-			for(int i=0; i<6; i++){ int next = (i + 1) % 6; v.push(Vertex(px[i], py[i], 0, color)).push(Vertex(px[next], py[next], 0, color)); } }
+	//void genCircle();
+	
+	void genHexagon(Array<Vertex>& v, float d, unsigned int color, float x, float y, bool fill){
+		float r = d / 2.0f; float px[6]; float py[6]; int i;
+		for(i=0; i<6; i++){ float angle = i*(M_PIf/3.0f); px[i]=x+cosf(angle)*r; py[i] = y + sinf(angle)*r; }
+		if(fill){
+			v.push(Vertex(px[1], py[1], 0, color)).push(Vertex(px[2], py[2], 0, color)).push(Vertex(px[4], py[4], 0, color)); // Центральный прямоугольник 1
+			v.push(Vertex(px[1], py[1], 0, color)).push(Vertex(px[4], py[4], 0, color)).push(Vertex(px[5], py[5], 0, color)); // Центральный прямоугольник 2
+			v.push(Vertex(px[2], py[2], 0, color)).push(Vertex(px[3], py[3], 0, color)).push(Vertex(px[4], py[4], 0, color)); // Боковой треугольник 1
+			v.push(Vertex(px[5], py[5], 0, color)).push(Vertex(px[0], py[0], 0, color)).push(Vertex(px[1], py[1], 0, color)); // Боковой треугольник 2
+		
+			// Центр 1
+			//v.push(Vertex(px[0], py[0], 0, color)).push(Vertex(px[1], py[1], 0, color)).push(Vertex(px[3], py[3], 0, color));
+			// Центр 2
+			//v.push(Vertex(px[0], py[0], 0, color)).push(Vertex(px[3], py[3], 0, color)).push(Vertex(px[4], py[4], 0, color));
+			// Боковой 1
+			//v.push(Vertex(px[1], py[1], 0, color)).push(Vertex(px[2], py[2], 0, color)).push(Vertex(px[3], py[3], 0, color));
+			// Боковой 2
+			//v.push(Vertex(px[4], py[4], 0, color)).push(Vertex(px[5], py[5], 0, color)).push(Vertex(px[0], py[0], 0, color));
+		}else{ for(i=0; i<6; i++){ int next = (i+1) % 6; v.push(Vertex(px[i], py[i], 0, color)); v.push(Vertex(px[next], py[next], 0, color)); } }
 	}
+    void genLines(Array<Vertex>& v, const Array<Vertex>& l, float bold=1.0f, bool fill=true){ 
+		if(l.size() < 2) return; float halfBold = bold*0.5f;
+        for(size_t i=0; i+1<l.size();i+=2){ const Vertex& p1 = l[i]; const Vertex& p2 = l[i+1];
+
+            float dx = p2.x-p1.x; float dy = p2.y-p1.y; float len = sqrtf(dx*dx + dy*dy); // Вычисляем вектор направления линии в плоскости XY
+            if(len < 1e-6f) continue;
+			float nx = (-dy/len)*halfBold; float ny = (dx/len)*halfBold; // Нормализуем и поворачиваем на 90 градусов для получения перпендикуляра
+
+            // Четыре вершины утолщенного прямоугольника линии.
+            Vertex v1(p1.x - nx, p1.y - ny, p1.z); v1._color = p1._color;
+            Vertex v2(p1.x + nx, p1.y + ny, p1.z); v2._color = p1._color;
+            Vertex v3(p2.x + nx, p2.y + ny, p2.z); v3._color = p2._color;
+            Vertex v4(p2.x - nx, p2.y - ny, p2.z); v4._color = p2._color;
+			
+			if(fill){ v.push(v1).push(v2).push(v3); v.push(v1).push(v3).push(v4); }
+			else{ v.push(v1).push(v2).push(v2).push(v3).push(v3).push(v4).push(v4).push(v1); }
+        }
+    }
 	
 	// ------ 3D Геометрия ------
 	// --- Платоновы тела ---
@@ -78,7 +112,11 @@ namespace ncpp { namespace GL {
 					float vx = x + r * sinf(theta) * cosf(phi);
 					float vy = y + r * cosf(theta); 
 					float vz = z + r * sinf(theta) * sinf(phi);
-					quad[i] = Vertex(vx, vy, vz, color); }
+					quad[i] = Vertex(vx, vy, vz, color);
+				#ifdef NCPP_GL_VERTEX_EXT
+					quad[i].setUV((float)curr_s*S_step, (float)curr_r*R_step); quad[i].setVN((vx-x)/r, (vy-y)/r, (vz-z)/r);
+				#endif
+				}
 				if(fill){ v.push(quad[0]).push(quad[1]).push(quad[2]); v.push(quad[0]).push(quad[2]).push(quad[3]); } 
 				else{ v.push(quad[0]).push(quad[1]); v.push(quad[1]).push(quad[2]); v.push(quad[2]).push(quad[3]); }
 			}
@@ -96,30 +134,44 @@ namespace ncpp { namespace GL {
 			Vertex b2(x+cos2*r, y1, z+sin2*r, color); // Низ 2
 			Vertex t1(x+cos1*r, y2, z+sin1*r, color); // Верх 1
 			Vertex t2(x+cos2*r, y2, z+sin2*r, color); // Верх 2
+			#ifdef NCPP_GL_VERTEX_EXT
+			float u1 = (float)i/segments; float u2 = (float)(i+1)/segments;
+			b1.setUV(u1, 1.0f); b1.setVN(cos1, 0.0f, sin1); b2.setUV(u2, 1.0f); b2.setVN(cos2, 0.0f, sin2);
+			t1.setUV(u1, 0.0f); t1.setVN(cos1, 0.0f, sin1); t2.setUV(u2, 0.0f); t2.setVN(cos2, 0.0f, sin2);
+			#endif
 
 			if(fill==1){ v.push(b1).push(t1).push(t2); v.push(b1).push(t2).push(b2); }
 			else if(!fill){ v.push(b1).push(t1); v.push(b1).push(b2); v.push(t1).push(t2); } }
 		// Рисование двух кругов (две "крышки")
 		Array<Vertex> arcV; genArc(arcV, d, color, 0, 0, fill==1?true:false, segments);
-		Model::rotateVerticesX(arcV, 90); Model::moveVertices(arcV, x, y2, z); v.concat(arcV); 
+		Vertex::rotateX(arcV, 90); Vertex::translate(arcV, x, y2, z); v.concat(arcV); 
 		
 		arcV.clear(); genArc(arcV, d, color, 0, 0, fill==1?true:false, segments);
-		Model::rotateVerticesX(arcV, 90); Model::moveVertices(arcV, x, y1, z); v.concat(arcV);
+		Vertex::rotateX(arcV, 90); Vertex::translate(arcV, x, y1, z); v.concat(arcV);
 	}
 	
 	void genCone(Array<Vertex>& v, float d=1, float height=1, unsigned int color=0xFFFFFFFF,
 		float x=0, float y=0, float z=0, bool fill=true, int segments=32)
 	{
 		float r = d/2.0f; float y1 = y; float y2 = y+height; float step = 2.0f * (float)M_PI / (float)segments; Vertex top(x, y2, z, color);
+		#ifdef NCPP_GL_VERTEX_EXT
+		top.setUV(0.5f, 0.0f); top.setVN(0.0f, 1.0f, 0.0f);
+		#endif
 		
 		for(int i = 0; i < segments; i++){ float a1 = i * step; float a2 = (i + 1) * step;
 			float cos1 = cosf(a1), sin1 = sinf(a1); float cos2 = cosf(a2), sin2 = sinf(a2);
 			Vertex b1(x + cos1 * r, y1, z + sin1 * r, color);
 			Vertex b2(x + cos2 * r, y1, z + sin2 * r, color);
+			#ifdef NCPP_GL_VERTEX_EXT
+			float u1 = (float)i / segments; float u2 = (float)(i + 1) / segments;
+			// Нормали боковой поверхности конуса немного приподняты по Y с учетом уклона
+			b1.setUV(u1, 1.0f); b1.setVN(cos1, r/height, sin1);
+			b2.setUV(u2, 1.0f); b2.setVN(cos2, r/height, sin2);
+			#endif
 			if(fill){ v.push(b1).push(top).push(b2); }else{ v.push(b1).push(top); v.push(b1).push(b2); } }
 		// Рисование основания ("крышка")
 		Array<Vertex> arcV; genArc(arcV, d, color, 0, 0, fill, segments); 
-		Model::rotateVerticesX(arcV, 90); Model::moveVertices(arcV, x, y1, z); v.concat(arcV);
+		Vertex::rotateX(arcV, 90); Vertex::translate(arcV, x, y1, z); v.concat(arcV);
 	}
 	// ---  ---
 } }

@@ -29,10 +29,13 @@
 	- [Window.getClass()](#windowgetclass)
 	- [Window.Update()](#windowupdate)
 	- [Window.destroy()](#windowdestroy)
+	- [Window.setFullscreen()](#windowsetfullscreen)
+	- [Window.putImage()](#windowputimage)
 - [ncpp::GUI::GLWindow](#ncppguiwindow)
 	- [GLWindow.createGLContext()](#glwindowcreateglcontext)
 	- [GLWindow.destroyGLContext()](#glwindowdestroyglcontext)
 	- [GLWindow.setContext()](#glwindowsetcontext)
+	- [GLWindow.hasContext()](#glwindowhascontext)
 	- [GLWindow.resetContext()](#glwindowresetcontext)
 	- [GLWindow.swapBuffers()](#glwindowswapbuffers)
 	
@@ -189,6 +192,19 @@ bool destroy();
 ```
 Уничтожение окна.
 
+### Window.setFullscreen()
+```cpp
+void setFullscreen(bool fullscreen);
+```
+Установить полноэкранный режим.
+
+### Window.putImage()
+```cpp
+void putImage(const void* px, int w, int h);
+//void putImage(const Image& img);
+```
+Скопировать фреймбуфер картинки в текущее окно. Поддержка масштабирования не гарантируется.
+
 ## ncpp::GUI::GLWindow
 Наследует от `Window`. Окно, в котором может быть инициализирован контекст графического API видеокарты (в данном случае, OpenGL).
 
@@ -209,6 +225,12 @@ void destroyGLContext();
 void setContext();
 ```
 Переключает контекст на текущее окно.
+
+### GLWindow.hasContext()
+```cpp
+bool hasContext();
+```
+Проверяет создан ли контекст у окна.
 
 ### GLWindow.resetContext()
 ```cpp

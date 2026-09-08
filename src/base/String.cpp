@@ -1,6 +1,6 @@
 namespace ncpp {
 struct String; struct CString; struct Buffer;
-template <typename T> struct Array;
+template <typename T, void* (*_allocFN)(size_t), void (*_freeFN)(void*)> struct Array;
 
 template <typename T, typename Derived>
 struct BaseString { enum Mode { HEAP, STACK, STACK_ONLY };
@@ -215,7 +215,7 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	void erase(Iter ipos){ erase(ipos, ipos+1); }
 	
 	void push_back(char v){ push(v); }
-	void pop_back(){ resize(--_len); }
+	void pop_back(){ if(_len>0) resize(--_len); }
 	
 	String& clear(){ _len=0; return *this; }
 	String& shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP||_isSSO()) return *this; 
@@ -232,9 +232,9 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	String& push(const char (&arr)[N])	{ return push(arr, N); }
 	String& push(const String& s)		{ return push(s.data(), s.size()); }
 	String& push(const CString& cs)		{ return push(cs.data(), cs.size()); }
-	String& push(char c)				{ resize(_len+1); _ptr[_len-1]=c; 	return *this; }
-	char 	pop()						{ if(_len>0){ resize(--_len); } 	return *(_ptr+_len); }
-	String& fill(char c)				{ memset(_ptr, c, _len); 			return *this; }
+	String& push(char c)				{ resize(_len+1); _ptr[_len-1]=c; return *this; }
+	char 	pop()						{ char c=0; if(_len>0){ c=*(_ptr+--_len); resize(_len); } return c; }
+	String& fill(char c)				{ memset(_ptr, c, _len); 		  return *this; }
 	
 	//void push_front(char v){ insert(0, v); }
 	void pop_front(){ erase((size_t)0); }
@@ -342,7 +342,8 @@ String BaseString<T, D>::slice(int start, int end) const { return _slice<String>
 template <typename T, typename D>
 String BaseString<T, D>::substr(int start, int end) const { return _slice<String>(start, end); }
 
-template <typename T> String Array<T>::cout() const { String ss("["); if(_len>0){ ss<<_ptr[0]; }
+template <typename T, void* (*A)(size_t), void (*F)(void*)> 
+String Array<T, A, F>::cout() const { String ss("["); if(_len>0){ ss<<_ptr[0]; }
 	for(size_t i=1;i<this->size();i++){ ss << ", " << _ptr[i]; } ss+="]"; return ss; }
 template <> String Array<String>::cout() const { String ss("["); if(_len>0){ ss+="\""; ss<<_ptr[0]; }
 	for(size_t i=1;i<this->size();i++){ ss << "\", \"" << _ptr[i]; } if(_len>0) ss+="\""; ss+="]"; return ss; }

@@ -43,7 +43,7 @@ void gcc_version(){ print("[Compiller] ");
 
 class TestClass { int v1; };
 
-int main(){ cpp_version(); gcc_version(); 
+int main(){ print(NCPP_COMPILE_INFO); 
 	print("print() cpp-clean test"); print("\n"); //printf("printf() cpp-clean test");
 	//std::cout << "std::cout" << std::endl;
 	TestClass t1; print("TestClass t1\n"); }

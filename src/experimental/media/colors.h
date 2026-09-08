@@ -19,6 +19,14 @@ void HexToRGBAf(float rgba[4], unsigned int hex){ rgba[0] = ((hex >> 16) & 0xFF)
 unsigned int RGBAfToHex(float rgba[4]){ return ((unsigned int)(rgba[3] * 255.0f + 0.5f) << 24) | ((unsigned int)(rgba[0] * 255.0f + 0.5f) << 16) |
 	((unsigned int)(rgba[1] * 255.0f + 0.5f) << 8) | (unsigned int)(rgba[2] * 255.0f + 0.5f); }
 #ifdef __cplusplus
-unsigned int RGBAfToHex(float r, float g, float b, float a = 1.0f){ float rgba[4] = {r, g, b, a}; return RGBAfToHex(rgba); }
+unsigned int RGBAfToHex(float r, float g, float b, float a=1.0f){ float rgba[4] = {r, g, b, a}; return RGBAfToHex(rgba); }
 #endif
+
+void RGBAfToUChar(unsigned char rgba[4], float src[4]){
+	rgba[0]=(unsigned char)(src[0]*255.0f+0.5f); rgba[1]=(unsigned char)(src[1]*255.0f+0.5f); 
+	rgba[2]=(unsigned char)(src[2]*255.0f+0.5f); rgba[3]=(unsigned char)(src[3]*255.0f+0.5f); }
+void UCharToRGBAf(float rgba[4], unsigned char src[4]){
+    rgba[0] = (float)src[0]/255.0f; rgba[1] = (float)src[1]/255.0f;
+    rgba[2] = (float)src[2]/255.0f; rgba[3] = (float)src[3]/255.0f; }
+
 #endif

@@ -27,7 +27,25 @@ namespace ncpp {
 	template<typename T> struct lock_guard { lock_guard(T& mtx) : _mtx(mtx){ _mtx.lock(); } ~lock_guard(){ _mtx.unlock(); } private: T& _mtx; }; //LockGuard?
 	
 	struct condition_variable;
-	struct Thread { static int _stacklim; //aka std::thread (С++11)
+	struct Thread { struct Id {
+			#ifdef _WIN32
+			DWORD _id; Id(DWORD id) : _id(id){} Id() : _id(0){} 
+			bool operator==(const Id& other) const { return _id == other._id; }
+			bool operator!=(const Id& other) const { return _id != other._id; }
+			bool operator<=(const Id& other) const { return _id <= other._id; }
+			bool operator>=(const Id& other) const { return _id >= other._id; }
+			bool operator<(const Id& other) const { return _id < other._id; }
+			bool operator>(const Id& other) const { return _id > other._id; }
+			#else
+			pthread_t _id; Id(const pthread_t& id) : _id(id){} Id(){} //Id(){ memset(&_id, 0, sizeof(pthread_t)); }
+			bool operator==(const Id& other) const { return pthread_equal(_id, other._id) != 0; }
+			bool operator!=(const Id& other) const { return pthread_equal(_id, other._id) == 0; }
+			bool operator<=(const Id& other) const { return memcmp(&_id, &other._id, sizeof(pthread_t)) <= 0; }
+			bool operator>=(const Id& other) const { return memcmp(&_id, &other._id, sizeof(pthread_t)) >= 0; }
+			bool operator<(const Id& other) const { return memcmp(&_id, &other._id, sizeof(pthread_t)) < 0; }
+			bool operator>(const Id& other) const { return memcmp(&_id, &other._id, sizeof(pthread_t)) > 0; }
+			#endif	
+		}; static int _stacklim; //aka std::thread (С++11)
 	    Thread() : started(false), joined(false){}
 		template<typename T>
 	    Thread(void(*func)(T*), void* arg=NULL) : started(false), joined(false){ start((void*(*)(void*))func, arg); }
@@ -35,28 +53,34 @@ namespace ncpp {
 		~Thread(){ if(joinable()) detach(); }
 		
 		bool joinable() const { return started && !joined; }
+		Id getId() const { return _thr; }
 		#ifdef _WIN32
-		void join(){ if(!joinable()){ return; } HANDLE hThread = OpenThread(SYNCHRONIZE, FALSE, id); WaitForSingleObject(hThread, INFINITE); CloseHandle(hThread); joined = true; }
+		void join(){ if(!joinable()){ return; } HANDLE hThread = OpenThread(SYNCHRONIZE, FALSE, _thr._id); WaitForSingleObject(hThread, INFINITE); CloseHandle(hThread); joined = true; }
 		void detach(){ if(!joinable()){ return; } joined = true; }
 		void kill(){ HANDLE hThread = OpenThread(THREAD_TERMINATE, FALSE, native_handle()); TerminateThread(hThread, 0); CloseHandle(hThread); }
 			
-		unsigned int get_id() const { return id; } DWORD native_handle() const { return id; }
+		DWORD native_handle() const { return _thr._id; }
 		static unsigned hardware_concurrency(){ SYSTEM_INFO sysinfo; GetSystemInfo(&sysinfo); return sysinfo.dwNumberOfProcessors; }
-		DWORD id; private: bool started; bool joined;
-			void start(void*(*func)(void*), void* arg=NULL){ HANDLE handle = CreateThread(NULL, _stacklim, (LPTHREAD_START_ROUTINE)func, arg, 0, &id);
+		//static Id getTID(){ return Id(GetCurrentThreadId()); }
+		//static unsigned long _getNativeTID(){ return GetCurrentThreadId(); }
+		private: 
+			void start(void*(*func)(void*), void* arg=NULL){ HANDLE handle = CreateThread(NULL, _stacklim, (LPTHREAD_START_ROUTINE)func, arg, 0, &_thr._id);
 				if(handle == NULL){ Except("winapi: Thread create error\n"); } CloseHandle(handle); started = true; }
 		#else
-		void join(){ if(!joinable()){ return; } pthread_join(id, NULL); joined = true; }
-		void detach(){ if(!joinable()){ return; } pthread_detach(id); joined = true; }
+		void join(){ if(!joinable()){ return; } pthread_join(_thr._id, NULL); joined = true; }
+		void detach(){ if(!joinable()){ return; } pthread_detach(_thr._id); joined = true; }
 		void kill(){ pthread_cancel(native_handle()); }
 			
-		unsigned int get_id() const { return id; } pthread_t native_handle() const { return id; }
+		pthread_t native_handle() const { return _thr._id; }
 		static unsigned hardware_concurrency(){ return sysconf(_SC_NPROCESSORS_ONLN); }
-		pthread_t id; private: bool started; bool joined;
-		    void start(void*(*func)(void*), void* arg=NULL){ bool ok=false; if(_stacklim<=0){ ok=pthread_create(&id, NULL, func, arg)==0; }
-				else{ pthread_attr_t attr; pthread_attr_init(&attr); pthread_attr_setstacksize(&attr, _stacklim); ok=pthread_create(&id, &attr, func, arg)==0; }
+		//static Id getTID(){ return Id(pthread_self()); }
+		//static unsigned long _getNativeTID(){ return syscall(SYS_gettid); }
+		private:
+		    void start(void*(*func)(void*), void* arg=NULL){ bool ok=false; if(_stacklim<=0){ ok=pthread_create(&_thr._id, NULL, func, arg)==0; }
+				else{ pthread_attr_t attr; pthread_attr_init(&attr); pthread_attr_setstacksize(&attr, _stacklim); ok=pthread_create(&_thr._id, &attr, func, arg)==0; }
 				if(!ok){ Except("pthread: Thread create error\n"); } started = true; }
-		#endif	
+		#endif
+		Id _thr; bool started; bool joined; public:
 			//void _prokladka(){}
 			//struct _Args { T arg1, T arg2, T arg3 };
 			
@@ -64,6 +88,7 @@ namespace ncpp {
 		//https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58909
 		struct ConditionVariable; typedef condition_variable CondV; struct Signal;
 	}; int Thread::_stacklim=0;
+	//uint32_t hash(const Thread::Id& id){ return Fnv1a(c, strlen(c)); }
 	
 	#ifdef _WIN32
 	struct Semaphore { Semaphore(int count = 0){ _semaphore = CreateSemaphore(NULL, count, count, NULL); }
@@ -83,7 +108,7 @@ namespace ncpp {
 	struct condition_variable {
         condition_variable(){ InitializeConditionVariable(&cond); }
 		
-        void wait(Mutex& mtx){ CRITICAL_SECTION _mtx=mtx.native_handle(); SleepConditionVariableCS(&cond, &_mtx, INFINITE); }
+        void wait(Mutex& mtx){ CRITICAL_SECTION& _mtx=mtx.native_handle(); SleepConditionVariableCS(&cond, &_mtx, INFINITE); }
         void wait(unique_lock<Mutex>& lock){ wait(*lock.mutex()); }
         void notify_one(){ WakeConditionVariable(&cond); }
         void notify_all(){ WakeAllConditionVariable(&cond); }
@@ -148,70 +173,80 @@ namespace ncpp {
 		private: volatile T _value; };
 	
 	template<typename T>
-	struct SharedPtr { // aka std::shared_ptr (С++11)
-		SharedPtr() : ptr(NULL), ctrl(NULL){}
-		explicit SharedPtr(T* p) : ptr(p), ctrl(p?new CtrlBlock(1):NULL){}
-		SharedPtr(const SharedPtr<T>& other) : ptr(other.ptr), ctrl(other.ctrl){ if(ctrl) ++(ctrl->rcount); }
-		~SharedPtr(){ release(); }
-		//SharedPtr<T>& operator=(T* p){ reset(p); return *this; }
-		SharedPtr<T>& operator=(const SharedPtr<T>& other){ if(this == &other) return *this;
-			release(); ptr = other.ptr; ctrl = other.ctrl; if(ptr) ++(ctrl->rcount); return *this; }
+	struct SPtr { // aka std::shared_ptr (С++11)
+		//SPtr() : _ptr(NULL), ctrl(NULL){}
+		explicit SPtr(T* p = NULL) : _ptr(p), ctrl(p?new CtrlBlock(1):NULL){}
+		SPtr(const SPtr<T>& other) : _ptr(other._ptr), ctrl(other.ctrl){ if(ctrl) ++(ctrl->rcount); }
+		~SPtr(){ release(); }
 		
-		T* get() const { return ptr; }
+		//SPtr<T>& operator=(T* p){ reset(p); return *this; }
+		SPtr<T>& operator=(const SPtr<T>& other){ if(this == &other) return *this;
+			release(); _ptr = other._ptr; ctrl = other.ctrl; if(ctrl) ++(ctrl->rcount); return *this; }
+			
+		T& operator*() const { return *_ptr; }
+		T* operator->() const { return _ptr; }
+		bool operator==(const SPtr<T>& other) const { return _ptr==other._ptr; }
+		bool operator==(T* p) const { return _ptr==p; }
+		
+		T* get() const { return _ptr; }
+		void reset(T* p = NULL){ if(_ptr == p) return; release(); _ptr = p; ctrl = p?new CtrlBlock(1):NULL; }
+		void release(){ if(ctrl!=NULL && ctrl->rcount.fetch_sub(1) == 1){ delete _ptr; delete ctrl; _ptr = NULL; ctrl = NULL; } }
 		int use_count() const { return ctrl?ctrl->rcount.load():0; }
-		void reset(T* p = NULL){ if(ptr == p) return; release(); ptr = p; ctrl = p?new CtrlBlock(1):NULL; }
+		
+		#if __cplusplus >= 201103L
+		//SPtr(SPtr&& other);
+		//SPtr& operator=(SPtr&& other);
+		//friend void move(SPtr& dst, SPtr&& tmp){ move(dst, (SPtr&)tmp); }
+		#else
+		//friend void move(SPtr& dst, const SPtr& victim){ move(dst, (SPtr&)victim); }
+		#endif
 
-		T& operator*() const { return *ptr; }
-		T* operator->() const { return ptr; }
-		bool operator==(const SharedPtr<T>& other) const { return ptr==other.ptr; }
-		bool operator==(T* p) const { return ptr==p; }
-
-		private: struct CtrlBlock { CtrlBlock(int count=0) : rcount(count){} Atomic<int> rcount; }; T* ptr; CtrlBlock* ctrl;
-			void release(){ if(ctrl!=NULL && ctrl->rcount.fetch_sub(1) == 1){ delete ptr; delete ctrl; ptr = NULL; ctrl = NULL; } } };
+		private: struct CtrlBlock { CtrlBlock(int count=0) : rcount(count){} Atomic<int> rcount; }; T* _ptr; CtrlBlock* ctrl; };
 	#if __cplusplus >= 201103L
-	template<typename T> using SPtr = SharedPtr<T>;
+	template<typename T> using SharedPtr = SPtr<T>;
 	#else
-	template<typename T> struct SPtr : SharedPtr<T>{};
+	#define SharedPtr SPtr //template<typename T> struct SharedPtr : SPtr<T>{}; 
 	#endif
 	
 	template<typename T>
-	struct UniquePtr { //aka std::unique_ptr (С++11)
-		//UniquePtr() : ptr(new T()){}
-		explicit UniquePtr(T* p = nullptr) : ptr(p){}
-		~UniquePtr(){ delete ptr; }
+	struct UPtr { //aka std::unique_ptr (С++11)
+		//UPtr() : ptr(new T()){}
+		explicit UPtr(T* p = NULL) : _ptr(p){}
+		~UPtr(){ delete _ptr; }
 
 		#if __cplusplus >= 201103L
-		UniquePtr(const UniquePtr&) = delete; UniquePtr& operator=(const UniquePtr&) = delete;
+		UPtr(const UPtr&) = delete; UPtr& operator=(const UPtr&) = delete;
 		
-		UniquePtr(UniquePtr&& other) : ptr(other.ptr){ other.ptr = nullptr; }
-		UniquePtr& operator=(UniquePtr&& other){ reset(other.release()); return *this; }
+		UPtr(UPtr&& other) : _ptr(other._ptr){ other._ptr = NULL; }
+		UPtr& operator=(UPtr&& other){ reset(other.release()); return *this; }
 		
-		UniquePtr& steal(UniquePtr& tmp){ move(*this, tmp); return *this; }
-		UniquePtr& steal(UniquePtr&& tmp){ move(*this, tmp); return *this; }
-		friend void move(UniquePtr& dst, UniquePtr&& tmp){ move(dst, (UniquePtr&)tmp); }
+		UPtr& steal(UPtr& tmp){ move(*this, tmp); return *this; }
+		UPtr& steal(UPtr&& tmp){ move(*this, tmp); return *this; }
+		friend void move(UPtr& dst, UPtr&& tmp){ move(dst, (UPtr&)tmp); }
 		#else
-		private: UniquePtr(const UniquePtr&); UniquePtr& operator=(const UniquePtr&); public:
-		UniquePtr& steal(const UniquePtr& victim){ move(*this, (UniquePtr&)victim); return *this; }
-		friend void move(UniquePtr& dst, const UniquePtr& victim){ move(dst, (UniquePtr&)victim); }
+		private: UPtr(const UPtr&); UPtr& operator=(const UPtr&); public:
+		UPtr& steal(const UPtr& victim){ move(*this, (UPtr&)victim); return *this; }
+		friend void move(UPtr& dst, const UPtr& victim){ move(dst, (UPtr&)victim); }
 		#endif
 
-		T& operator*() const { return *ptr; }
-		T* operator->() const { return ptr; }
-		bool operator==(const UniquePtr<T>& other) const { return ptr==other.ptr; }
-		bool operator==(T* p) const { return ptr==p; }
-		T* get() const { return ptr; }
-		void reset(T* p = nullptr){ if(ptr == p) return; delete ptr; ptr = p; }
-		T* release() noexcept { T* tmp = ptr; ptr = nullptr; return tmp; }
-		void swap(UniquePtr& other) noexcept { T* tmp=ptr; ptr=other.ptr; other.ptr=tmp; }
+		T& operator*() const { return *_ptr; }
+		T* operator->() const { return _ptr; }
+		bool operator==(const UPtr<T>& other) const { return _ptr==other._ptr; }
+		bool operator==(T* p) const { return _ptr==p; }
 		
-		friend void swap(UniquePtr& a, UniquePtr& b) noexcept { a.swap(b); }
-		friend void move(UniquePtr& dst, UniquePtr& src) noexcept { dst.reset(src.release()); }
-		//friend void move(UniquePtr& dst, UniquePtr& src) noexcept { if (&dst == &src) return; if(dst.ptr) delete dst.ptr; dst.ptr=src.ptr; src.ptr=nullptr; }
-		private: T* ptr; };
+		T* get() const { return _ptr; }
+		void reset(T* p = NULL){ if(_ptr == p) return; delete _ptr; _ptr = p; }
+		T* release() noexcept { T* tmp = _ptr; _ptr = NULL; return tmp; }
+		void swap(UPtr& other) noexcept { T* tmp=_ptr; _ptr=other._ptr; other._ptr=tmp; }
+		
+		friend void swap(UPtr& a, UPtr& b) noexcept { a.swap(b); }
+		friend void move(UPtr& dst, UPtr& src) noexcept { dst.reset(src.release()); }
+		//friend void move(UPtr& dst, UPtr& src) noexcept { if (&dst == &src) return; if(dst._ptr) delete dst._ptr; dst._ptr=src._ptr; src._ptr=nullptr; }
+		private: T* _ptr; };
 	#if __cplusplus >= 201103L
-	template<typename T> using UPtr = UniquePtr<T>;
+	template<typename T> using UniquePtr = UPtr<T>;
 	#else
-	template<typename T> struct UPtr : UniquePtr<T>{};
+	#define UniquePtr UPtr //template<typename T> struct UniquePtr : UPtr<T>{};
 	#endif
 	
 	namespace Timers { Mutex _ThrMtx; bool _run=false; Thread _TimerThr; int _tMaxIdx=0; static void _handler();

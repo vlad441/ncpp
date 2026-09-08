@@ -171,7 +171,7 @@ String readFstLine(const CString& path){ FStream f(path, FStream::IO_READ); if(!
 	String line; f.readline(line, true); return line; }
 
 StringMap ConfigRead(const CString& path, bool unescape=false, const CString& delim="="){ Array<String> lines=readLines(path);
-	StringMap config; for(size_t i=0;i<lines.size();i++){ if(lines[i].size()<3||lines[i].startsWith("#")) continue; Array<String> line = lines[i].split(delim);
+	StringMap config; for(size_t i=0;i<lines.size();i++){ if(lines[i].size()<2||lines[i].startsWith("#")) continue; Array<String> line = lines[i].split(delim);
 		config[line[0]]=line.slice(1).join(delim); if(unescape&&config[line[0]][0]=='"'&&config[line[0]].back()=='"'){ config[line[0]]=config[line[0]].slice(1,-1); } } return config; }
 bool ConfigWrite(const CString& path, StringMap config, String delim="="){ Buffer data; String endl="\n";
 	for(StringMap::const_iterator it = config.begin(); it != config.end(); ++it){ data+=it->first+delim+it->second+endl; } return writeFile(path, data); }

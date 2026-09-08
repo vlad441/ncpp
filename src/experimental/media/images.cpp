@@ -3,6 +3,7 @@
 //#include <shlwapi.h> // -lshlwapi, for SHCreateMemStream //extern "C" IStream* SHCreateMemStream(const BYTE *pInit, UINT cbInit);
 #elif defined(NCPP_MEDIA_USE_STB)
 // https://github.com/nothings/stb/blob/master/stb_image.h?
+// https://github.com/guohai/jpeg/blob/master/nanojpeg.c? (NanoJPEG Project)
 // #define STBI_ONLY_JPEG
 // #define STBI_ONLY_PNG
 // #define STB_IMAGE_IMPLEMENTATION
@@ -27,6 +28,12 @@ struct Image { int w, h; Array<PixelT> px; //char bits=32;
 	Image& setColor(size_t pos, unsigned int hex=0xFFFFFFFF){ HexToRGBA(&px[pos].r, hex); return *this; }
 	unsigned int getColor(size_t pos){ return RGBAToHex(&px[pos].r); }
 	Image& fill(unsigned int hex=0xFFFFFFFF){ for(size_t i=0;i<px.size();i++) setColor(i, hex); return *this; }
+	
+	//https://habr.com/ru/articles/243285/
+	Image scale(int tW, int tH){ Image img(tW, tH); //"Ближайший сосед". Возможные: Бикубическая интерполяция, Билинейная интерполяция 
+		for(int y=0; y < tH; ++y){ int srcY = (y*h) / tH;
+			for(int x=0; x < tW; ++x){ int srcX = (x*w) / tW; img.px[y * tW + x] = px[srcY * w + srcX]; } } return img; }
+	
 	static Image from(const Buffer& fimg);
 	static Image fromFile(const CString& path){ return from(fs::readFile(path)); }
 	Buffer toBMP() const;

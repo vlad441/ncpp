@@ -116,7 +116,7 @@ The built libraries will be placed in the `lib` directory.
 ### Examples
 You can check out the simple [example.cpp](example.cpp) in the root of the project.
 
-You can also find a few examples in the [examples section](docs/en/introduction.md#examples) of the documentation.
+You can also find a few examples in the [examples section](docs/ru/introduction.md#examples) of the documentation.
 
 A more complex example featuring Experimental components, including GUI and OpenGL, is available only in the `dev` branch under `tests/gui`. It can be built using `make_gui.bat gl-perspective` / `bash make_gui.sh gl-perspective`.
 

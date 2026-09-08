@@ -83,7 +83,8 @@ namespace ncpp { namespace GUI { //typedef XID XWindowID;
 		void setText(const CString& text){ setTitle(text); }
         void setHandler(HANDLE_FUNC handler, const CString& type=""){ app->setEventHandler(*this, type, handler); }
 		//void setClickHandler(HANDLE_FUNC handler){ setHandler(handler, "click"); }
-        void getSize(int& width, int& height){ if(wndID == 0) return; XWindowAttributes attr; XGetWindowAttributes(app->display, wndID, &attr); width = attr.width; height = attr.height; }
+		void getWndSize(int& width, int& height) const { getSize(width, height); }
+        void getSize(int& width, int& height) const { if(wndID == 0) return; XWindowAttributes attr; XGetWindowAttributes(app->display, wndID, &attr); width = attr.width; height = attr.height; }
         void resize(int width, int height) {if(wndID == 0) return; XResizeWindow(app->display, wndID, width, height); } //XFlush(app->display); // Сбрасываем очередь команд
 		void setPos(int x, int y){ if(wndID == 0) return; XMoveWindow(app->display, wndID, x, y); } //XFlush(app->display); // Сбрасываем очередь команд, чтобы изменения вступили в силу
 		void Show(){ XMapWindow(app->display, wndID); } void Hide(){ XUnmapWindow(app->display, wndID); }
@@ -92,8 +93,8 @@ namespace ncpp { namespace GUI { //typedef XID XWindowID;
 		void setDisabled(bool disabled = true){ if(wndID == 0) return;
 			long mask = disabled ? NoEventMask : (ExposureMask | KeyPressMask | ButtonPressMask | StructureNotifyMask);
 			XSelectInput(app->display, wndID, mask); }
-		String getClass(){ return ""; }
-		void getMousePos(int& x, int& y){ if(wndID == 0) return;
+		String getClass() const { return ""; }
+		void getMousePos(int& x, int& y) const { if(wndID == 0) return;
 			XWindowID root_return, child_return; int root_x, root_y, win_x, win_y; unsigned int mask_return;
 			Bool result = XQueryPointer(app->display, wndID, &root_return, &child_return, &root_x, &root_y, &win_x, &win_y, &mask_return);
 			if(result){ x = win_x; y = win_y; } }
@@ -112,6 +113,15 @@ namespace ncpp { namespace GUI { //typedef XID XWindowID;
 			// Сообщение согласно протоколу EWMH:
 			xev.xclient.data.l[0] = fullscreen?1:0; xev.xclient.data.l[1] = fullscreenAtom; xev.xclient.data.l[2] = 0; xev.xclient.data.l[3] = 1;
 			XSendEvent(app->display, app->rootID, False, SubstructureRedirectMask | SubstructureNotifyMask, &xev); XFlush(app->display); }
+			
+		void putImage(const void* px, int w, int h){ if(wndID == 0 || px == NULL) return; //int wndW=0, wndH=0; getSize(wndW, wndH);
+			XImage* ximg = XCreateImage(app->display, DefaultVisual(app->display, app->screen), DefaultDepth(app->display, app->screen), 
+				ZPixmap, 0, (char*)px, w, h, 32, // выравнивание (32 бита)
+				0); // bytes_per_line (0 = автовычисление w * 4)
+			if(ximg==NULL) return; // Базовая XPutImage не поддерживает масштабирование.
+			// Возможный скейл через XGetSubImage / XPutImage, либо задействуют XShm / XScale, но классический прямой вывод:
+			XPutImage(app->display, wndID, app->gc, ximg, 0, 0, 0, 0, w, h); ximg->data = NULL; XDestroyImage(ximg); XFlush(app->display); }
+		//void putImage(const Image& img){ void putImage(img.px.data(), img.w, img.h); }
 			
 		#if __cplusplus >= 201103L //move for C++11
 		Window(Window&& tmp) noexcept : wndID(0){ move(*this, tmp); }

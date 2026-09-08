@@ -5,6 +5,7 @@
 
 - [ncpp::ObjectValue](#ncppobjectvalue)
     - [ObjectValue.set()](#objectvalueset)
+	- [ObjectValue.setBool()](#objectvaluesetbool)
     - [ObjectValue.setNull()](#objectvaluesetnull)
     - [ObjectValue.setUndefined()](#objectvaluesetundefined)
     - [ObjectValue.clear()](#objectvalueclear)
@@ -73,6 +74,7 @@
 ```cpp
 ObjectValue& set(double d);
 ObjectValue& set(long long ll);
+ObjectValue& set(int i);
 ObjectValue& set(bool b);
 ObjectValue& set(const String& s);
 ObjectValue& set(const Buffer& bf);
@@ -80,6 +82,12 @@ ObjectValue& set(const Object& o);
 ObjectValue& set(const VArray& arr);
 ```
 Устанавливает значение и соответствующий тип объекта.
+
+### ObjectValue.setBool()
+```cpp
+ObjectValue& setBool(bool b);
+```
+Устанавливает логическое значение типа `bool`.
 
 ### ObjectValue.setNull()
 ```cpp
@@ -317,7 +325,7 @@ String stringify(const StringMap& map);
 
 ## ncpp::JSON::parse()
 ```cpp
-Object parse(String jsonstr);
+Object parse(const String& jstr);
 ```
 Распарсить JSON строку в `Object`.
 

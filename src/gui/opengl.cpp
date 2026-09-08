@@ -1,11 +1,3 @@
-#include <GL/gl.h> //OpenGL v1.1
-#ifndef _WIN32
-#define Window XWindowID
-#include <GL/glx.h>
-#undef Window
-#endif
-//libEGL.so.1
-
 namespace ncpp { namespace GUI {
 	struct GLWindow : Window {
 #ifdef _WIN32
@@ -60,6 +52,7 @@ namespace ncpp { namespace GUI {
 				XDefineCursor(dpy, wndID, invisibleCursor); XFreePixmap(dpy, bitmapNoData); XFreeCursor(dpy, invisibleCursor);
 			}else{ XUndefineCursor(dpy, wndID); } XFlush(dpy); }
 #endif
+		float aspect;
 		GLWindow() : Window(), glCTX(NULL){}
 
 		GLWindow(App* app1, const char* name = "", int x = DEF_HWND_X, int y = DEF_HWND_Y, unsigned int width = DEF_HWND_WIDTH, unsigned int height = DEF_HWND_HEIGHT) 
@@ -69,8 +62,10 @@ namespace ncpp { namespace GUI {
 			: Window(name, x, y, width, height), glCTX(NULL){ createGLContext(); }
 
 		~GLWindow(){ destroyGLContext(); }
-		bool isContext(){ return (glCTX)?true:false; }
+		bool hasContext(){ return (glCTX)?true:false; }
 		void draw(){ if(bmode<=1){ glFlush(); }else{ swapBuffers(); } }
+		void recalcWndSize(){ int w=0, h=0; getSize(w,h); glViewport(0, 0, w, h); aspect=(float)w/h; }
+		
 		//InvalidateRect(this->wndID, NULL, TRUE);
 		
 		//--- Legacy OpenGL 1.1 Matrix ---
@@ -122,10 +117,11 @@ namespace ncpp { namespace GUI {
 namespace ncpp { void HexToRGBf(float rgb[3], unsigned int hex); 
 namespace GL { //ncpp::GL funcs	
 	const char* OGLVersion(){ return (const char*)glGetString(GL_VERSION); }
+	const char* GLVersion(){ return OGLVersion(); }
 	void OGLVersion(int oglv[2]){ oglv[0]=0; oglv[1]=0; glGetIntegerv(GL_MAJOR_VERSION, &oglv[0]); glGetIntegerv(GL_MINOR_VERSION, &oglv[1]); }
 	void clear(float redf, float greenf, float bluef, float alphaf=1){ glClearColor(redf, greenf, bluef, alphaf); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }	
 	//=== Legacy OpenGL 1.1 API ===
-	void glArc(float x, float y, float radius, float startAngle=0, float endAngle=360, float lsize=1, bool fill=false, int segments=100){
+	/* void glArc(float x, float y, float radius, float startAngle=0, float endAngle=360, float lsize=1, bool fill=false, int segments=100){
 		if(segments < 1){ segments = 1; } startAngle*=M_PI / 180.0f; endAngle*=M_PI / 180.0f;
 		
 		// Убедимся, что начальный угол меньше конечного угла для плавного перехода
@@ -137,7 +133,7 @@ namespace GL { //ncpp::GL funcs
 		for (int i = 0; i <= segments; ++i){
 			float angle = startAngle + (float)i / segments * (endAngle - startAngle); // Вычисляем угол
 			float x1 = x + radius * cosf(angle); float y1 = y + radius * sinf(angle); glVertex2f(x1, y1); } glEnd();
-	}
+	}*/
 	void DrawLegacyPixels(unsigned int* pixels, float width, float height, float offsetX=0, float offsetY=0){
 		glRasterPos2f(offsetX, offsetY); glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels); }
 	

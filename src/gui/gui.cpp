@@ -131,7 +131,6 @@ int _FromNativeKeyID(int kid){
 		case 65450: return NCPP_VKEYS_FN+36; // Num *
 		case 65455: return NCPP_VKEYS_FN+37; // Num /
 		case 65439: return NCPP_VKEYS_FN+38; // Num . (Del)
-		
 	}
 	#endif
 	return kid; 
@@ -181,12 +180,22 @@ int _FromNativeKeyID(int kid){
 
 #endif
 
-#ifdef USE_VULKAN
+
+#ifndef NOUSE_GL
+
+#if defined(USE_VULKAN) && defined(USE_EXPERIMENTAL) //Vulkan
+#include "../experimental/gl/vk-loader.cpp"
 #include "../experimental/gl/vulkan.cpp"
-#elif !defined(NOUSE_GL)	
-#include "opengl-loader.cpp"
+//#include "../experimental/gl/vk-render.cpp"
+
+#else //OpenGL	
+#include "ogl-loader.cpp"
 #include "opengl.cpp"
+
+#ifdef USE_EXPERIMENTAL
+#include "../experimental/gl/ogl-render.cpp"
 #endif
 
-//#include "../experimental/gl/gl-math.cpp"
-//#include "../experimental/gl/images.cpp"
+#endif //USE_VULKAN
+#endif //NOUSE_GL
+

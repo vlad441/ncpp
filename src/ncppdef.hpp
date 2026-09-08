@@ -2,7 +2,7 @@
 #pragma once
 #ifndef NCPP_H_DEF
 #define NCPP_H_DEF
-#define NCPP_VER "v0.0.1-0-dev"
+#define NCPP_VER "v0.0.1-1-rev0"
 //#define NCPP_VER_MAJOR 0
 //#define NCPP_VER_MINOR 0
 //#define NCPP_VER_PATCH 1

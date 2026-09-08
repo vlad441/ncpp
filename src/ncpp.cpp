@@ -5,6 +5,12 @@
 #define NCPP_CPP
 #include "ncppdef.hpp"
 
+// #ifdef NCPP_NOCRT
+// #include "stdcpp/stdlib.c"
+// #endif
+
+//#define NCPP_IMPL
+
 // ======== Direct Include Sources ========
 // --- Base ---
 #include "base/print.cpp" // Depends: None
@@ -45,23 +51,22 @@
 #include "structs/BigInt.cpp"
 //#include "experimental/bigint_old.cpp"
 
-#ifdef USE_EXPERIMENTAL
-#include "experimental/Allocators.cpp"
-#include "experimental/utf8.cpp"
-
-#ifndef NOUSE_MEDIA
-#include "experimental/media/audio.cpp"
-#include "experimental/media/images.cpp"
-#endif
-#include "experimental/gl/gl-engine.cpp"
-#endif
-
 #ifndef NOUSE_CRYPTO
 #include "ncpp-crypto.cpp"
 #ifndef NOUSE_NET
 #include "net/websocket.cpp"
 #endif
 #endif
+
+#ifdef USE_EXPERIMENTAL
+#include "experimental/Allocators.cpp"
+#include "experimental/utf8.cpp"
+
+#ifndef NOUSE_MEDIA
+#include "experimental/media/images.cpp"
+#include "experimental/media/audio.cpp"
+#endif
+#endif //ends USE_EXPERIMENTAL
 
 #if defined(USE_GUI) //|| defined(_WIN32)
 #include "gui/gui.cpp"

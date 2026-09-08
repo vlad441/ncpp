@@ -46,7 +46,7 @@ void gcc_version(){ print("[Compiller] ");
 #endif
 };
 
-int main(){ cpp_version(); gcc_version();
+int main(){ print(NCPP_COMPILE_INFO);
 	//std::cout << "sizeof(std::string): " << sizeof(std::string) << std::endl;
 	//std::cout << "sizeof(test::string): " << sizeof(test::string) << std::endl;
 	

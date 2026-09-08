@@ -14,8 +14,8 @@
     - [Thread.join()](#threadjoin)
     - [Thread.detach()](#threaddetach)
     - [Thread.kill()](#threadkill)
-    - [Thread.get_id()](#threadget_id)
-    - [Thread.hardware_concurrency()](#threadhardware_concurrency)
+    - [Thread.getId()](#threadgetid)
+    - [Thread::hardware_concurrency()](#threadhardware_concurrency)
 - [ncpp::Thread::Signal](#ncppthreadsignal)
     - [Signal.wait()](#signalwait)
     - [Signal.notify()](#signalnotify)
@@ -142,13 +142,13 @@ void kill();
 ```
 Принудительно завершает выполнение потока. (Использовать с осторожностью).
 
-### Thread.get_id()
+### Thread.getId()
 ```cpp
-unsigned int get_id() const;
+Thread::Id getId() const;
 ```
-Возвращает системный идентификатор потока.
+Возвращает обертку идентификатора потока `Thread::Id`.
 
-### Thread.hardware_concurrency()
+### Thread::hardware_concurrency()
 ```cpp
 static unsigned hardware_concurrency();
 ```

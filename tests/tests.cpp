@@ -4,6 +4,7 @@
 #include "../src/ncpp.cpp"
 #endif
 //include "malloc-debug.h"
+//#define HIDE_TESTS_LOG
 
 using namespace ncpp;
 int tested=0, passed=0, warnings=0, errors=0; char color[2];
@@ -42,7 +43,11 @@ void Sys_module_test();
 #include "units/module-structs.cpp" //Module_Structs_test();
 #include "units/module-crypto.cpp" //Module_Crypto_test();
 
-int main(int argc, char* argv[]){ cpp_version(); os_version(); gcc_version(); ncpp_version(); //setInterval(_dbg_ShowAllocs, 1000);
+#ifdef _WIN32
+void __attribute__((constructor)) _init_chcp(){ SetConsoleOutputCP(CP_UTF8); SetConsoleCP(CP_UTF8); } //CP_UTF8=65001
+#endif
+
+int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); _ncpp_check_ver(); os_version(); //setInterval(_dbg_ShowAllocs, 1000);
 	// === BEGIN TEST ===
 	Module_Base_test();
 	Module_Structs_test();

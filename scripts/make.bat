@@ -45,7 +45,7 @@ if "%mode%"=="SAN" echo Make using sanitizers... & g++ %WARN_FLAGS% -g -Og -std=
 if "%mode%"=="DBG" echo Make debug ver -g -Og... & g++ %WARN_FLAGS% -g -Og -std=%STDCXX% -fno-exceptions -fno-rtti %cppfile% -o %exefile% %D_LNK_FLAGS%
 if "%mode%"=="GUI" echo Make for GUI... & g++ -DUSE_GUI -DNOUSE_GL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lgdi32
 if "%mode%"=="GL" echo Make for GL... & g++ -DUSE_GUI %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 -lgdi32
-if "%mode%"=="EXP" echo Make for Experimental... & g++ -DUSE_GUI %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 -lgdiplus -lgdi32 -lole32 -lwinmm
+if "%mode%"=="EXP" echo Make for Experimental... & g++ -DUSE_GUI -DUSE_EXPERIMENTAL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 -lgdiplus -lgdi32 -lole32 -lwinmm
 if "%mode%"=="" echo Make (default)... & g++ %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS%
 
 cd /d "%currCD%"

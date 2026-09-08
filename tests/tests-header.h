@@ -1,79 +1,81 @@
 #ifndef NCPP_TESTS_H
 #define NCPP_TESTS_H
-void cpp_version(){ print("[");
-#if __cplusplus >= 202302L
-	print(">=C++23");
+//Predefined macros: https://ru.cppreference.com/cpp/preprocessor/replace
+
+//cpp_version
+#if __cplusplus >= 202603L 
+	#define NCPP_CPPVER ">=C++26"
+#elif __cplusplus >= 202302L
+	#define NCPP_CPPVER "C++23"
 #elif __cplusplus >= 202002L
-	print("C++20");
+	#define NCPP_CPPVER "C++20"
 #elif __cplusplus >= 201703L
-	print("C++17");
+	#define NCPP_CPPVER "C++17"
 #elif __cplusplus >= 201402L
-	print("C++14");
+	#define NCPP_CPPVER "C++14"
 #elif __cplusplus >= 201103L
-	print("C++11");
+	#define NCPP_CPPVER "C++11"
 #else
-	print("C++98");
+	#define NCPP_CPPVER "C++98"
 #endif
-	print("] UTF-8 кирилица にも含み "); }
 
-void gcc_version(){ print("[Compiller] ");
+//gcc_version
 #if defined(__clang__)
-	print(__VERSION__); print("\n"); //std::cout << "Clang " << __clang_major__ << "." << __clang_minor__ << "." <<  __clang_patchlevel__ << std::endl;
+	#define NCPP_GCCVER __VERSION__ //cons << "Clang " << __clang_major__ << "." << __clang_minor__ << "." <<  __clang_patchlevel__ << "\n";
 #elif defined(__GNUC__)
-	print("GCC "); print(__VERSION__); print("\n"); //std::cout << "GCC " << __GNUC__ << "." << __GNUC_MINOR__ << "." <<  __GNUC_PATCHLEVEL__ << std::endl;
+	#define NCPP_GCCVER "GCC " __VERSION__ //cons << "GCC " << __GNUC__ << "." << __GNUC_MINOR__ << "." <<  __GNUC_PATCHLEVEL__ << "\n";
 #elif defined(_MSC_VER)
-	print("MSVC? WTF?\n");
+	#define NCPP_GCCVER "MSVC? WTF?"
 #else
-	print("(Unknown)\n");
+	#define NCPP_GCCVER "(Unknown)"
 #endif
-} 
 
-void arch_current(){ print(" | [Arch]");
+//arch_current
 #ifdef __x86_64__
-	print("[x86_64]");
+	#define NCPP_ARCHSTR "[x86_64]"
 #elif defined(__i686__) //x86 32 bit
-	print("[i686]");
+	#define NCPP_ARCHSTR "[i686]"
 #elif defined(__i386__) //x86 32 bit
-	print("[i386]");
+	#define NCPP_ARCHSTR "[i386]"
 #elif defined(__aarch64__) || defined(__arm64__)
-	print("[ARM64]");
+	#define NCPP_ARCHSTR "[ARM64]"
 #elif defined(__arm__)
-	print("[ARM]");
-#elif defined(__riscv) || defined(__riscv_64) || __riscv_xlen == 64
-	print("[RISC-V]");
+	#define NCPP_ARCHSTR "[ARM]"
+#elif defined(__riscv) || __riscv_xlen == 64
+	#define NCPP_ARCHSTR "[RISC-V]"
 #else
-	print("[?]");
+	#define NCPP_ARCHSTR "[?]"
 #endif
 #if defined(__LP64__) || defined(_WIN64) || __SIZEOF_POINTER__==8
-	print(" 64 bit.");
 	#ifdef __LP64__
-	print(" (LP64)");
-	#endif
-	#ifdef _WIN64
-	print(" (WIN64)");
+		#define NCPP_ARCHSTR_EX NCPP_ARCHSTR " 64 bit (LP64)"
+	#elif _WIN64
+		#define NCPP_ARCHSTR_EX NCPP_ARCHSTR " 64 bit (WIN64)"
+	#else
+		#define NCPP_ARCHSTR_EX NCPP_ARCHSTR " 64 bit"
 	#endif
 #else
-    print(" 32 bit.");
+	#define NCPP_ARCHSTR_EX NCPP_ARCHSTR " 32 bit"
 #endif
-	print("\n");
-}
 
-void ncpp_version(){ print("[NCPP_VER] "); print(NCPP_VER); 
+//ncpp_version
 #ifdef NCPP_LIB_USE
-	print(" (Compiled via LIB)");
+	#undef NCPP_LIB_USE
+	#define NCPP_LIB_USE " (Compiled via LIB)"
 #else
-	print(" (Directly compiled)");
+	#define NCPP_LIB_USE " (Directly compiled)"
 #endif
-	arch_current(); _ncpp_check_ver(); }
 
-void os_version(){ print("[OS] "); StringMap info = ::ncpp::system::os_info(); print(info["OS"]);
+void os_version(){ using namespace ncpp; print("[OS] "); StringMap info = ::ncpp::system::os_info(); print(info["OS"]);
 #ifdef _WIN32
 	print(" | NT: "); print(info["NT"]);
 #else
 	print(" | Kernel: "); print(info["Kernel"]);
 #endif
-	print("\n"); 
-	//print(info.cout()); print("\nCPU: "); print(system::CPU::info().cout()); print("\nRAM: "); print(system::RAM::strUsage()); print("\n");
+	print("\n"); //print(info.cout()); print("\nCPU: "); print(system::CPU::info().cout()); print("\nRAM: "); print(system::RAM::strUsage()); print("\n");
 }
 
-#endif
+#define NCPP_COMPILE_INFO "[" NCPP_CPPVER "] UTF-8 кирилица にも含み " "[Compiller] " NCPP_GCCVER "\n" \
+	"[NCPP_VER] " NCPP_VER NCPP_LIB_USE " | [Arch]" NCPP_ARCHSTR_EX "\n"
+
+#endif //NCPP_TESTS_H

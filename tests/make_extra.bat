@@ -6,8 +6,8 @@ set cppfile=%CD%\%fname%.cpp
 set exefile=%CD%\%fname%.exe
 set start_time=%TIME%
 
-set gcc_flags=-O2 -std=c++98
-set lnk_flags=-static -s -nostartfiles -nostdlib -fno-exceptions -Wl,--entry=_start -lkernel32
+set gcc_flags=-static -s -O2 -std=c++98
+set lnk_flags=-nostdlib -fno-exceptions -Wl,--entry=_start -lkernel32
 ::Only for 64 bit
 
 if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)

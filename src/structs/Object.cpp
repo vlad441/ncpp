@@ -1,19 +1,19 @@
 namespace ncpp{ struct ObjectValue; struct Object; typedef ObjectValue Variant; typedef Array<Variant> VArray;
-namespace JSON { Object parse(String jsonstr); }
+namespace JSON { Object parse(const String& jstr); }
 #define MAX_T_SIZE(T1, T2) (sizeof(T1) > sizeof(T2) ? sizeof(T1) : sizeof(T2))
 #define MAX_T_SIZE3(T1, T2, T3) (MAX_T_SIZE(T1, T2) > sizeof(T3) ? MAX_T_SIZE(T1, T2) : sizeof(T3))
 #define MAX_T_SIZE4(T1, T2, T3, T4) (MAX_T_SIZE3(T1, T2, T3) > sizeof(T4) ? MAX_T_SIZE3(T1, T2, T3) : sizeof(T4))
 
-	struct ObjectValue { enum Type { DOUBLE, INT8, INT16, INT32, INT64, BOOLEAN, STRING, BUFFER, OBJECT, ARRAY, PTR, NIL, UNDEFINED }; char _type;
-		union { double d; int i; long long ll; bool b; void* ptr; String* s; Buffer* bf; Object* o; VArray* arr; } value; //char mem[MAX_T_SIZE(String, Buffer)];
-		struct { String s; Buffer bf; } edata;
-		ObjectValue() : _type(NIL){ value.o=NULL; } ~ObjectValue(){ clear(); }
-		ObjectValue(double d) : _type(NIL){ set(d); }
+	struct ObjectValue { enum Type { UNDEFINED, NIL, DOUBLE, INT64, INT32, INT16, INT8, BOOLEAN, STRING, BUFFER, OBJECT, ARRAY, PTR, }; char _type;
+		union { double d; long long ll; int i; bool b; void* ptr; String* s; Buffer* bf; Object* o; VArray* arr; } _data; //char mem[MAX_T_SIZE(String, Buffer)];
+		//struct { String s; Buffer bf; } edata;
+		ObjectValue() : _type(NIL){ _data.o=NULL; } ~ObjectValue(){ clear(); }
 		ObjectValue(const ObjectValue& val) : _type(NIL){ _copy(val); }
 		ObjectValue& operator=(const ObjectValue& val){ _copy(val); return *this; }
+		ObjectValue(double d) : _type(NIL){ set(d); }
 		#if __cplusplus >= 201103L
-		explicit ObjectValue(long long v) : _type(NIL){ set(v); }
-		explicit ObjectValue(unsigned long long v) : _type(NIL){ set(v); }
+		explicit ObjectValue(long long ll) : _type(NIL){ set(ll); }
+		explicit ObjectValue(unsigned long long ll) : _type(NIL){ set(ll); }
 		explicit ObjectValue(int i) : _type(NIL){ set(i); }
 		explicit ObjectValue(unsigned int i) : _type(NIL){ set(i); }
 		explicit ObjectValue(bool b) : _type(NIL){ set(b); }
@@ -28,60 +28,65 @@ namespace JSON { Object parse(String jsonstr); }
 		ObjectValue(const Array<T>& arr) : _type(NIL){ set(arr); }
 		void clear();
 		
-		ObjectValue& set(double d){ clear(); _type = DOUBLE; value.d = d; return *this; } 
-		ObjectValue& set(int i){ clear(); _type = INT32; value.i = i; return *this; }
-		ObjectValue& set(unsigned int i){ return set((int)i); }
-		ObjectValue& set(long long ll){ clear(); _type = INT64; value.ll = ll; return *this; }
+		ObjectValue& set(double d){ clear(); _type = DOUBLE; _data.d = d; return *this; } 
+		ObjectValue& set(long long ll){ clear(); _type = INT64; _data.ll = ll; return *this; }
 		ObjectValue& set(unsigned long long ll){ return set((long long)ll); }
-		ObjectValue& set(bool b){ clear(); _type = BOOLEAN; value.b = b; return *this; }
-		ObjectValue& set(const String& s){ clear(); _type = STRING; edata.s = s; return *this; }
-		ObjectValue& set(const Buffer& bf){ clear(); _type = BUFFER; edata.bf = bf; return *this; }
-		ObjectValue& set(const char* c){ clear(); _type = STRING; edata.s = String(c); return *this; }
+		ObjectValue& set(int i){ clear(); _type = INT32; _data.i = i; return *this; }
+		ObjectValue& set(unsigned int i){ return set((int)i); }
+		ObjectValue& set(bool b){ return setBool(b); }
+		ObjectValue& set(const CString& cs){ if(!isString()) _initStr(); _type = STRING; *_data.s = cs; return *this; }
+		ObjectValue& set(const String& s){ if(!isString()) _initStr(); _type = STRING; *_data.s = s; return *this; }
+		ObjectValue& set(const Buffer& bf){ if(!isBuff()) _initBuff(); _type = BUFFER; *_data.bf = bf; return *this; }
+		ObjectValue& set(const char* c){ set(CString(c)); return *this; }
 		ObjectValue& set(const Object& o);
 		ObjectValue& set(const StringMap& map);
 		ObjectValue& set(const DoubleMap& map);
 		template<typename T>
 		ObjectValue& set(const Array<T>& arr);
+		ObjectValue& setBool(bool b){ clear(); _type = BOOLEAN; _data.b = b; return *this; }
 		ObjectValue& setNull(){ clear(); _type = NIL; return *this; }
 		ObjectValue& setUndefined(){ clear(); _type = UNDEFINED; return *this; }
 
-		bool isInt8() const { return _type == INT8; } bool isInt16() const { return _type == INT16; }
-		bool isInt32() const { return _type == INT32; } bool isInt64() const { return _type == INT64; }
-		bool isDouble() const { return _type == DOUBLE; }
+		bool isInt8() const { return _type==INT8; } bool isInt16() const { return _type==INT16; }
+		bool isInt32() const { return _type==INT32; } bool isInt64() const { return _type==INT64; }
+		bool isDouble() const { return _type==DOUBLE; }
 		bool isInteger() const { return _type==INT64||_type==INT32||_type==INT16||_type==INT8; }
 		bool isNumber() const { return _type==DOUBLE||_type==INT64||_type==INT32||_type==INT16||_type==INT8; }
-		bool isBool() const { return _type == BOOLEAN; }
-		bool isString() const { return _type == STRING; }
-		bool isBuff() const { return _type == BUFFER; }
-		bool isObj() const { return _type == OBJECT; }
-		bool isArray() const { return _type == ARRAY; }
-		bool isNull() const { return _type == NIL; }
-		bool isUndefined() const { return _type == UNDEFINED; }
+		bool isBool() const { return _type==BOOLEAN; }
+		bool isString() const { return _type==STRING; }
+		bool isBuff() const { return _type==BUFFER; }
+		bool isObj() const { return _type==OBJECT; }
+		bool isArray() const { return _type==ARRAY; }
+		bool isNull() const { return _type==NIL; }
+		bool isUndefined() const { return _type==UNDEFINED; }
 
-		double& asDouble(){ if(_type!=DOUBLE){ print("(!) asDouble(): is not a Double type"); exit(1); } return value.d; }
-		bool& asBool(){ if(!isBool()){ print("(!) asBool(): is not a Bool type"); exit(1); } return value.b; }
-		String& asString(){ if(!isString()){ print("(!) asString(): is not a String type"); exit(1); } return edata.s; }
-		Buffer& asBuff(){ if(!isBuff()){ print("(!) asBuff(): is not a Buffer type"); exit(1); } return edata.bf; }
-		Object& asObj(){ if(!isObj()){ print("(!) asObj(): is not a Object type"); exit(1); } return *value.o; }
+		double& asDouble(){ if(!isDouble()){ Except("(!) asDouble(): is not a Double type"); } return _data.d; }
+		bool& asBool(){ if(!isBool()){ Except("(!) asBool(): is not a Bool type"); } return _data.b; }
+		//long long& asInteger() const;
+		String& asString(){ if(!isString()){ Except("(!) asString(): is not a String type"); } return *_data.s; }
+		Buffer& asBuff(){ if(!isBuff()){ Except("(!) asBuff(): is not a Buffer type"); } return *_data.bf; }
+		Object& asObj(){ if(!isObj()){ Except("(!) asObj(): is not a Object type"); } return *_data.o; }
+		//VArray& asArray(){ if(!isArray()){ Except("(!) asArray(): is not a Array type"); } return *_data.arr; }
 		
-		const double& asDouble() const { if(_type!=DOUBLE){ print("(!) asDouble(): is not a Double type"); exit(1); } return value.d; }
-		const bool& asBool() const { if(!isBool()){ print("(!) asBool(): is not a Bool type"); exit(1); } return value.b; }
-		const String& asString() const { if(!isString()){ print("(!) asString(): is not a String type"); exit(1); } return edata.s; }
-		const Buffer& asBuff() const { if(!isBuff()){ print("(!) asBuff(): is not a Buffer type"); exit(1); } return edata.bf; }
-		const Object& asObj() const { if(!isObj()){ print("(!) asObj(): is not a Object type"); exit(1); } return *value.o; }
-		//const VArray& asArray() const { if(!isArray()){ print("(!) asArray(): is not a Array type"); exit(1); } return *value.o; }
+		const double& asDouble() const { if(!isDouble()){ Except("(!) asDouble(): is not a Double type"); } return _data.d; }
+		const bool& asBool() const { if(!isBool()){ Except("(!) asBool(): is not a Bool type"); } return _data.b; }
+		const String& asString() const { if(!isString()){ Except("(!) asString(): is not a String type"); } return *_data.s; }
+		const Buffer& asBuff() const { if(!isBuff()){ Except("(!) asBuff(): is not a Buffer type"); } return *_data.bf; }
+		const Object& asObj() const { if(!isObj()){ Except("(!) asObj(): is not a Object type"); } return *_data.o; }
+		//const VArray& asArray() const { if(!isArray()){ Except("(!) asArray(): is not a Array type"); } return *_data.arr; }
 		
 		static bool compare(const ObjectValue& val1, const ObjectValue& val2, bool strong=false);
 		
 		ObjectValue& operator=(double d){ set(d); return *this; }
+		ObjectValue& operator=(long long ll){ set(ll); return *this; }
+		ObjectValue& operator=(unsigned long long ll){ set((long long)ll); return *this; }
 		ObjectValue& operator=(int i){ set(i); return *this; }
 		ObjectValue& operator=(unsigned int i){ set((int)i); return *this; }
-		ObjectValue& operator=(long long ll){ set(ll); return *this; }
-		ObjectValue& operator=(unsigned long long ll){ set(ll); return *this; }
 		ObjectValue& operator=(bool b){ set(b); return *this; }
+		ObjectValue& operator=(const CString& cs){ set(cs); return *this; }
 		ObjectValue& operator=(const String& s){ set(s); return *this; }
-		ObjectValue& operator=(const char* c){ set(c); return *this; }
 		ObjectValue& operator=(const Buffer& bf){ set(bf); return *this; }
+		ObjectValue& operator=(const char* c){ set(c); return *this; }
 		ObjectValue& operator=(const Object& o){ set(o); return *this; }
 		ObjectValue& operator=(const StringMap& map){ set(map); return *this; }
 		ObjectValue& operator=(const DoubleMap& map){ set(map); return *this; }
@@ -91,28 +96,35 @@ namespace JSON { Object parse(String jsonstr); }
 		ObjectValue& operator[](const char* key);
 		const ObjectValue& operator[](const String& key) const;
 		const ObjectValue& operator[](const char* key) const;
-		//ObjectValue& operator[](size_t indx){ if(!isArray()){ print("(!) ObjectValue& operator[](size_t indx): is not a Array type"); exit(1); } return (*value.o)[dtos(indx)]; }
+		//ObjectValue& operator[](size_t indx){ if(!isArray()){ Except("(!) ObjectValue& operator[](size_t indx): is not a Array type"); } return (*_data.o)[dtos(indx)]; }
 		
-		bool operator==(const CString& s) const { return isString()&&s==edata.s; }
-		bool operator==(const char* c) const { return isString()&&String(c)==edata.s; }
-		bool operator==(bool b) const { return isBool()&&b==value.b; }
-		bool operator==(const Buffer& bf) const { return isBuff()&&bf==edata.bf; }
-		bool operator!=(const CString& s) const { return isString()&&s!=edata.s; }
-		bool operator!=(const char* c) const { return isString()&&String(c)!=edata.s; }
-		bool operator!=(const Buffer& bf) const { return isBuff()&&bf!=edata.bf; }
-		bool operator!=(bool b) const { return isBool()&&b!=value.b; }
+		bool operator==(double d) const { return isDouble()&&d==_data.d; }
+		bool operator==(long long ll) const { return (isInt64()&&ll==_data.ll)||(isInteger()&&ll==_data.i); }
+		bool operator==(unsigned long long ll) const { return operator==((long long)ll); }
+		bool operator==(int i) const { return operator==((long long)i); }
+		bool operator==(unsigned int i) const { return operator==((long long)i); }
+		bool operator==(bool b) const { return isBool()&&b==_data.b; }
+		bool operator==(const CString& s) const { return isString()&&s==*_data.s; }
+		bool operator==(const String& s) const { return isString()&&s==*_data.s; }
+		bool operator==(const Buffer& bf) const { return isBuff()&&bf==*_data.bf; }
+		bool operator==(const char* c) const { return operator==(String(c)); }
 		
-		ObjectValue& operator+=(double numb){ if(isDouble()){ value.d+=numb; }else if(isInt32()){ value.i+=numb; }
-			else if(isInt64()){ value.ll+=numb; }else{ set(this->toNumber()+numb); }  return *this; }
-		ObjectValue& operator+=(const String& str){ if(isString()){ edata.s+=str; }
-			else if(isBuff()){ edata.bf+=str; }else{ set(this->toString()+str); }  return *this; }
+		bool operator!=(const CString& s) const { return isString()&&s!=*_data.s; }
+		bool operator!=(const String& s) const { return isString()&&s!=*_data.s; }
+		bool operator!=(const char* c) const { return operator!=(CString(c)); }
+		bool operator!=(const Buffer& bf) const { return isBuff()&&bf!=*_data.bf; }
+		
+		ObjectValue& operator+=(double numb){ if(isDouble()){ _data.d+=numb; }else if(isInt32()){ _data.i+=numb; }
+			else if(isInt64()){ _data.ll+=numb; }else{ set(this->toNumber()+numb); }  return *this; }
+		ObjectValue& operator+=(const String& str){ if(isString()){ *_data.s+=str; }
+			else if(isBuff()){ *_data.bf+=str; }else{ set(this->toString()+str); }  return *this; }
 		ObjectValue operator+(double numb) const { ObjectValue r = *this; r += numb; return r; }
 		ObjectValue operator+(const String& str) const { ObjectValue r = *this; r += str; return r; }
 		ObjectValue& operator++(){ *this+=1; return *this; } // prefix: ++a
 		ObjectValue operator++(int){ ObjectValue tmp(*this); *this+=1; return tmp; } // postfix: a++
 		
-		ObjectValue& operator-=(double numb){ if(isDouble()){ value.d-=numb; }else if(isInt32()){ value.i-=numb; }
-			else if(isInt64()){ value.ll-=numb; }else{ set(this->toNumber()-numb); } return *this; }
+		ObjectValue& operator-=(double numb){ if(isDouble()){ _data.d-=numb; }else if(isInt32()){ _data.i-=numb; }
+			else if(isInt64()){ _data.ll-=numb; }else{ set(this->toNumber()-numb); } return *this; }
 		ObjectValue operator-(double numb) const { ObjectValue r = *this; r -= numb; return r; }
 		ObjectValue& operator--(){ *this-=1; return *this; }
 		ObjectValue operator--(int){ ObjectValue tmp(*this); *this-=1; return tmp; }
@@ -124,7 +136,7 @@ namespace JSON { Object parse(String jsonstr); }
 		explicit operator bool() const { return toBool(); }
 		#endif
 		operator String() const { return toString(); }
-		operator CString() const { return isString()?CString(edata.s.c_str(), edata.s.size()):CString(); }
+		operator CString() const { return isString()?CString(_data.s->c_str(), _data.s->size()):CString(); }
 		operator Buffer() const { return toBuff(); }
 		operator Object() const;
 		template<typename T>
@@ -135,36 +147,40 @@ namespace JSON { Object parse(String jsonstr); }
 			case BUFFER: return "buffer"; case ARRAY: return "array"; case OBJECT: return "object"; case NIL: return "null"; 
 			case UNDEFINED: return "undefined"; default: return "(unknown)"; } }
 		
-		String toString() const noexcept { switch((*this)._type){ case DOUBLE: return dtos((*this).value.d);
-            case INT64: return dtos((*this).value.ll); case INT32: case INT16: case INT8: return dtos((*this).value.i);
-            case BOOLEAN: return ((*this).value.b?"true":"false"); case STRING: return (*this).edata.s;
-            case BUFFER: return (*this).edata.bf.cout(); case ARRAY: return "[...]"; case OBJECT: return "{...}";
+		String toString() const noexcept { switch((*this)._type){ case STRING: return (*this->_data.s); case DOUBLE: return dtos((*this)._data.d);
+            case INT64: return dtos((*this)._data.ll); case INT32: case INT16: case INT8: return dtos((*this)._data.i);
+            case BOOLEAN: return (*this)._data.b?"true":"false"; case BUFFER: return (*this->_data.bf).cout(); 
+			case ARRAY: return "[...]"; case OBJECT: return "{...}";
             case NIL: return "<null>"; case UNDEFINED: return "<undefined>"; default: return "<?>"; } }
 			
-		double toNumber() const noexcept { switch((*this)._type){ case DOUBLE: return (*this).value.d;
-            case INT64: return (*this).value.ll; case INT32: case INT16: case INT8: return (*this).value.i;
-            case BOOLEAN: return (*this).value.b; case STRING: return stodn(asString());
+		double toNumber() const noexcept { switch((*this)._type){ case DOUBLE: return (*this)._data.d;
+            case INT64: return (*this)._data.ll; case INT32: case INT16: case INT8: return (*this)._data.i;
+            case BOOLEAN: return (*this)._data.b; case STRING: return stodn(asString());
             case BUFFER: return asBuff().toInt(); default: return 0; } }
-		long long toInteger() const noexcept { switch((*this)._type){ case DOUBLE: return (*this).value.d;
-            case INT64: return (*this).value.ll; case INT32: case INT16: case INT8: return (*this).value.i;
-            case BOOLEAN: return (*this).value.b; case STRING: return stolln(asString());
+		long long toInteger() const noexcept { switch((*this)._type){ case DOUBLE: return (*this)._data.d;
+            case INT64: return (*this)._data.ll; case INT32: case INT16: case INT8: return (*this)._data.i;
+            case BOOLEAN: return (*this)._data.b; case STRING: return stolln(asString());
             case BUFFER: return asBuff().toInt(); default: return 0; } }
-		long long toInt64() const noexcept { return _type==INT64?(*this).value.ll:toInteger(); }
-		int toInt32() const noexcept { return _type==INT32?(*this).value.i:toInteger(); }
-		int toInt16() const noexcept { return _type==INT16?(*this).value.i:toInteger(); }
-		char toInt8() const noexcept { return _type==INT8?(*this).value.i:toInteger(); }
+		long long toInt64() const noexcept { return _type==INT64?(*this)._data.ll:toInteger(); }
+		int toInt32() const noexcept { return _type==INT32?(*this)._data.i:toInteger(); }
+		int toInt16() const noexcept { return _type==INT16?(*this)._data.i:toInteger(); }
+		char toInt8() const noexcept { return _type==INT8?(*this)._data.i:toInteger(); }
             
-        Buffer toBuff() const noexcept { switch((*this)._type){ case BUFFER: return (*this).edata.bf;
-			case DOUBLE: { Buffer buff(8); buff.writeDoubleLE((*this).value.d); return buff; }
-			case INT32: { Buffer buff(4); buff.writeInt32LE((*this).value.i); return buff; }
-			case INT64: { Buffer buff(8); buff.writeInt64LE((*this).value.ll); return buff; }
-            case STRING: return Buffer::from((*this).edata.s); default: return Buffer(); } }
+        Buffer toBuff() const noexcept { switch((*this)._type){ case BUFFER: return (*this->_data.bf);
+			case DOUBLE: { Buffer buff(8); buff.writeDoubleLE((*this)._data.d); return buff; }
+			case INT32: { Buffer buff(4); buff.writeInt32LE((*this)._data.i); return buff; }
+			case INT64: { Buffer buff(8); buff.writeInt64LE((*this)._data.ll); return buff; }
+            case STRING: return Buffer::from((*this->_data.s)); default: return Buffer(); } }
 		
-		bool toBool() const noexcept { switch((*this)._type){ case DOUBLE: case INT32: case INT64: return toInteger()>0;
-            case BOOLEAN: return (*this).value.b; case STRING: return (*this).edata.s!=""&&(*this).edata.s!="0";
-            case BUFFER: return (*this).edata.bf.size()>0; case OBJECT: return true; default: return false; } }
+		bool toBool() const noexcept { switch((*this)._type){ case BOOLEAN: return (*this)._data.b;
+			case DOUBLE: case INT32: case INT64: return toInteger()>0; case STRING: return (*this->_data.s)!=""&&(*this->_data.s)!="0";
+            case BUFFER: return (*this->_data.bf).size()>0; case OBJECT: return true; default: return false; } }
 		private:
 			void _initObj();
+			void _initStr(){ clear(); _type = STRING; _data.s = new String(); }
+			void _initBuff(){ clear(); _type = BUFFER; _data.bf = new Buffer(); }
+			void _initArr(){ clear(); _type = ARRAY; _data.arr = new VArray(); }
+			
 			void _copy(const Variant& val2);
 	};
 	
@@ -207,30 +223,34 @@ namespace JSON { Object parse(String jsonstr); }
 	};
 	
 	void ObjectValue::_copy(const Variant& val2){ switch(val2._type){
-		case DOUBLE: value.d=val2.value.d; break;
-		case INT32: case INT16: case INT8: value.i=val2.value.i; break;
-		case INT64: value.ll=val2.value.ll; break; case BOOLEAN: value.b=val2.value.b; break;
-		case STRING: edata.s=val2.edata.s; break; case BUFFER: edata.bf=val2.edata.bf; break;
-		case OBJECT: case ARRAY: if(_type!=OBJECT) _initObj(); *value.o=*val2.value.o; break;
+		case DOUBLE: _data.d=val2._data.d; break; case INT64: _data.ll=val2._data.ll; break;
+		case INT32: case INT16: case INT8: _data.i=val2._data.i; break; case BOOLEAN: _data.b=val2._data.b; break;
+		case STRING: set(*val2._data.s); break; case BUFFER: set(*val2._data.bf); break;
+		case OBJECT: case ARRAY: set(*val2._data.o); break;
 		case NIL: setNull(); break; case UNDEFINED: default: setUndefined(); } _type=val2._type; }
 	
 	void ObjectValue::clear(){ switch(_type){
-			case OBJECT: delete value.o; value.o=NULL; break;
-			case STRING: edata.s=String(); break;
-			case BUFFER: edata.bf=Buffer(); break; default: value.ll=0;
+			case OBJECT: case ARRAY: delete _data.o; _data.o=NULL; break;
+			case STRING: delete _data.s; _data.s=NULL; break;
+			case BUFFER: delete _data.bf; _data.bf=NULL; break;
+			//case ARRAY: delete _data.arr; _data.arr=NULL; break;
+			
+			//case STRING: edata.s=String(); break;
+			//case BUFFER: edata.bf=Buffer(); break;
+			default: _data.ll=0;
 		} _type = NIL; }
 	//void ObjectValue::clear(){ _type = NIL; }
 	
-	void ObjectValue::_initObj(){ clear(); _type = OBJECT; value.o = new Object(); }
+	void ObjectValue::_initObj(){ clear(); _type = OBJECT; _data.o = new Object(); }
 	
 		
-	ObjectValue& ObjectValue::set(const Object& o){ _initObj(); *value.o=o; return *this; }
+	ObjectValue& ObjectValue::set(const Object& o){ _initObj(); *_data.o=o; return *this; }
 	ObjectValue& ObjectValue::set(const StringMap& map){ _initObj();
-		for(StringMap::const_iterator it = map.begin(); it != map.end(); ++it){ (*value.o)[it->first]=it->second; } return *this; }
+		for(StringMap::const_iterator it = map.begin(); it != map.end(); ++it){ (*_data.o)[it->first]=it->second; } return *this; }
 	ObjectValue& ObjectValue::set(const DoubleMap& map){ _initObj();
-		for(DoubleMap::const_iterator it = map.begin(); it != map.end(); ++it){ (*value.o)[it->first]=it->second; } return *this; }
+		for(DoubleMap::const_iterator it = map.begin(); it != map.end(); ++it){ (*_data.o)[it->first]=it->second; } return *this; }
 	template<typename T>
-	ObjectValue& ObjectValue::set(const Array<T>& arr){ _initObj(); for(size_t i=0;i<arr.size();i++){ (*value.o)[dtos(i)]=arr[i]; } return *this; }
+	ObjectValue& ObjectValue::set(const Array<T>& arr){ _initObj(); for(size_t i=0;i<arr.size();i++){ (*_data.o)[dtos(i)]=arr[i]; } return *this; }
 	
 	bool ObjectValue::compare(const ObjectValue& val1, const ObjectValue& val2, bool strong){
 			if(strong){ if(val1._type != val2._type) return false; }
@@ -247,20 +267,20 @@ namespace JSON { Object parse(String jsonstr); }
 			//else if(val1.isArray() && val2.isArray()){ return val1.asObj().toString() == val2.asObj().toString(); }
 			if(!strong){ return val1.toString() == val2.toString(); } return false; } 
 	
-	ObjectValue& ObjectValue::operator[](const String& key){ if(!isObj()) _initObj(); return (*value.o)[key]; }
-	ObjectValue& ObjectValue::operator[](const char* key){ if(!isObj()) _initObj(); return (*value.o)[String(key)]; }
-	const ObjectValue& ObjectValue::operator[](const String& key) const { return (*value.o)[key]; }
-	const ObjectValue& ObjectValue::operator[](const char* key) const { return (*value.o)[String(key)]; }
+	ObjectValue& ObjectValue::operator[](const String& key){ if(!isObj()) _initObj(); return (*_data.o)[key]; }
+	ObjectValue& ObjectValue::operator[](const char* key){ if(!isObj()) _initObj(); return (*_data.o)[String(key)]; }
+	const ObjectValue& ObjectValue::operator[](const String& key) const { return (*_data.o)[key]; }
+	const ObjectValue& ObjectValue::operator[](const char* key) const { return (*_data.o)[String(key)]; }
 	
-	ObjectValue::operator Object() const { return isObj()?(*value.o):Object(); }
+	ObjectValue::operator Object() const { return isObj()?(*_data.o):Object(); }
 	template<typename T>
-	ObjectValue::operator Array<T>() const { Array<T> arr; for(Object::const_iterator it = value.o->begin(); it != value.o->end(); ++it){ arr.push(it->second); } return arr; }
+	ObjectValue::operator Array<T>() const { Array<T> arr; for(Object::const_iterator it = _data.o->begin(); it != _data.o->end(); ++it){ arr.push(it->second); } return arr; }
 	
 	//for(Object::Iter it(filter); !it.end(); it.next()){	
 	//for(Object::Iter it(filter); it.iterate();){
             
     String Object::cout(int depth, int bias) const { String ss("{");
-		for(Object::const_iterator it = this->begin(); it != this->end(); ++it){ ss << "\n"+Buffer(bias, 0x20).toString()+"\"" << it->first << "\": ";
+		for(Object::const_iterator it = this->begin(); it != this->end(); ++it){ ss << "\n"+String(bias, 0x20)+"\"" << it->first << "\": ";
 			if(depth>1&&it->second.isObj()){ ss << it->second.asObj().cout(depth-1, bias+2); }
 			else{ ss << it->second.toString(); } ss << ", "; } ss << "}"; return ss; }
 	Console& operator<<(Console& os, const Object& obj){ os << obj.cout(); return os; }
@@ -289,10 +309,10 @@ namespace JSON{ //TODO: экранирование \\\" и прочего
 		for(size_t i = start; i < str.size(); ++i){ if(str[i] == '\\' && !inEscape){ inEscape = true; } 
 			else if(str[i] == ch && !inEscape){ return i; } else{ inEscape = false; } } return NPOS; }
 	
-	Object parse(String jsonstr){ ncpp::Object obj; jsonstr=jsonstr.trim();
-		if (jsonstr[0] != '{' || jsonstr[jsonstr.size()-1] != '}'){ print("(!) JSON::parse: Invalid JSON format"); return Object(); } jsonstr = jsonstr.slice(1, -1); size_t pos = 0;
+	Object parse(const String& jstr){ ncpp::Object obj; String jsonstr=jstr.trim();
+		if (jsonstr[0] != '{' || jsonstr[jsonstr.size()-1] != '}'){ Except("(!) JSON::parse: Invalid JSON format"); return Object(); } jsonstr = jsonstr.slice(1, -1); size_t pos = 0;
 		
-		while (pos < jsonstr.size()){
+		while (pos < jsonstr.size()){ bool isFloatNum=false;
 			size_t keyStart = jsonstr.indexOf('"', pos); if(keyStart == NPOS) break;
 			size_t keyEnd = jsonstr.indexOf('"', keyStart + 1); if(keyEnd == NPOS) break;
 			String key = jsonstr.slice(keyStart + 1, keyEnd);
@@ -302,7 +322,7 @@ namespace JSON{ //TODO: экранирование \\\" и прочего
 			while (valueStart < jsonstr.size() && (jsonstr[valueStart] == ' ' || jsonstr[valueStart] == '\n' || jsonstr[valueStart] == '\t')){ valueStart++; }
 			char FirstChar = jsonstr[valueStart]; size_t valueEnd = valueStart;
 
-			if(FirstChar == '"'){ valueEnd = findNextUnescaped(jsonstr, '"', valueStart+1); if (valueEnd != NPOS){ valueEnd++; }else{ print("(!) JSON::parse: String literal: Invalid format"); return Object(); } } // Строка
+			if(FirstChar == '"'){ valueEnd = findNextUnescaped(jsonstr, '"', valueStart+1); if (valueEnd != NPOS){ valueEnd++; }else{ Except("(!) JSON::parse: String literal: Invalid format"); return Object(); } } // Строка
 			else if(FirstChar == '{') { // Объект
 				int braceCount = 1; valueEnd = valueStart+1;
 				while (braceCount > 0 && valueEnd < jsonstr.size()){
@@ -310,7 +330,7 @@ namespace JSON{ //TODO: экранирование \\\" и прочего
 					if(jsonstr[valueEnd] == '}'){ braceCount--; } valueEnd++; } 
 			} else if (isdigit(FirstChar) || FirstChar == '-' || FirstChar == '+'){ // Число
 				while (valueEnd < jsonstr.size() && (isdigit(jsonstr[valueEnd]) || jsonstr[valueEnd] == '.' || jsonstr[valueEnd] == 'e' || jsonstr[valueEnd] == 'E' || jsonstr[valueEnd] == '-' || jsonstr[valueEnd] == '+')){
-					valueEnd++; }
+					if(jsonstr[valueEnd]=='.') isFloatNum=true; valueEnd++; }
 			} else { while(valueEnd < jsonstr.size() && jsonstr[valueEnd] != ',' && jsonstr[valueEnd] != '}'){ valueEnd++; } } // boolean, null or undefined
 
 			ncpp::String value = jsonstr.slice(valueStart, valueEnd);
@@ -319,7 +339,7 @@ namespace JSON{ //TODO: экранирование \\\" и прочего
 			else if(value == "true" || value == "false"){ obj[key] = (value == "true"); } 
 			else if(value == "null"){ obj[key]._type = ncpp::ObjectValue::NIL; } 
 			else if(value == "undefined"){ obj[key]._type = ncpp::ObjectValue::UNDEFINED; } 
-			else { obj[key] = stodn(value); } // Число
+			else { if(isFloatNum){ obj[key] = stodn(value); }else{ obj[key] = stolln(value); } } // Число
 
 			pos = valueEnd+1; if (pos < jsonstr.size() && jsonstr[pos] == ',') pos++;
 		} return obj; }
@@ -396,7 +416,7 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 		buff.reserve(buff.size()+9+len); writeLen(buff, len, otp, buff.size()); buff.push(ptr, len); }
 	
 	void write(Buffer& buff, unsigned long long ll){ writeLen(buff, ll, 0x00, buff.size()); }
-	void write(Buffer& buff, long long val){ if(val>=0){ write(buff, (unsigned long long)val); }else{ writeLen(buff, -val, 0x20, buff.size()); } }
+	void write(Buffer& buff, long long val){ if(val>=0){ write(buff, (unsigned long long)val); }else{ writeLen(buff, ~(unsigned long long)val, 0x20, buff.size()); } }
 	void write(Buffer& buff, int i){ write(buff, (long long)i); }
 	void write(Buffer& buff, double d){ size_t offset=buff.size(); buff.resize(offset+9); buff[offset++]=0xFB; buff.writeDoubleBE(d, offset); }
 	void write(Buffer& buff, const Buffer& bf){ buff.reserve(buff.size()+9+bf.size()); writeLen(buff, bf.size(), 0x40, buff.size()); buff+=bf; }
@@ -407,10 +427,10 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 	void write(Buffer& buff, const Object& obj){ buff+=serialize(obj); }
 	void write(Buffer& buff, const StringMap& map){ buff+=serialize(map); }
 	
-	void write(Buffer& buff, const Variant& val){ switch(val._type){ case Variant::DOUBLE: write(buff, val.value.d); break;
-		case Variant::INT32: case Variant::INT16: case Variant::INT8: write(buff, (long long)val.value.i); break;
-		case Variant::INT64: write(buff, (long long)val.value.ll); break; case Variant::BOOLEAN: write(buff, val.value.b); break;
-		case Variant::STRING: write(buff, val.edata.s); break; case Variant::BUFFER: write(buff, val.edata.bf); break;
+	void write(Buffer& buff, const Variant& val){ switch(val._type){ case Variant::DOUBLE: write(buff, val._data.d); break;
+		case Variant::INT32: case Variant::INT16: case Variant::INT8: write(buff, (long long)val._data.i); break;
+		case Variant::INT64: write(buff, (long long)val._data.ll); break; case Variant::BOOLEAN: write(buff, val._data.b); break;
+		case Variant::STRING: write(buff, *val._data.s); break; case Variant::BUFFER: write(buff, *val._data.bf); break;
 		case Variant::OBJECT: case Variant::ARRAY: write(buff, val.asObj()); break;
 		case Variant::NIL: buff.push(0xF6); break; case Variant::UNDEFINED: default:  buff.push(0xF7); } }
 	
@@ -422,7 +442,7 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 		for(StringMap::const_iterator it = map.begin(); it != map.end(); ++it){ const CString& key = it->first; 
 			write(buff, key); write(buff, map.at(key)); } return buff; }
 	
-	size_t parseLen(const Buffer& buff, size_t& offset){ unsigned char otp=buff[offset]%32;
+	size_t parseLen(const Buffer& buff, size_t& offset){ unsigned char otp=buff[offset] & 0x1F;
 		if(otp<=23){ offset++; return otp; } size_t rst=offset+1; // Simple, <=0x17
 		if(otp==0x18){ if(buff.size()<=offset+1){ offset++; return 0; } offset+=2; return buff[rst]; } //1 byte
 		else if(otp==0x19){ if(buff.size()<=offset+2){ offset++; return 0; } offset+=3; return buff.readUInt16BE(rst); } //2 byte
@@ -436,7 +456,7 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 		//std::cout << "CBOR::parseValue: type = " << std::hex << (int)type << std::dec << " (ptype: " << (int)ptype[0] << ", " << (int)ptype[1] << ")" << std::endl;
 		
 		if(type<=0x1F){ return Variant().set((unsigned long long)parseLen(cbor, offset)); } //Unsigned Integer
-		else if(type>=0x20&&type<=0x3F){ return Variant().set((long long)parseLen(cbor, offset)*-1); } //Negative Integer
+		else if(type>=0x20&&type<=0x3F){ return Variant().set(~(long long)parseLen(cbor, offset)); } //Negative Integer
 		else if(type>=0x40&&type<=0x5F){ len=parseLen(cbor, offset); size_t rst=offset; offset+=len; return cbor.slice(rst, rst+len); }  //Byte String
 		else if(type>=0x60&&type<=0x7F){ len=parseLen(cbor, offset); size_t rst=offset; offset+=len; return cbor.slice(rst, rst+len).toString(); } //Text String
 		else if(type>=0x80&&type<=0x9F){ return parse(cbor, offset); //Array
@@ -450,10 +470,11 @@ namespace CBOR{ Buffer serialize(const Object& obj); Buffer serialize(const Stri
 	Variant parseValue(const Buffer& cbor){ size_t offset=0; return parseValue(cbor, offset); }
 	
 	Object parse(const Buffer& cbor, size_t& offset){ Object obj; size_t indx=0, len=0; bool ismap=false; unsigned char type = cbor[offset];
+		bool isIndef = (type & 0x1F)==0x1F;
 		if(type>=0x80&&type<=0xBF){ len=parseLen(cbor,offset); } //Array or Map  
 		if(type>=0xA0&&type<=0xBF){ ismap=true; } //Map
 		
-		while((len<=0||indx<len)&&offset<cbor.size()&&cbor[offset]!=0xFF){ String key=ismap?"":dtos(indx);
+		while((isIndef?true:indx<len)&&offset<cbor.size()){ String key=ismap?"":dtos(indx);
 			if(ismap){ key=parseValue(cbor, offset).toString(); } obj[key]=parseValue(cbor,offset); indx++; } return obj; }
 	Object parse(const Buffer& cbor){ size_t offset=0; return parse(cbor, offset); }
 } }

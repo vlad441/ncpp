@@ -19,7 +19,7 @@ RGB HexColorToFloat(unsigned int hex){ RGB rgb; rgb.r = ((hex >> 16) & 0xFF) / 2
 #ifndef _WIN32
 //#include <sys/utsname.h> //for ::uname(&sysinfo);
 #endif
-int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); arch_current();
+int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); os_version();
 #ifdef _WIN32
 	//setlocale(0,""); SetConsoleCP(65001); SetConsoleOutputCP(65001);
 #endif

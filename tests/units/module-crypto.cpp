@@ -50,6 +50,10 @@ void testDH(){ double dh_time=GetTimestamp('u');
 }
 
 void Module_Crypto_test(){
+	// #if defined(__aarch64__) || defined(__arm64__) || defined(__riscv) //TODO: RSA -> BigInt: ARM64 and RISC-V problemo.
+	// NextTest("[ARM64 & RISC-V] crypto::RSA tests skiped."); errs++; //warns++;
+	// #else
 	rsa_test(); //rsa_test_simple();
 	testDH();
+	// #endif
 }

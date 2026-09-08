@@ -8,6 +8,8 @@
 #include "gcc3_winxpdef.hpp"
 #endif
 
+//int setenv(const char* name, const char* value, int overwrite){ if(!overwrite && std::getenv(name) != nullptr) return 0; return _putenv_s(name, value); }
+
 //namespace ncpp { typedef HMODULE LibHandle; } //Windows Dynamic Lib Loader 
 #define DLIB_EXT ".dll" 
 #define DLIB_LOAD(name) LoadLibraryA(name)
@@ -88,10 +90,15 @@ String readline(){ Buffer input; const char BLOCK_SIZE = 64; char buff[BLOCK_SIZ
 	
 #ifdef _WIN32
 	//void Sleep(unsigned int msec){ ::Sleep(msec); }
-	void usleep(unsigned int usec){ if(usec >= 1000){ Sleep(usec/1000); }
-		if((usec=usec%1000)>0){ LARGE_INTEGER freq, start, end; QueryPerformanceFrequency(&freq); 
-			QueryPerformanceCounter(&start); double target = (double)usec / 1000000.0; double elapsed = 0.0;
-			while (elapsed < target){ QueryPerformanceCounter(&end); elapsed = (double)(end.QuadPart - start.QuadPart) / freq.QuadPart; } } }
+	void usleep(unsigned int usec){
+		#if _WIN32_WINNT >= 0x0A00 //>= Win10
+			static __thread HANDLE hTimer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+		#else
+			static __thread HANDLE hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
+		#endif
+		if(!hTimer) return; LARGE_INTEGER liDueTime; liDueTime.QuadPart = -((LONGLONG)usec*10);
+		if(SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, FALSE)){ WaitForSingleObject(hTimer, INFINITE); } //CloseHandle(hTimer);
+	}
 #else
     void Sleep(unsigned int msec){ if(msec<1000){ ::usleep(msec*1000); }
 		else{ ::sleep(msec/1000); if((msec=msec%1000)>0) ::usleep(msec*1000); } }

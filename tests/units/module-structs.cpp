@@ -127,18 +127,41 @@ void __int128_test(){
 void __int128_test(){};
 #endif
 
-void cbor_test(){ Buffer cbor; Object obj; obj["test"]="txt"; obj["double"]=12.334; obj["int"]=13; obj["buff"]=Buffer(3,4); obj["obj"]=Object(); obj["obj"]["buff"]=Buffer(3,1);
-	obj["obj"]["deep"]=Object(); obj["obj"]["deep"]["state"]=true;
-	cons << "obj: " << obj.cout(4) << "\n";
-	cbor=CBOR::serialize(obj); cons << "cbor buff: " << cbor.cout(100) << "\n";
-	obj=CBOR::parse(cbor); cons << "cbor parsed: " << obj.cout(4) << "\n"; 
+void obj_test_fill(Object& obj){ obj["str"]="txt"; obj["double"]=12.334; obj["int"]=13; obj["int64"].set((long long)41); obj["buff"]=Buffer(3,4); 
+	obj["obj"]=Object(); obj["obj"]["buff"]=Buffer(3,1); obj["obj"]["deep"]=Object(); obj["obj"]["deep"]["state"]=true; }
+
+bool obj_test_eq(const Object& obj){
+	return obj["str"]=="txt"&&obj["double"]==12.334&&obj["int"]==13&&obj["int64"]==41&&obj["buff"]==Buffer(3,4)&&
+		obj["obj"]["buff"]==Buffer(3,1)&&obj["obj"]["deep"]["state"]==true; }
+		
+bool obj_test_json_eq(const Object& obj){
+	return obj["str"]=="txt"&&obj["double"]==12.334&&obj["int"]==13&&obj["int64"]==41&&obj["buff"]=="<Buffer 01 01 01>"&&
+		obj["obj"]["buff"]=="<Buffer 01 01 01>"&&obj["obj"]["deep"]["state"]==true; }
+		
+void json_test(){ String jstr; Object obj, obj_p; obj_test_fill(obj);
+	NextTest("JSON::stringify(const Object& obj)"); jstr=JSON::stringify(obj); cons << "== JSON obj: " << obj.cout(4) << "\n";
+	NextTest("JSON::parse(const CString& jstr)"); obj_p=JSON::parse(jstr); cons << "== JSON parsed: " << obj_p.cout(4) << "\n"; TEST_EQ(true, obj_test_json_eq(obj_p)); }
+		
+void bson_test(){ Buffer buff; Object obj, obj_p; obj_test_fill(obj); 
+	NextTest("BSON::serialize(const Object& obj, bool ex=false)"); buff=BSON::serialize(obj);
+	NextTest("BSON::parse(const Buffer& bson, bool ex=false, size_t offset=0)"); obj_p=BSON::parse(buff); TEST_EQ(true, obj_test_eq(obj_p)); }
+
+void cbor_test(){ Buffer cbor; Object obj, obj_p; //cbor=Buffer::from("0dff0904", "hex"); obj=CBOR::parse(cbor);
+	//cons << "== cbor buff 2: " << cbor << "\n"; cons << "== cbor parsed 2: " << obj << "\n";	
 	
-	cbor=Buffer::from("0dff0904", "hex"); obj=CBOR::parse(cbor);
-	cons << "== cbor buff 2: " << cbor << "\n"; 
-	cons << "== cbor parsed 2: " << obj << "\n";	
+	obj_test_fill(obj); NextTest("CBOR::serialize(const Object& obj)"); cons << "== CBOR obj: " << obj.cout(4) << "\n";
+	cbor=CBOR::serialize(obj); //cons << "== CBOR buff: " << cbor.cout(100) << "\n";
+	NextTest("CBOR::parse(const Buffer& cbor)"); 
+	obj_p=CBOR::parse(cbor); cons << "== CBOR parsed: " << obj_p.cout(4) << "\n";
+	TEST_EQ(true, obj_test_eq(obj_p));
 }
 
 void Module_Structs_test(){
-	bigint_test();
-	__int128_test();
+	// #if defined(__aarch64__) || defined(__arm64__) || defined(__riscv) //TODO: BigInt: ARM64 and RISC-V problemo.
+	// NextTest("[ARM64 & RISC-V] BigInt && int128 tests skiped."); errs++; //warns++;
+	// #else
+	bigint_test(); __int128_test();
+	// #endif
+	//json_test();
+	bson_test(); cbor_test();
 }

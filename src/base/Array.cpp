@@ -1,6 +1,6 @@
 namespace ncpp {
 struct String;
-template <typename T> //Array<T> ≈ std::vector<T>
+template <typename T, void* (*_allocFN)(size_t) = malloc, void (*_freeFN)(void*) = free> //Array<T> ≈ std::vector<T>
 struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	typedef T* Iter; typedef const T* CIter; typedef CIter ConstIter; 
 	typedef Iter iterator; typedef CIter const_iterator;
@@ -11,15 +11,15 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	template <size_t N>
 	Array(const T (&arr)[N]) : _ptr(NULL), _len(0), _msize(0), _mode(HEAP){ _copy(arr, N); } //T arr[];
 	#if __cplusplus >= 201103L
-	//Array(const initializer_list<T>& list) : _ptr(NULL), _len(0), _msize(0), _mode(HEAP){ _copy(list.begin(), list.size()); }
+	//Array(const ncpp::initializer_list<T>& list) : _ptr(NULL), _len(0), _msize(0), _mode(HEAP){ _copy(list.begin(), list.size()); }
 	#endif
-	~Array(){ clear(); if(_mode==HEAP&&_ptr!=NULL) free(_ptr); }
+	~Array(){ clear(); if(_mode==HEAP&&_ptr!=NULL) _freeFN(_ptr); }
 	
 	template <typename A, size_t N>
-	Array<T>& stack(A (&arr)[N], bool ronly=false){ clear(); if(_mode==HEAP&&_ptr!=NULL) free(_ptr);
+	Array<T>& stack(A (&arr)[N], bool ronly=false){ clear(); if(_mode==HEAP&&_ptr!=NULL) _freeFN(_ptr);
 		_ptr=(T*)arr; _len=N; _msize=N; _mode=ronly?STACK_ONLY:STACK; return *this; }
 	template <typename A>
-	Array<T>& stack(A* ptr, size_t len, bool ronly=false){ clear(); if(_mode==HEAP&&_ptr!=NULL) free(_ptr);
+	Array<T>& stack(A* ptr, size_t len, bool ronly=false){ clear(); if(_mode==HEAP&&_ptr!=NULL) _freeFN(_ptr);
 		_ptr=(T*)ptr; _len=len; _msize=len; _mode=ronly?STACK_ONLY:STACK; return *this; }
 	char mode() const { return _mode; }
 	// == STL similar api ===
@@ -31,7 +31,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	size_t size() const { return _len; }
 	size_t capacity() const { return _msize; }
 	
-	Array<T>& reserve(size_t len){ if(len<=_msize) return *this; if(_ptr==NULL||_mode!=HEAP){ _alloc(len); return *this; } 
+	Array<T>& reserve(size_t len){ if(len<=_msize) return *this; if(_ptr==NULL||_mode!=HEAP){ _alloc(len, true); return *this; }
 		_realloc((len<_msize*2)?_msize*2:len); return *this; }
 	Array<T>& resize(size_t len, const T& val=T()){ if(_len==len) return *this;
 		if(len>_len){ reserve(len); for(size_t i=_len;i<len;i++){ new (_ptr+i) T(val); } }
@@ -55,7 +55,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	void erase(size_t pos, size_t count=1){ if(this->empty()) return; _move_left(pos, count); }
 		
 	void push_back(const T& val){ push(val); }
-	void pop_back(){ resize(_len-1); }
+	void pop_back(){ if(_len>0) resize(_len-1); }
 	
 	void push_front(const T& v){ insert(begin(), v); }
 	void pop_front(){ erase(begin()); }
@@ -66,7 +66,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	const T& back() const { return *(_ptr+_len-1); }
 	
 	Array<T>& clear(){ for(size_t i=0;i<_len;i++){ _ptr[i].~T(); } _len=0; return *this; }
-	Array<T>& shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP) return *this; if(_len==0){ free(_ptr); _ptr=NULL; _msize=0; return *this; }
+	Array<T>& shrink(){ if(_len>=_msize||_ptr==NULL||_mode!=HEAP) return *this; if(_len==0){ _freeFN(_ptr); _ptr=NULL; _msize=0; return *this; }
 		_reallocT(_len); return *this; }
 	void shrink_to_fit(){ shrink(); }
 	// == ==
@@ -89,7 +89,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 	//Array<T>& push(T&& val);
 	#endif
 	//void push(const T& val){ reserve(_len+1); ++_len; if(is_pod<T>::V){ _ptr[_len-1]=val; }else{ new (&_ptr[_len-1]) T(val); } } //type traits example
-	T pop(){ T val(_ptr[_len-1]); resize(_len-1); return val; }
+	T pop(){ if(_len>0){ T val(_ptr[_len-1]); resize(_len-1); return val; } return T(); }
 	
 	Array<T>& concat(const Array<T>& arr2){ push(arr2.data(), arr2.size()); return *this; }
 	static Array<T> concat(const Array<T>& arr1, const Array<T>& arr2){ Array<T> ret = arr1; ret.concat(arr2); return ret; }
@@ -139,9 +139,10 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 		dst._mode = tmp._mode; tmp._mode = HEAP; }
 	
 	protected: T* _ptr; size_t _len, _msize; char _mode;
-		void _alloc(size_t len){ if(_mode==STACK_ONLY){ Except("ncpp::Array malloc error: mode=STACK_ONLY\n", 0); }
-			if(len<=0) return; _msize=len; _ptr=(T*)malloc(_msize*sizeof(T));
-			if(_ptr==NULL){ Except("ncpp::Array malloc error: Out of memory\n", 0, ERR_OOM); } }
+		void _alloc(size_t len, bool copy=false){ if(_mode==STACK_ONLY){ Except("ncpp::Array alloc error: mode=STACK_ONLY\n", 0); }
+			if(len<=0) return; T* ptr0=_ptr; _ptr=(T*)_allocFN(len*sizeof(T));
+			if(_ptr==NULL){ Except("ncpp::Array alloc error: Out of memory\n", 0, ERR_OOM); }
+			if(copy&&ptr0!=NULL){ _copy(ptr0, _msize); } _msize=len; _mode=HEAP; }
 		
 		void _copy(const T* begin, size_t len, size_t pos=0){ if(len<=0){ clear(); return; } if(begin == this->begin()||begin==NULL) return; reserve(len+pos);
 			if(pos==0){ clear(); }else{ for(size_t i=pos;i<min(_len, len+pos);i++){ _ptr[i].~T(); } } // clear space pos <-> pos+len;
@@ -156,20 +157,25 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 		void _realloc(size_t nsize){ _reallocT(nsize); }
 			
 		void _reallocT(size_t nsize){ //print("(#DEBUG) ncpp::Array _reallocT called: nsize="); _printNum(nsize); print("\n");
-			T* nptr = (T*)malloc(nsize*sizeof(T)); if(nptr == NULL){ Except("ncpp::Array _reallocT error: Out of memory\n", 0, ERR_OOM); }
+			T* nptr = (T*)_allocFN(nsize*sizeof(T)); if(nptr == NULL){ Except("ncpp::Array _reallocT error: Out of memory\n", 0, ERR_OOM); }
 			size_t copy_cnt = ncpp::min(_len, nsize); 
-			#if __cplusplus >= 201103L
+			#if __cplusplus >= 201103L //move
 			for(size_t i=0; i<copy_cnt; i++){ new (nptr+i) T((T&&)_ptr[i]); }
-			#else
+			#else //copy
 			for(size_t i=0; i<copy_cnt; i++){ new (nptr+i) T(_ptr[i]); }
 			#endif
 			for(size_t i=0; i<_len; ++i){ _ptr[i].~T(); }
-			if(_ptr != NULL){ free(_ptr); } _ptr = nptr; _msize = nsize; }
+			if(_ptr!=NULL){ _freeFN(_ptr); } _ptr = nptr; _msize = nsize; }
 			
-		void _reallocPOD(size_t nsize){ _msize=nsize; _ptr=(T*)realloc(_ptr, _msize*sizeof(T));
-			if(_ptr==NULL){ Except("ncpp::Array realloc error: Out of memory\n", 0, ERR_OOM); } }
+		// void _reallocPOD(size_t nsize){ _msize=nsize; _ptr=(T*)realloc(_ptr, _msize*sizeof(T));
+			// if(_ptr==NULL){ Except("ncpp::Array realloc error: Out of memory\n", 0, ERR_OOM); } }
 			
-		void _reinit(){ clear(); if(_mode==HEAP&&_ptr!=NULL){ free(_ptr); } }
+		// void _reallocPOD(size_t nsize){ //print("(#DEBUG) ncpp::Array _reallocT called: nsize="); _printNum(nsize); print("\n");
+			// T* nptr = (T*)_allocFN(nsize*sizeof(T)); if(nptr == NULL){ Except("ncpp::Array _reallocPOD error: Out of memory\n", 0, ERR_OOM); }
+			// size_t copy_cnt = ncpp::min(_len, nsize); memcpy(nptr, _ptr, copy_cnt);
+			// if(_ptr!=NULL){ _freeFN(_ptr); } _ptr = nptr; _msize = nsize; }
+			
+		void _reinit(){ clear(); if(_mode==HEAP&&_ptr!=NULL){ _freeFN(_ptr); } }
 };
 
 //template <typename T> void Array<T*>::resize(size_t len){ reserve(len); _len=len; }
@@ -183,7 +189,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 struct SArray { T _ptr[N]; size_t size() const { return N; } }; //ConstArray? FixedArray? */
 
 #ifdef NCPP_LIB_BUILD
-//template struct Array<int>; //Принудительно сгенерировать код Array<int>
+//template struct Array<int>; //Принудительно сгенерировать код для Array<int>
 //template struct Array<char>;
 #endif
 

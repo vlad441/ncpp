@@ -11,6 +11,7 @@ template <typename T> void swap(T& a, T& b){ T c=a; a=b; b=c; }
 //template <typename T> void move(T& a, T& b){ T::move(a, b); }
 //template <typename T> void sort(T* begin, T* end, char order=1);
 //template <typename T> void sort(T* begin, T* end, void(*)(T*, T*));
+//template <typename T> size_t _getSzByIter(const T* begin, const T* end){ return (end>begin)?(end-begin):0; }
 
 /*template<typename I>
 char _dtos(char str[27], I num, char sep) noexcept { //if(sizeof(I)>8) return 0; //max "18446744073709551615\0" - 21 ch; "18'446'744'073'709'551'615\0" - 27 ch

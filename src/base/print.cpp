@@ -16,7 +16,7 @@ __declspec(dllimport) int __stdcall WriteFile(void* hFile, const void* lpBuffer,
 #define STDOUT_FILENO 1 //#undef STDOUT_FILENO
 #define STDERR_FILENO 2 //#undef STDERR_FILENO
 #include <stddef.h> // for size_t
-unsigned long write(int fd, const void* buf, size_t count);
+long write(int fd, const void* buf, size_t count);
 #endif
 	void print(const char* cptr, size_t len){ ::write(STDOUT_FILENO, cptr, len); }
 	void _pErr(const char* cptr, size_t len){ ::write(STDERR_FILENO, cptr, len); } //Alt: printErr, cerr?

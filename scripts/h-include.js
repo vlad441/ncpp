@@ -14,7 +14,8 @@ function processFile(filePath, stdInclude=false, processedFiles = new Set(), bas
     // Добавляем часть файла до текущего #include
     result += content.substring(lastIndex, match.index);
 	
-    if(match.index>=2&&content[match.index-1]=='/'&&content[match.index-2]=='/'){ console.log([match[0]]);
+    if(match.index>=2&&content[match.index-2]=='/'&&(content[match.index-1]=='/'||(content[match.index-1]==' '&&content[match.index-3]=='/')))
+	{ 	console.log([match[0]]);
 		result += match[0]+"(Тут не включилось название иклуда)"; lastIndex = includePattern.lastIndex; console.log(`NOT included (commented): ${match[0]}`); continue; }
 
     // Рекурсивно обрабатываем включенный файл

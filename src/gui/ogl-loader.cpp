@@ -1,7 +1,8 @@
-#include <GL/gl.h>
+#include <GL/gl.h> //OpenGL v1.1
 #ifdef _WIN32
 //Универсальный указатель GLGetProcAddress -> GLGetProcAddress/glXGetProcAddress
 void* (APIENTRY *GLGetProcAddress)(const char* name) = (void* (APIENTRY *)(const char*))wglGetProcAddress;
+#elif USE_WAYLAND //libEGL.so.1
 #else
 #define Window XWindowID
 #include <GL/glx.h>
@@ -215,5 +216,6 @@ namespace ncpp { namespace GL {
         glBindBufferRange = (PFNGLBINDBUFFERRANGEPROC)GLGetProcAddress("glBindBufferRange"); if(!glBindBufferRange) return false;
         if(_OGLVer<31) _OGLVer=31; return true;
     }
-	void LoadOGL(){ LoadOGL_20(); LoadOGL_30(); LoadOGL_31(); }
+	bool LoadOGL(){ return LoadOGL_20()&&LoadOGL_30()&&LoadOGL_31(); }
+	bool initGL(){ return LoadOGL(); }
 } }

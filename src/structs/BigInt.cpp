@@ -3,8 +3,8 @@ namespace ncpp{
     typedef __int128 int128_t;
 	typedef unsigned __int128 uint128_t;
     //#define CARRY_MAX (CARRY_T)-1 // VS ~((CARRY_T)0)
-#else
-	#include "../experimental/__int128.cpp"
+//#elif defined(USE_EXPERIMENTAL)
+	//#include "../experimental/__int128.cpp"
 #endif
 	//TODO: умножение Карацубы, modular exponential Монтгомери
 	struct BigInt { //(https://gmplib.org/manual/Algorithms)

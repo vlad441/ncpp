@@ -38,6 +38,11 @@ template <typename T1, typename T2> void TEST_NE(const T1& v1, const T2& v2){ if
 template <typename T1, typename T2> void TEST_EQ_W(const T1& v1, const T2& v2){ if(v1!=v2) warns++; }
 template <typename T1, typename T2> void TEST_NE_W(const T1& v1, const T2& v2){ if(v1==v2) warns++; }
 
+// void ARCH_SKIP(){ errs++; } //warns++;
+// #if defined(__aarch64__) || defined(__arm64__) || defined(__riscv)
+// #define ARM64_OR_RISC_V
+// #endif
+
 #include "units/module-base.cpp" //Module_Base_test();
 void Sys_module_test();
 #include "units/module-structs.cpp" //Module_Structs_test();

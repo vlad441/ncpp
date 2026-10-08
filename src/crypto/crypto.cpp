@@ -27,18 +27,19 @@ namespace ncpp{ namespace crypto{
 BigInt BigInt::safeRandom(size_t bits){ return BigInt::fromBuffLE(crypto::randomBytes(bits/8)); }
 }
 
-#include "crypto/aes.cpp"
-#include "crypto/rsa.cpp"
-#include "crypto/dh.cpp"
+#include "aes.cpp"
+#include "rsa.cpp"
+#include "dh.cpp"
 
-#include "crypto/md5.cpp"
-#include "crypto/sha1.cpp"
-#include "crypto/sha2.cpp"
-#include "crypto/sha3.cpp"
+#include "md5.cpp"
+#include "sha1.cpp"
+#include "sha2.cpp"
+#include "sha3.cpp"
 
 //TLS Cipher Suites: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
 //ECDHE Curves: secp256r1 (prime256v1), X25519
 //DSA: ECDSA, RSA-PSS (for RSA certs)
+//Twofish? Serpent? Kuznechik?
 
 
 namespace ncpp{ namespace crypto{

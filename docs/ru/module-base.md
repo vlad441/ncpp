@@ -16,6 +16,7 @@
 - [ncpp::IsFloat()](#ncppisfloat)
 - [ncpp::IsHex()](#ncppishex)
 - [ncpp::dtos()](#ncppdtos)
+- [ncpp::dtosE()](#ncppdtose)
 - [ncpp::isNaN()](#ncppisnan)
 - [ncpp::stoin()](#ncppstoin)
 - [ncpp::stolln()](#ncppstolln)
@@ -25,8 +26,8 @@
 
 ## ncpp::print()
 ```cpp
-void print(const char *cptr, size_t len);
-void print(const char *cstr);
+void print(const char* cptr, size_t len);
+void print(const char* c);
 void print(const String& str);
 void print(long long v);
 ```
@@ -48,7 +49,7 @@ template <typename N> N min(N num1, N num2);
 ```cpp
 template <typename N> N max(N num1, N num2);
 ```
-Возвращает минимальное из двух значений.
+Возвращает максимальное из двух значений.
 
 ### ncpp::swap()
 ```cpp
@@ -94,12 +95,23 @@ char isNaN(double d);
 
 ### ncpp::dtos()
 ```cpp
-template<typename I> char dtos(char str[27], I num, char sep) noexcept;
+#define D_PRECISION 17 //double - ~15–17;
+#define F_PRECISION 9 //float - ~6-9;
+	
+template<typename I> char itos(char str[27], I num, char sep) noexcept;
 template<typename I> String dtos(I num, char sep=0);
-String dtos(double d, char precision=-1);
-String dtos(float num, char precision=-1);
+String dtos(double d, char precision=D_PRECISION) noexcept;
+String dtos(float num, char precision=F_PRECISION) noexcept;
 ```
-Преобразует число (целое или с плавающей запятой) в строку. Позволяет указывать разделитель разрядов (`sep`) для целых чисел или точность (`precision`) для дробных.
+Преобразует число (целое или с плавающей запятой) в строку. 
+Позволяет указывать разделитель разрядов (`sep`) для целых чисел или точность (`precision`) для дробных.
+
+### ncpp::dtosE()
+```cpp
+String dtosE(double d, char precision=D_PRECISION) noexcept;
+```
+Преобразует число с плавающей запятой в строку в виде **экспоненциальной** записи.
+Позволяет указывать точность (`precision`) знаков после запятой.
 
 ### ncpp::stoin()
 ```cpp

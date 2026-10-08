@@ -61,7 +61,7 @@ bool MP3Frame::decode(void* pcm, const void* fptr){ if(!parse(fptr)) return fals
 	int samples = mp3dec_decode_frame(&_dec, (const unsigned char*)fptr, getFrameSize(), (short*)pcm, &info); if(samples>0) return true; else return false; }
 #endif
 
-void MP3Decode(Buffer& pcm, const Buffer& mp3, MP3Frame& frame){ size_t pos=frame.skipID3v2(mp3.data()), decpos=0; 
+void MP3Decode(Buffer& pcm, const Buffer& mp3, MP3Frame& frame){ size_t pos=frame.skipID3v2(mp3.data()), decpos=0;
 	pcm.resize(frame.calcSize(mp3.data(), mp3.size()));
 	while(pos<mp3.size()){ if(!frame.parse(&mp3[pos])) break; frame.decode(&pcm[decpos], &mp3[pos]); decpos+=frame.getPCMSize(); pos+=frame.getFrameSize(); } }
 Buffer MP3Decode(const Buffer& mp3){ Buffer pcm; MP3Frame frame; MP3Decode(pcm, mp3, frame); return pcm; }

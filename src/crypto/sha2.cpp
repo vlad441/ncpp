@@ -6,15 +6,15 @@ struct SHA256 { static const uint32_t H0[8]; static const uint32_t K[64];
 	SHA256(const Buffer& buff) { reset(); update(buff); }
 	static Buffer hash(const Buffer& input){ return SHA256(input).digest(); }
 
-	void reset(){ length=0; bufferSize=0; memcpy(h, H0, 64); memset(buffer, 0, 64); }
+	void reset(){ length=0; bufferSize=0; memcpy(h, H0, sizeof(H0)); memset(_buff, 0, 64); }
 
 	SHA256& update(const Buffer& input){ length += input.size() * 8; size_t index = 0;
 		while (index < input.size()){
 			size_t toCopy = min(input.size() - index, static_cast<size_t>(64 - bufferSize));
-			memcpy(buffer + bufferSize, &input[index], toCopy); bufferSize += toCopy; index += toCopy;
-			if(bufferSize == 64){ processBlock(buffer); bufferSize = 0; } } return *this; }
+			memcpy(_buff + bufferSize, &input[index], toCopy); bufferSize += toCopy; index += toCopy;
+			if(bufferSize == 64){ processBlock(_buff); bufferSize = 0; } } return *this; }
 
-	Buffer digest(){ size_t padSize = 0; unsigned char block[64]; memcpy(block, buffer, bufferSize); 
+	Buffer digest(){ size_t padSize = 0; unsigned char block[64]; memcpy(block, _buff, bufferSize); 
 		block[bufferSize] = 0x80; padSize = 1; size_t totalLen = bufferSize + 1 + 8; // текущие данные + 0x80 + длина
 		size_t zeroPad = (totalLen % 64 == 0) ? 0 : 64 - (totalLen % 64);
 
@@ -33,7 +33,7 @@ struct SHA256 { static const uint32_t H0[8]; static const uint32_t K[64];
 			result[i * 4 + 2] = (h[i] >> 8)  & 0xFF;
 			result[i * 4 + 3] = h[i] & 0xFF; } return result; }
 
-private: uint32_t h[8]; uint64_t length; unsigned char buffer[64]; size_t bufferSize; // Регистры хеша, Длина сообщения в битах, Буфер для накопления данных
+private: uint32_t h[8]; uint64_t length; unsigned char _buff[64]; size_t bufferSize; // Регистры хеша, Длина сообщения в битах, Буфер для накопления данных
 	void processBlock(const unsigned char* block){ uint32_t w[64];
 		for(int i = 0; i < 16; ++i){
 			w[i] = (block[i * 4] << 24) | (block[i * 4 + 1] << 16) | (block[i * 4 + 2] << 8) | block[i * 4 + 3]; }

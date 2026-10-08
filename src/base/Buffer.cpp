@@ -3,7 +3,7 @@ template <typename T> struct is_pointer { static const bool V = false; }; //is_p
 template <typename T> struct is_pointer<T*> { static const bool V = true; };
 
 #define _MIN_ALLOC 16
-#define _BF_SSO_LEN 0 
+#define _BF_SSO_LEN 0
 struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned char>
 	typedef unsigned char* Iter; typedef const unsigned char* CIter; typedef CIter ConstIter;
 	typedef Iter iterator; typedef CIter const_iterator;
@@ -180,6 +180,8 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	//static void IntToBits(void* dst, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ ((unsigned char*)dst)[i] = (numb >> i) & 1; } } // LE Order
 	static void IntToBits(void* dst, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ ((unsigned char*)dst)[i] = (numb >> (bitlen-1-i)) & 1; } }
 	static Buffer IntToBits(int numb, int bitlen=sizeof(int)*8){ Buffer bits(bitlen); IntToBits(bits.data(), numb, bits.size()); return bits; }
+	
+	static void XOR(Buffer& buff1, const Buffer& buff2){ size_t minSz = min(buff1.size(), buff2.size()); for(size_t i=0; i<minSz; ++i) buff1[i] ^= buff2[i]; }
 		
 	static Buffer concat(const Array<Buffer>& buffs){ Buffer result; for(size_t i=0;i<buffs.size();i++){ result+=buffs[i]; } return result; }
 	static Buffer concat(const Buffer& buff1, const Buffer& buff2){ return buff1+buff2; }

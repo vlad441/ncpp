@@ -15,13 +15,17 @@ if "%~1"=="C++17" (set "STDCXX=c++17" & shift)
 if "%~1"=="C++23" (set "STDCXX=c++23" & shift)
 
 set ARCH_FLAG=-m32
-if "%~1"=="x64" (set "ARCH_FLAG=-m64" & shift)
-if "%~1"=="x32" (set "ARCH_FLAG=-m32" & shift)
+set WL_ENTRY_FNAME=__start
+if "%~1"=="x64" (set "ARCH_FLAG=-m64" & set "WL_ENTRY_FNAME=_start" & shift)
+if "%~1"=="x32" (set "ARCH_FLAG=-m32" & set "WL_ENTRY_FNAME=__start" & shift)
 
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
-set FNO_FLAGS=-fno-exceptions -fno-rtti -fwhole-program
-set OPT_FLAGS=-O2 -std=%STDCXX% %FNO_FLAGS%
-set D_LNK_FLAGS=-s %ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi
+set FNO_FLAGS=-fno-exceptions -fno-rtti
+set FNO_FLAGS_WH=%FNO_FLAGS% -fwhole-program
+set OPT_FLAGS=-O2 -std=%STDCXX% %FNO_FLAGS_WH%
+
+set DBG_LNK_FLAGS=%ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi
+set D_LNK_FLAGS=-s %DBG_LNK_FLAGS%
 set LNK_FLAGS=-static %D_LNK_FLAGS%
 
 set mode=
@@ -35,6 +39,7 @@ if "%~1"=="GUI" (set "mode=%~1")
 if "%~1"=="SGUI" (set "mode=GUI")
 if "%~1"=="GL" (set "mode=%~1")
 if "%~1"=="EXP" (set "mode=%~1")
+if "%~1"=="NOCRT" (set "mode=%~1")
 if "%1"=="DEF" (shift)
 if not "%mode%"=="" (shift)
 
@@ -47,12 +52,13 @@ if "%gccpath%"=="" (set "gccpath=g++") else (cd /d %gccpath%)
 
 if "%mode%"=="LIB" echo Make via ncpp.a... & g++ -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% -L"%currCD%\..\lib" -lncpp %LNK_FLAGS%
 if "%mode%"=="LIB_DLL" echo Make via ncpp.dll... & g++ -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile%  -L"%currCD%\..\lib" -lncpp %D_LNK_FLAGS%
-if "%mode%"=="FAST" echo Make with -O3 -march=native... & g++ %WARN_FLAGS% -O3 -std=$STDCXX %FNO_FLAGS% %cppfile% -o %exefile% -march=native -mtune=native -flto -funroll-loops -fipa-cp-clone -ffast-math -fomit-frame-pointer %LNK_FLAGS%
-if "%mode%"=="SAN" echo Make using sanitizers... & g++ %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS% %cppfile% -o %exefile% %D_LNK_FLAGS% -fsanitize=address,undefined
-if "%mode%"=="DBG" echo Make debug ver -g -Og... & g++ %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS% %cppfile% -o %exefile% %D_LNK_FLAGS%
+if "%mode%"=="FAST" echo Make with -O3 -march=native... & g++ %WARN_FLAGS% -O3 -std=$STDCXX %FNO_FLAGS_WH% %cppfile% -o %exefile% -march=native -mtune=native -flto -funroll-loops -fipa-cp-clone -ffast-math -fomit-frame-pointer %LNK_FLAGS%
+if "%mode%"=="DBG" echo Make debug -g -Og... & g++ %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% %DBG_LNK_FLAGS%
+if "%mode%"=="SAN" echo Make using sanitizers... & g++ %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% %D_LNK_FLAGS% -fsanitize=address,undefined
 if "%mode%"=="GUI" echo Make for GUI... & g++ -DUSE_GUI -DNOUSE_GL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lgdi32
 if "%mode%"=="GL" echo Make for GL... & g++ -DUSE_GUI %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 -lgdi32
 if "%mode%"=="EXP" echo Make for Experimental... & g++ -DUSE_GUI -DUSE_EXPERIMENTAL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 -lgdiplus -lgdi32 -lole32 -lwinmm
+if "%mode%"=="NOCRT" echo Make NOCRT... & g++ -DNCPP_NOCRT %WARN_FLAGS% -O2 -std=%STDCXX% %FNO_FLAGS% %cppfile% -o %exefile% %ARCH_FLAG% -Wl,--entry=%WL_ENTRY_FNAME% -s -static -nostdlib -lkernel32
 if "%mode%"=="" echo Make (default)... & g++ %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS%
 
 cd /d "%currCD%"

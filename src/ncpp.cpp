@@ -17,6 +17,7 @@
 #include "base/utils0.cpp" //Depends: None
 #include "base/Array.cpp" // Depends: utils0
 #include "base/String.cpp" // Depends: utils0, Array
+#include "base/readline.cpp" // Depends: String
 #include "base/dtos.cpp" //Depends: utils0, String
 #include "base/Buffer.cpp" //Depends: utils0, Array, String, dtos
 #include "base/HashMap.cpp" //Depends: utils0, Array
@@ -52,14 +53,14 @@
 //#include "experimental/bigint_old.cpp"
 
 #ifndef NOUSE_CRYPTO
-#include "ncpp-crypto.cpp"
+#include "crypto/crypto.cpp"
 #ifndef NOUSE_NET
 #include "net/websocket.cpp"
 #endif
 #endif
 
 #ifdef USE_EXPERIMENTAL
-#include "experimental/Allocators.cpp"
+//#include "experimental/allocators.cpp"
 #include "experimental/utf8.cpp"
 
 #ifndef NOUSE_MEDIA
@@ -74,7 +75,7 @@
 
 #endif //ends NCPP_SYS_ONLY
 
-#if defined(_WIN32) || defined(USE_GUI)
+#if defined(_WIN32) //|| defined(USE_GUI)
 #include "sys/mk-input.cpp"
 #endif
 

@@ -17,6 +17,7 @@
 #define DGET_ADDR(handle, name) GetProcAddress(handle, name)
 #else // == Linux Headers ==
 #include <dlfcn.h>
+#include <sys/mman.h> //mmap, mprotect.
 //namespace ncpp { typedef void* LibHandle; } //Linux Dynamic Lib Loader
 #define DLIB_EXT ".so"
 #define DLIB_LOAD(name) dlopen(name, RTLD_NOW) //RTLD_NOW, RTLD_LAZY
@@ -25,6 +26,51 @@
 #endif
 
 namespace ncpp {
+
+#ifdef __cplusplus
+void* sysMalloc(size_t size, bool exec=0);
+bool sysMprotect(void* ptr, size_t len=4096, bool read=1, bool write=1, bool exec=1);
+#else // for C
+void* sysMalloc(size_t size, bool exec);
+bool sysMprotect(void* ptr, size_t len, bool read, bool write, bool exec);
+#endif
+	
+#ifdef _WIN32
+    void* sysMalloc(size_t size, bool exec){ //static const PAGESZ = 4096; // SYSTEM_INFO si; GetSystemInfo(&si); //Запрос размера страницы памяти.
+		DWORD flProtect=exec?(PAGE_EXECUTE_READWRITE):PAGE_READWRITE; void* ptr = VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, flProtect);
+		#ifdef __cplusplus
+		if(ptr==NULL){ Except("SysMalloc: VirtualAlloc() failed with error: -"); return NULL; } 
+		#else
+		if(ptr==NULL){ return NULL; } 
+		#endif
+		return ptr; } //DWORD err = GetLastError(); //+dtos(err)
+    void sysFree(void* ptr){ if(!ptr) return; VirtualFree(ptr, 0, MEM_RELEASE); }
+	
+	bool sysMprotect(void* ptr, size_t len, bool read, bool write, bool exec){ DWORD prot = PAGE_NOACCESS;
+		if(write){ 
+			if(exec){ prot = (read) ? PAGE_EXECUTE_READWRITE : PAGE_EXECUTE_WRITECOPY; }
+			else{ prot = (read) ? PAGE_READWRITE : PAGE_WRITECOPY; }
+		}else if(exec){ prot = (read) ? PAGE_EXECUTE_READ : PAGE_EXECUTE; }else if(read){ prot = PAGE_READONLY; }
+		SYSTEM_INFO sysInfo; GetSystemInfo(&sysInfo); unsigned int pageSz = sysInfo.dwPageSize;
+		ptr = (void*)((uintptr_t)ptr & ~(pageSz - 1)); DWORD oldProt; if(!VirtualProtect(ptr, len, prot, &oldProt)) return false; return true; }
+#else	
+    void* sysMalloc(size_t size, bool exec){ //static const PGSIZE = 4096; //sysconf(_SC_PAGE_SIZE)
+        size_t sz = size+sizeof(size_t); int prot=PROT_READ | PROT_WRITE; if(exec) prot |= PROT_EXEC; //use size+sizeof(void*);?
+		void* ptr = mmap(NULL, sz, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		#ifdef __cplusplus
+		if(ptr == MAP_FAILED){ Except("SysMalloc: mmap() failed with error: -"); return NULL; } //+dtos(errno)
+		#else
+		if(ptr == MAP_FAILED){ return NULL; }
+		#endif
+        *(size_t*)ptr = sz; return (char*)ptr+sizeof(size_t); }
+    void sysFree(void* ptr){ if(!ptr) return; ptr = (char*)ptr-sizeof(size_t); munmap(ptr, *(size_t*)ptr); }
+	
+	bool sysMprotect(void* ptr, size_t len, bool read, bool write, bool exec){ int prot=0; 
+		if(read) prot |= PROT_READ; if(write) prot |= PROT_WRITE; if(exec) prot |= PROT_EXEC; if(prot==0){ prot = PROT_NONE; }
+		unsigned int pageSz = sysconf(_SC_PAGE_SIZE); ptr = (void*)((uintptr_t)ptr & ~(pageSz-1));
+		if(mprotect(ptr, len, prot)!=0) return false; return true; }
+#endif
+	
 #ifdef _WIN32
 	struct _WString : Array<wchar_t> {
 		_WString(const wchar_t* wptr, size_t len) : Array<wchar_t>(wptr, wptr+len){};
@@ -65,22 +111,12 @@ unsigned long long xorshift128plus(){ static unsigned long long s[2]; static uns
 	if(!init){ s[0] = GetTimestamp('m'); srand(s[0]); s[0]+=rand(); s[1] = s[0]+0x9e3779b97f4a7c15ULL; init=true; for(int i=0;i<5;i++){ xorshift128plus(); } }
 	s[0] = s[1]; s[0] ^= s[0] << 23; s[1] ^= s[0] ^ (s[0] >> 17) ^ (s[1] >> 26); return s[1] + s[0]; }
 double random(){ return (xorshift128plus() >> 11) * (1.0 / 9007199254740991.0); }
-int randInt(int min, int max){ return floor(random() * (max - min + 1)) + min; }
+int randInt(int min, int max){ return min + (int)(random() * (max-min+1)); } //floor -> truncation
+//int randInt2(int min, int max){ return min + xorshift128plus() % (max-min+1); } //Хуже качество распределения (modulo bias)
+String randStr(size_t length, const CString& letters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890"){
+	String res; for(size_t i=0; i<length; ++i){res+=letters[floor(random()*letters.size())]; } return res; }	
 Buffer Buffer::randBytes(int length){ Buffer buff(length); for(size_t i=0;i<buff.size();i++){ buff[i]=randInt(0,255); } return buff; }
-String randStr(size_t length, String letters="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890"){ 
-	String res; for(size_t i=0; i<length; ++i){res+=letters[floor(random()*letters.size())]; } return res; }
-	
-String readline(){ Buffer input; const char BLOCK_SIZE = 64; char buff[BLOCK_SIZE]; unsigned long bytesRead = 0;
-#ifdef _WIN32
-	while(true){ if(!ReadFile(GetStdHandle(STD_INPUT_HANDLE), buff, BLOCK_SIZE, &bytesRead, NULL)){ return ""; }
-		if(bytesRead <= 0){ break; } input.push(buff, bytesRead); if(input[input.size()-1] == '\n'){ input.resize(input.size()-2); break; }
-	} return input.toString();
-#else
-	while(true){ if((bytesRead = read(STDIN_FILENO, buff, BLOCK_SIZE)) <= 0){ return input.toString(); }
-		input.push(buff, bytesRead); if(input[input.size()-1] == '\n'){ input.resize(input.size()-1); break; } } return input.toString();
-#endif
-}
-	
+
 /*struct Err { int code; virtual ~Err() noexcept {}
 	Err() : code(0), _err("Unspecified error"){}
 	Err(CString msg, int ecode=0) : code(ecode), _err(msg){}

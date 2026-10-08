@@ -27,7 +27,7 @@ namespace ncpp { namespace GUI {
 #else
 		private: GLXContext glCTX; char bmode; public:
         
-        void createGLContext(bool useDoubleBuff=false){ GLint attr[] = { GLX_X_RENDERABLE, True, GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, GLX_RENDER_TYPE, GLX_RGBA_BIT, 
+        void createGLContext(bool useDoubleBuff=true, bool vsync=false){ GLint attr[] = { GLX_X_RENDERABLE, True, GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, GLX_RENDER_TYPE, GLX_RGBA_BIT, 
 				GLX_DOUBLEBUFFER, (useDoubleBuff)?True:False, GLX_DEPTH_SIZE, 24, GLX_STENCIL_SIZE, 8, None };
 			useDoubleBuff?bmode=2:bmode=1; int fbConfigCount; GLXFBConfig* fbConfigs = glXChooseFBConfig(app->display, DefaultScreen(app->display), attr, &fbConfigCount);
 			if(fbConfigs == NULL || fbConfigCount == 0){ print("(!) createGLContext: No appropriate GLXFBConfig found\n"); return; }
@@ -35,7 +35,9 @@ namespace ncpp { namespace GUI {
 			//if(setContext()){ print("(#) X11 createGLContext() successful.\n"); }
 			
 			int dflag; glXGetFBConfigAttrib(app->display, fbConfigs[0], GLX_DOUBLEBUFFER, &dflag);
-			if(dflag){ bmode=2; print("(#) Double buffering is enabled.\n"); }else{ bmode=1; print("(#) Double buffering is not enabled.\n"); } XFree(fbConfigs); }
+			if(dflag){ bmode=2; print("(#) Double buffering is enabled.\n"); }else{ bmode=1; print("[!] Double buffering is not enabled.\n"); } XFree(fbConfigs);
+			//if(!vsync){ glXSwapIntervalMESA(0); glXSwapIntervalEXT(0); print("(#) Vsync disabled.\n"); }
+		}
 			
 		void destroyGLContext(){ if(glCTX){ glXMakeCurrent(app->display, None, NULL); glXDestroyContext(app->display, glCTX); glCTX = NULL; } }
 		bool setContext(){ if(!glCTX){ print("(!) setContext(): glContext not created\n"); return false; }

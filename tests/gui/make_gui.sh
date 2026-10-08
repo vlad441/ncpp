@@ -37,6 +37,7 @@ case "$mode" in
 	"DBG") echo "Make GL debug ver -g -Og..."; $gccbin $WARN_FLAGS -g -Og -std=$STDCXX -fno-exceptions -fno-rtti "$cppfile" -o "$exefile" -lpthread ;;
 	"SGUI") echo "Make for SGUI..."; $gccbin -DUSE_GUI -DNOUSE_GL -DNOUSE_OBJECT -DNOUSE_CRYPTO -DNOUSE_NET $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_X11_FLAGS ;;
 	"GUI") echo "Make for GUI..."; $gccbin -DUSE_GUI -DNOUSE_GL -DNOUSE_OBJECT -DNOUSE_CRYPTO -DNOUSE_NET $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lXtst -lX11 -lpthread ;;
+	"GL") echo "Make for GL v0..."; $gccbin -DUSE_GUI -DNOUSE_OBJECT -DNOUSE_CRYPTO -DNOUSE_NET $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lGL -lX11 -lpthread ;;
 	*) echo "Make for GL..."; $gccbin -DUSE_GUI -DNOUSE_OBJECT -DNOUSE_CRYPTO -DNOUSE_NET $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_GCC_LIBS -lGL -lXtst -lX11 -lpthread ;;
 esac
 [ -z "$gccpath" ] && gccbin=g++ || cd "$currpath"

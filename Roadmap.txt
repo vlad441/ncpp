@@ -11,7 +11,7 @@
 --- acquire/release?
 -- FileStream
 - AsyncIO
--- EventLoop: hasEvent/nextEvent step-by-step model.
+-- EventLoop: hasEvent/nextEvent nonblock polling.
 -- StreamPool
 --- SocketPool
 ---- Возможноть массива servfd в одном цикле событий.
@@ -60,6 +60,8 @@
 -- CI/CD (+/-)
 - Упаковать либу в .deb пакет?
 - Производительность: Минимизация вызовов malloc/free, SSO, SlabAllocator?
+Use -fno-strict-aliasing?
+
 
 https://en.wikipedia.org/wiki/Windows_Native_API
 https://emn178.github.io/online-tools/

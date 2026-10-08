@@ -21,10 +21,10 @@
 	- [Buffer.startsWith()](#bufferstartswith)
 	- [Buffer.endsWith()](#bufferendswith)
 	- [Buffer.toBool()](#buffertobool)
-	- [Buffer.from()](#bufferfrom)
-    - [Buffer.fromHex()](#bufferfromhex)
-    - [Buffer.fromBase64()](#bufferfrombase64)
-    - [Buffer.fromInt()](#bufferfromint)
+	- [Buffer::from()](#bufferfrom)
+    - [Buffer::fromHex()](#bufferfromhex)
+    - [Buffer::fromBase64()](#bufferfrombase64)
+    - [Buffer::fromInt()](#bufferfromint)
     - [Buffer.assign()](#bufferassign)
 	- [Buffer.reserve()](#bufferreserve)
 	- [Buffer.resize()](#bufferresize)
@@ -80,6 +80,7 @@
     - [Buffer.writeDoubleLE()](#bufferwritedoublele)
     - [Buffer::BitsToInt()](#bufferbitsint)
     - [Buffer::IntToBits()](#bufferinttobits)
+	- [Buffer::XOR()](#bufferxor)
     - [Buffer.concat()](#bufferconcat)
     - [Buffer.randBytes()](#bufferrandbytes)
     - [Buffer::base64_encode()](#bufferbase64_encode)
@@ -268,7 +269,7 @@ bool toBool();
 ```
 Пытается интерпретировать содержимое буфера как логическое значение. Возвращает `true`, если буфер равнен `"true"`, `"1"` или `"True"`.
 
-### Buffer.from()
+### Buffer::from()
 ```cpp
 static Buffer from(const CString& cs);
 static Buffer from(const CString& str, const CString& type);
@@ -279,20 +280,20 @@ static Buffer from(const CString& str, const CString& type);
 `"base64"` — декодирование из Base64.
 `"int"` / `"number"` — создание буфера, представляющего число из десятичной строки.
 
-### Buffer.fromHex()
+### Buffer::fromHex()
 ```cpp
 static Buffer fromHex(const char* hex, size_t len);
 static Buffer fromHex(const CString& hex);
 ```
 Частный случай `from()`. Создает буфер, декодируя шестнадцатеричную строку.
 
-### Buffer.fromBase64()
+### Buffer::fromBase64()
 ```cpp
 static Buffer fromBase64(const CString& cs);
 ```
 Частный случай `from()`. Создает буфер, декодируя строку формата Base64.
 
-### Buffer.fromInt()
+### Buffer::fromInt()
 ```cpp
 static Buffer fromInt(unsigned long long numb);
 static Buffer fromInt(const CString& cs);
@@ -657,6 +658,12 @@ static void IntToBits(void* dst, int numb, int bitlen);
 static Buffer IntToBits(int numb, size_t bitlen=sizeof(int)*8);
 ```
 Преобразует целое число в массив бит (0 и 1).
+
+### Buffer::XOR()
+```cpp
+static void XOR(Buffer& buff1, const Buffer& buff2);
+```
+Выполняет операцию `XOR` над буфером `buff1`.
 
 ### Buffer.concat()
 ```cpp

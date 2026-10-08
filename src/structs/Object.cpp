@@ -7,7 +7,7 @@ namespace JSON { Object parse(const String& jstr); }
 	struct ObjectValue { enum Type { UNDEFINED, NIL, DOUBLE, INT64, INT32, INT16, INT8, BOOLEAN, STRING, BUFFER, OBJECT, ARRAY, PTR, }; char _type;
 		union { double d; long long ll; int i; bool b; void* ptr; String* s; Buffer* bf; Object* o; VArray* arr; } _data; //char mem[MAX_T_SIZE(String, Buffer)];
 		//struct { String s; Buffer bf; } edata;
-		ObjectValue() : _type(NIL){ _data.o=NULL; } ~ObjectValue(){ clear(); }
+		ObjectValue() : _type(NIL){ _data.ll=0; } ~ObjectValue(){ clear(); }
 		ObjectValue(const ObjectValue& val) : _type(NIL){ _copy(val); }
 		ObjectValue& operator=(const ObjectValue& val){ _copy(val); return *this; }
 		ObjectValue(double d) : _type(NIL){ set(d); }
@@ -222,7 +222,10 @@ namespace JSON { Object parse(const String& jstr); }
 				else{ dst[it->first] = it->second; } } };
 	};
 	
-	void ObjectValue::_copy(const Variant& val2){ switch(val2._type){
+	void ObjectValue::_copy(const Variant& val2){
+		if(_type == STRING && val2._type == STRING){ *_data.s = *val2._data.s; return; }
+		if(_type == BUFFER && val2._type == BUFFER){ *_data.bf = *val2._data.bf; return; }
+		clear(); switch(val2._type){
 		case DOUBLE: _data.d=val2._data.d; break; case INT64: _data.ll=val2._data.ll; break;
 		case INT32: case INT16: case INT8: _data.i=val2._data.i; break; case BOOLEAN: _data.b=val2._data.b; break;
 		case STRING: set(*val2._data.s); break; case BUFFER: set(*val2._data.bf); break;

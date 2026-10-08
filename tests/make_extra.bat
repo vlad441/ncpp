@@ -1,18 +1,27 @@
 @echo off
-set gccpath="D:\Progs\IDE\MinGW\gcc-4.9.2-tdm\bin"
-set currpath=%CD%
-if "%1"=="" (set fname=extra-small) else (set fname=%1)
+set currCD=%CD%
+set gccpath=
+
+set ARCH_FLAG=-m32
+if "%~1"=="x64" (set "ARCH_FLAG=-m64" & shift)
+if "%~1"=="x32" (set "ARCH_FLAG=-m32" & shift)
+
+set WARN_FLAGS=-Wall -Wno-misleading-indentation
+set FNO_FLAGS=-fno-exceptions -fno-rtti
+set OPT_FLAGS=-O2 -std=c++98 %FNO_FLAGS%
+set LNK_FLAGS=-s -static -nostdlib -lkernel32
+
+if "%~1"=="" (set fname=extra-small) else (set fname=%1)
 set cppfile=%CD%\%fname%.cpp
 set exefile=%CD%\%fname%.exe
 set start_time=%TIME%
 
-set gcc_flags=-static -s -O2 -std=c++98
-set lnk_flags=-nostdlib -fno-exceptions -Wl,--entry=_start -lkernel32
-::Only for 64 bit
+if "%gccpath%"=="" (set "gccpath=g++") else (cd /d %gccpath%)
 
-if "%gccpath%"=="" (set gccpath="g++") else (cd /d %gccpath%)
-g++ -Wall %cppfile% -o %exefile% %gcc_flags% %lnk_flags%
-cd /d "%currpath%"
+if "%ARCH_FLAG%"=="-m64" echo Make NOCRT x64... & g++ %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %ARCH_FLAG% -Wl,--entry=_start %LNK_FLAGS%
+if "%ARCH_FLAG%"=="-m32" echo Make NOCRT x32... & g++ %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %ARCH_FLAG% -Wl,--entry=__start %LNK_FLAGS%
+
+cd /d "%currCD%"
 
 :: === Time calc ===
 set end_time=%TIME%

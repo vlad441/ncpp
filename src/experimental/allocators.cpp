@@ -1,33 +1,8 @@
+#ifdef __cplusplus
 namespace ncpp{ //namespace allocators;
+#endif
 //#define HEADER_SZ ((sizeof(size_t)+sizeof(void*)-1) & ~(sizeof(void*)-1))
 //#define ALIGN_SZ sizeof(void*)
-	
-#ifdef _WIN32
-	bool sysMprotect(void* ptr, size_t len=4096, bool read=1, bool write=1, bool exec=1){ DWORD prot = PAGE_NOACCESS;
-		if(write){ 
-			if(exec){ prot = (read) ? PAGE_EXECUTE_READWRITE : PAGE_EXECUTE_WRITECOPY; }
-			else{ prot = (read) ? PAGE_READWRITE : PAGE_WRITECOPY; }
-		}else if(exec){ prot = (read) ? PAGE_EXECUTE_READ : PAGE_EXECUTE; }else if(read){ prot = PAGE_READONLY; }
-		SYSTEM_INFO sysInfo; GetSystemInfo(&sysInfo); unsigned int pageSz = sysInfo.dwPageSize;
-		ptr = (void*)((uintptr_t)ptr & ~(pageSz - 1)); DWORD oldProt; if(!VirtualProtect(ptr, len, prot, &oldProt)) return false; return true; }
-
-    void* sysMalloc(size_t size, bool read=1, bool write=1, bool exec=0){ //static const PAGESZ = 4096; // SYSTEM_INFO si; GetSystemInfo(&si); //Запрос размера страницы памяти.
-		DWORD flProtect=exec?(PAGE_EXECUTE_READWRITE):PAGE_READWRITE; void* ptr = VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, flProtect);
-		if(ptr==NULL){ Except("SysMalloc: VirtualAlloc() failed with error: -"); return NULL; } return ptr; } //DWORD err = GetLastError(); //+dtos(err)
-    void sysFree(void* ptr){ if(!ptr) return; VirtualFree(ptr, 0, MEM_RELEASE); }
-#else
-	bool sysMprotect(void* ptr, size_t len=4096, bool read=1, bool write=1, bool exec=1){ int prot=0; 
-		if(read) prot |= PROT_READ; if(write) prot |= PROT_WRITE; if(exec) prot |= PROT_EXEC; if(prot==0){ prot = PROT_NONE; }
-		unsigned int pageSz = sysconf(_SC_PAGE_SIZE); ptr = (void*)((uintptr_t)ptr & ~(pageSz-1));
-		if(mprotect(page_start, len, prot)!=0) return false; return true; }
-		
-    void* sysMalloc(size_t size, bool read=1, bool write=1, bool exec=0){ //static const PGSIZE = 4096; //sysconf(_SC_PAGE_SIZE)
-        size_t sz = size+sizeof(size_t); int prot=PROT_READ | PROT_WRITE; if(exec) prot |= PROT_EXEC; //use size+sizeof(void*);?
-		void* ptr = mmap(NULL, sz, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if(ptr == MAP_FAILED){ Except("SysMalloc: mmap() failed with error: -"); return NULL; } //+dtos(errno)
-        *(size_t*)ptr = sz; return (char*)ptr+sizeof(size_t); }
-    void sysFree(void* ptr){ if(!ptr) return; ptr = (char*)ptr-sizeof(size_t); munmap(ptr, *(size_t*)ptr); }
-#endif
 
 	struct Allocator { void* alloc(size_t size){ return ::malloc(size); } void dealloc(void* ptr){ ::free(ptr); } };
 	
@@ -55,7 +30,7 @@ namespace ncpp{ //namespace allocators;
 	struct SlabAlloc { struct Block { Block* next; T* data; unsigned int offset; }; //PoolAlloc/SlabAlloc
 		
 		SlabAlloc(size_t elems=10) : _sizeT(ncpp::max(sizeof(T), sizeof(void*))), blockSz(elems), first(NULL), end(NULL), freeListHead(NULL){}
-		SlabAlloc(size_t elems, unsigned int sizeT) : _sizeT(ncpp::max(sizeT, sizeof(void*))), blockSz(elems), first(NULL), end(NULL), freeListHead(NULL){}
+		SlabAlloc(size_t elems, unsigned int sizeT) : _sizeT(ncpp::max((size_t)sizeT, sizeof(void*))), blockSz(elems), first(NULL), end(NULL), freeListHead(NULL){}
 		~SlabAlloc(){ clear(); }
 		
 		//Intrusive Free List: sizeof(T) >= sizeof(void*)
@@ -125,12 +100,14 @@ namespace ncpp{ //namespace allocators;
 	
 	template<void* (*_allocFN)(size_t) = malloc, void (*_freeFN)(void*) = free>
 	struct BucketAlloc { //BinningAllocator/Segregated Free Lists
-		BucketAlloc(size_t bSz=16) : _p16(bSz, 16), _p32(bSz, 32), _p64(bSz, 64), _p128(bSz, 128), _p256(bSz, 256), _p512(bSz, 512){}
+		BucketAlloc(size_t bSz=16) : _p16(bSz, 16), _p32(bSz, 32), _p64(bSz, 64), _p128(bSz, 128), _p256(bSz, 256), 
+			_p512(bSz, 512), _p1024(bSz, 1024), _p2048(bSz, 2048){}
 
 		void* alloc(size_t size){ size_t sz = size+sizeof(size_t); void* ptr=NULL;
 			if(sz <= 16){ ptr = _p16.alloc(); } else if(sz <= 32){ ptr = _p32.alloc(); } 
 			else if(sz <= 64){ ptr = _p64.alloc(); } else if(sz <= 128){ ptr = _p128.alloc(); }
 			else if(sz <= 256){ ptr = _p256.alloc(); } else if(sz <= 512){ ptr = _p512.alloc(); }
+			else if(sz <= 1024){ ptr = _p1024.alloc(); } else if(sz <= 2048){ ptr = _p2048.alloc(); }
 			else{ ptr = _allocFN(sz); } 
 			*(size_t*)ptr = sz; return (char*)ptr+sizeof(size_t); }
 
@@ -138,9 +115,17 @@ namespace ncpp{ //namespace allocators;
 			if(sz <= 16){ _p16.dealloc(p); } else if(sz <= 32){ _p32.dealloc(p); } 
 			else if(sz <= 64){ _p64.dealloc(p); } else if(sz <= 128){ _p128.dealloc(p); }
 			else if(sz <= 256){ _p256.dealloc(p); } else if(sz <= 512){ _p512.dealloc(p); }
+			else if(sz <= 1024){ _p1024.dealloc(p); } else if(sz <= 2048){ _p2048.dealloc(p); }
 			else{ _freeFN(p); } }
-		private: SlabAlloc<char, _allocFN, _freeFN> _p16, _p32, _p64, _p128, _p256, _p512;
+		// #define _MOVE_T BucketAlloc
+		// #define _MOVE_T_NOCOPY
+		// #include "move_semantics.hpp"
+		// friend void move(BucketAlloc& dst, BucketAlloc& tmp);
+			
+		private: SlabAlloc<char, _allocFN, _freeFN> _p16, _p32, _p64, _p128, _p256, _p512, _p1024, _p2048;
 	};
 	
 	//template<typename T> struct SlotMap {} //Индексная карта?
+#ifdef __cplusplus
 }
+#endif

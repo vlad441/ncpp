@@ -157,11 +157,11 @@ void cbor_test(){ Buffer cbor; Object obj, obj_p; //cbor=Buffer::from("0dff0904"
 }
 
 void Module_Structs_test(){
-	// #if defined(__aarch64__) || defined(__arm64__) || defined(__riscv) //TODO: BigInt: ARM64 and RISC-V problemo.
-	// NextTest("[ARM64 & RISC-V] BigInt && int128 tests skiped."); errs++; //warns++;
-	// #else
+	#ifdef ARM64_OR_RISC_V //TODO: RSA -> BigInt: ARM64 and RISC-V problemo.
+	NextTest("[ARM64 & RISC-V] BigInt && int128 tests skiped."); ARCH_SKIP();
+	#else
 	bigint_test(); __int128_test();
-	// #endif
+	#endif
 	//json_test();
 	bson_test(); cbor_test();
 }

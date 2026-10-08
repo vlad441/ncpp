@@ -61,7 +61,7 @@ ncpp предлагает реализации из различных обла�
 Проект стремится к минимизации внешних зависимостей, однако для отдельных компонентов могут требоваться дополнительные пакеты:
 - **Windows**: - (Все необходимые компоненты уже вшиты в стандартную комплектацию системы)
 - **Linux**: Необходим `glibc`/`musl` (Обычно включены в минимальный состав любого дистрибутива)
-Для работы компонентов `GUI`, `GL`, `Experimental` могут требоваться следующие пакеты:
+Также, для работы компонентов `GUI`, `GL`, `Experimental` могут требоваться следующие пакеты:
 ```bash
 #GUI -> X11 packages: 
 apt install libx11-dev libxtst-dev -y --no-install-recommends
@@ -69,7 +69,10 @@ apt install libx11-dev libxtst-dev -y --no-install-recommends
 apt install libgl1-mesa-dev -y --no-install-recommends
 #Experimental -> Audio:
 apt install libasound2-dev -y --no-install-recommends
-#Experimental -> Images: Необходимо включение реализации stb_image (Не включен в код проекта)
+#Experimental -> Images: 
+#apt install libpng16-16 libjpeg62-turbo -y --no-install-recommends
+# ИЛИ: apt install libpng-dev libjpeg-dev -y --no-install-recommends
+# ИЛИ: Необходимо включение реализации stb_image (Не включен в код проекта)
 ```
 
 ### Прямое включение исходного кода

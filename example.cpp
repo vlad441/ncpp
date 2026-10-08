@@ -4,7 +4,7 @@ Console cons;
 
 #include "tests/tests-header.h"
 
-int main(int argc, char* argv[]){ cpp_version(); gcc_version(); ncpp_version(); //arch_current();
+int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); _ncpp_check_ver(); os_version();
 
 	cons << "1) "; cons.setColor(2) << "Hi, Julien Lete\n"; cons.reset();
 	print("2) Is a simple print()\n");

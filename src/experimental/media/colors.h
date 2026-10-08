@@ -1,3 +1,4 @@
+#pragma once
 #ifndef NCPP_H_HEX_COLORS_FUNCS
 #define NCPP_H_HEX_COLORS_FUNCS //Y = 0.2126R + 0.7152G + 0.0722B
 unsigned int HexReverse(unsigned int hex){ return ((hex & 0xFF000000) >> 24) | ((hex & 0x00FF0000) >> 8) | ((hex & 0x0000FF00) << 8)  | ((hex & 0x000000FF) << 24); }
@@ -29,4 +30,4 @@ void UCharToRGBAf(float rgba[4], unsigned char src[4]){
     rgba[0] = (float)src[0]/255.0f; rgba[1] = (float)src[1]/255.0f;
     rgba[2] = (float)src[2]/255.0f; rgba[3] = (float)src[3]/255.0f; }
 
-#endif
+#endif //NCPP_H_HEX_COLORS_FUNCS

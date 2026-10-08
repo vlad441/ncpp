@@ -1,5 +1,7 @@
 #include <ctype.h> // isdigit
+#ifdef __cplusplus
 namespace ncpp{
+#endif
 	bool IsInt(const char* cstr, size_t len){ size_t i=0; if(len>1&&(cstr[0]=='-'||cstr[0]=='+')) i=1;
 		for(; i < len; i++){ if(!isdigit(cstr[i])) return false; } return true; }
 	bool IsFloat(const char* cstr, size_t len){ size_t i=0; unsigned char st=0; if(len>1&&(cstr[0]=='-'||cstr[0]=='+')){ ++i; ++st; }
@@ -10,16 +12,24 @@ namespace ncpp{
 		} return true; } // leetcode passed :)
 	bool IsHex(const char* cstr, size_t len){ size_t i=0; if(len>1&&(cstr[0]=='-'||cstr[0]=='+')) i=1;
 		for(; i < len; i++){ if(!isxdigit(cstr[i])) return false; } return true; }
-	
-	template<typename T> struct num_limits { static const long long min = LLONG_MIN; }; template<> struct num_limits<int> { static const int min = INT_MIN; };
+	#ifdef __cplusplus
+	template<typename T> struct num_limits { static const long long min = LLONG_MIN; };
+	template<> struct num_limits<long> { static const long min = LONG_MIN; }; template<> struct num_limits<int> { static const int min = INT_MIN; };
 	template<> struct num_limits<short> { static const short min = SHRT_MIN; }; template<> struct num_limits<char> { static const char min = CHAR_MIN; };
 	template<typename I>
-	char dtos(char str[27], I num, char sep) noexcept { //if(sizeof(I)>8) return 0; //max "18446744073709551615\0" - 21 ch; "18'446'744'073'709'551'615\0" - 27 ch
+	char itos(char str[27], I num, char sep) noexcept { //if(sizeof(I)>8) return 0; //max "18446744073709551615\0" - 21 ch; "18'446'744'073'709'551'615\0" - 27 ch
 		int i=0; bool negate=false; if(num < 0){ if((long long)num==num_limits<I>::min) ++num; num = -num; negate=true; }
 		do { if(sep&&(i+1)%4==0){ str[i++]=sep; } str[i++] = num % 10 + '0'; } while ((num /= 10) > 0); if(negate) str[i++] = '-';
-		reverse(str, str+i); str[i] = '\0'; return i; };
+		reverse(str, str+i); str[i] = '\0'; return i; }
 	template<typename I>
-	String dtos(I num, char sep=0) noexcept { if(sizeof(I)>8) return "(!)(Err: sizeof(I)>8)"; char str[27]; return String(str, dtos(str, num, sep)); };
+	String dtos(I num, char sep=0) noexcept { if(sizeof(I)>8) return "(!)(Err: sizeof(I)>8)"; char str[27]; return String(str, itos(str, num, sep)); };
+	//template<typename I> String itos(I num, char sep=0) noexcept { return dtos(num, sep); };
+	#else
+	char itos(char str[27], long long num, char sep){
+		int i=0; bool negate=false; if(num < 0){ if(num == LLONG_MIN) ++num; num = -num; negate=true; }
+		do { if(sep&&(i+1)%4==0){ str[i++]=sep; } str[i++] = num % 10 + '0'; } while ((num /= 10) > 0); if(negate) str[i++] = '-';
+		int j=0; for(; j<i/2; j++){ char tmp = str[j]; str[j]=str[i-1-j]; str[i-1-j]=tmp; } str[i] = '\0'; return i; }
+	#endif //__cplusplus
 	
 	#define MAX_SAFE_DOUBLE 9007199254740991
 	#define D_PRECISION 17 //double - ~15–17; long double - ~21
@@ -33,13 +43,21 @@ namespace ncpp{
 		if(exponent == 0x7FF && mantissa != 0){ return 1; } //NaN 
 		if(exponent == 0x7FF && mantissa == 0){ if(dbits.u & 0x8000000000000000ULL){ return 3; }else{ return 2; } } return 0; } //-Inf/Inf
 	
-	String dtos(double d, char precision=-1) noexcept { char str[27]; int i=0; bool negate=false; if(d<0){ d=-d; negate=true; } 
+	#ifdef __cplusplus
+	String dtos(double d, char precision=D_PRECISION) noexcept { int i=0; bool negate=false; if(d<0){ d=-d; negate=true; } char str[36]; //17+1+17+\0=36
 		switch(isNaN(d)){ case 1: return String("NaN", 3); case 2: return String("Inf", 3); case 3: return String("-Inf", 4); }
 		long long num=(long long)d; do{ str[i++] = num % 10 + '0'; }while((num /= 10) > 0); if(negate) str[i++] = '-'; reverse(str, str+i);
 		
-		if(precision!=0){ str[i++] = '.'; num=(long long)d; d-=num; if(precision==-1) precision=D_PRECISION;
-			for(int j = 0; j<precision; j++){ char digit=(char)d; d*=10; digit=(int)d; str[i++] = digit + '0'; d -= digit; } } return String(str, i); };
-	String dtos(float num, char precision=-1) noexcept { return dtos((double)num, precision==-1?F_PRECISION:precision); };
+		if(precision!=0){ str[i++] = '.'; num=(long long)d; d-=num; if(precision>D_PRECISION) precision=D_PRECISION;
+			for(char j=0; j<precision; j++){ char digit=(char)d; d*=10; digit=(int)d; str[i++] = digit + '0'; d -= digit; } } return String(str, i); };
+	String dtos(float num, char precision=F_PRECISION) noexcept { return dtos((double)num, precision); };
+	
+	//Double.MAX_VALUE = ≈1.7976931348623157×10^308 // ≈1.79e308
+	//Double.MIN_VALUE = ≈2.2250738585072014×10^−308 //Double: Denorm ABS_MIN_VALUE = ≈4,9406564584124654×10^−324
+	String dtosE(double d, char precision=D_PRECISION) noexcept { if(d == 0.0){ return "0.0 * 10^0\n"; } char sign = (d<0)?1:0; if (sign) d = -d;
+		int exp10 = floor(log10(d)); double norm = d*pow(10.0, -exp10); //if(norm >= 10.0){ norm /= 10.0; exp10 += 1; } else if(norm < 1.0){ norm *= 10.0; exp10 -= 1; }
+		String ss; ss << (sign?"-":"") << dtos(norm, precision) << " * 10^" << exp10; return ss; }
+	#endif //__cplusplus
 	 
 	int stoin(const char* cstr, unsigned char len) noexcept { unsigned char i=0;
 		while(i<len&&cstr[i]==' ') i++; if(!IsInt(cstr+i, len-i)) return 0; bool nsign=false;
@@ -47,8 +65,10 @@ namespace ncpp{
 		for(; i < len; ++i){ unsigned char digit = cstr[i]-'0';
 			if(value > INT_MAX/10||(value==INT_MAX/10&&digit > INT_MAX%10)){ return nsign?INT_MIN:INT_MAX; }
 			value=value*10+digit; } if(nsign) return -value; return value; }
+	#ifdef __cplusplus
 	int stoin(const char* cstr) noexcept { return stoin(cstr, strlen(cstr)); }
 	int stoin(const String& s) noexcept { return stoin(s.c_str(), s.size()); }
+	#endif //__cplusplus
 	
 	long long stolln(const char* cstr, unsigned char len) noexcept { unsigned char i=0;
 		while(i<len&&cstr[i]==' ') i++; if(!IsInt(cstr+i, len-i)) return 0; bool nsign=false;
@@ -56,26 +76,37 @@ namespace ncpp{
 		for(; i < len; ++i){ unsigned char digit = cstr[i]-'0';
 			if(value > LLONG_MAX/10||(value==LLONG_MAX/10&&digit > LLONG_MAX%10)){ return nsign?LLONG_MIN:LLONG_MAX; }
 			value=value*10+digit; } if(nsign) return -value; return value; }
+	#ifdef __cplusplus
 	long long stolln(const char* cstr) noexcept { return stolln(cstr, strlen(cstr)); }
 	long long stolln(const String& s) noexcept { return stolln(s.c_str(), s.size()); }
+	#endif //__cplusplus
 	
 	unsigned long long stoulln(const char* cstr, unsigned char len) noexcept { unsigned char i=0;
 		while(i<len&&cstr[i]==' ') i++; if(!IsInt(cstr+i, len-i)) return 0; unsigned long long value = 0; i+=cstr[i]=='-'?1:cstr[i]=='+'?1:0; 
 		for(; i < len; ++i){ unsigned char digit = cstr[i]-'0';
 			if(value > ULLONG_MAX/10||(value==ULLONG_MAX/10&&digit > ULLONG_MAX%10)){ return ULLONG_MAX; }
 			value=value*10+digit; } return value; }
+	#ifdef __cplusplus
 	unsigned long long stoulln(const char* cstr) noexcept { return stoulln(cstr, strlen(cstr)); }
 	unsigned long long stoulln(const String& s) noexcept { return stoulln(s.c_str(), s.size()); }
+	#endif //__cplusplus
 		
-	double stodn(const char* cstr, size_t len) noexcept { if(!IsFloat(cstr, len)) return 0.0; return ::atof(cstr); }
+	double stodn(const char* cstr, size_t len) noexcept { if(!IsFloat(cstr, len)) return 0.0; return atof(cstr); }
+	#ifdef __cplusplus
 	double stodn(const char* cstr) noexcept { return stodn(cstr, strlen(cstr)); }
 	double stodn(const String& s) noexcept { return stodn(s.c_str(), s.size()); }
+	#endif //__cplusplus
 	
 	float stofn(const char* cstr, size_t len) noexcept { return stodn(cstr, len); }
+	#ifdef __cplusplus
 	float stofn(const char* cstr) noexcept { return stodn(cstr, strlen(cstr)); }
 	float stofn(const String& s) noexcept { return stodn(s.c_str(), s.size()); }
 	
 	void print(long long v){ print(dtos(v)); }
 	//void print(unsigned long long v){ print(dtos(v)); }
 	String& String::operator<<(long long num){ (*this)+=dtos(num); return *this; }
+	#endif //__cplusplus
+#ifdef __cplusplus
 }
+#endif
+

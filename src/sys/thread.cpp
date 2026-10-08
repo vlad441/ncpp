@@ -1,6 +1,9 @@
 #ifndef _WIN32
 #include <pthread.h>
 #endif
+// lock-free:
+// - EBR -> QSBR (Quiescent-State-Based Reclamation)
+// - HP (Hazard Pointers)
 namespace ncpp {
 	#ifdef _WIN32
 	struct Mutex { //aka std::mutex (С++11)
@@ -27,7 +30,8 @@ namespace ncpp {
 	template<typename T> struct lock_guard { lock_guard(T& mtx) : _mtx(mtx){ _mtx.lock(); } ~lock_guard(){ _mtx.unlock(); } private: T& _mtx; }; //LockGuard?
 	
 	struct condition_variable;
-	struct Thread { struct Id {
+	struct Thread { //aka std::thread (С++11)
+		struct Id {
 			#ifdef _WIN32
 			DWORD _id; Id(DWORD id) : _id(id){} Id() : _id(0){} 
 			bool operator==(const Id& other) const { return _id == other._id; }
@@ -45,7 +49,7 @@ namespace ncpp {
 			bool operator<(const Id& other) const { return memcmp(&_id, &other._id, sizeof(pthread_t)) < 0; }
 			bool operator>(const Id& other) const { return memcmp(&_id, &other._id, sizeof(pthread_t)) > 0; }
 			#endif	
-		}; static int _stacklim; //aka std::thread (С++11)
+		}; static int _stacklim; 
 	    Thread() : started(false), joined(false){}
 		template<typename T>
 	    Thread(void(*func)(T*), void* arg=NULL) : started(false), joined(false){ start((void*(*)(void*))func, arg); }
@@ -63,7 +67,7 @@ namespace ncpp {
 		static unsigned hardware_concurrency(){ SYSTEM_INFO sysinfo; GetSystemInfo(&sysinfo); return sysinfo.dwNumberOfProcessors; }
 		//static Id getTID(){ return Id(GetCurrentThreadId()); }
 		//static unsigned long _getNativeTID(){ return GetCurrentThreadId(); }
-		private: 
+		private:
 			void start(void*(*func)(void*), void* arg=NULL){ HANDLE handle = CreateThread(NULL, _stacklim, (LPTHREAD_START_ROUTINE)func, arg, 0, &_thr._id);
 				if(handle == NULL){ Except("winapi: Thread create error\n"); } CloseHandle(handle); started = true; }
 		#else
@@ -76,7 +80,7 @@ namespace ncpp {
 		//static Id getTID(){ return Id(pthread_self()); }
 		//static unsigned long _getNativeTID(){ return syscall(SYS_gettid); }
 		private:
-		    void start(void*(*func)(void*), void* arg=NULL){ bool ok=false; if(_stacklim<=0){ ok=pthread_create(&_thr._id, NULL, func, arg)==0; }
+			void start(void*(*func)(void*), void* arg=NULL){ bool ok=false; if(_stacklim<=0){ ok=pthread_create(&_thr._id, NULL, func, arg)==0; }
 				else{ pthread_attr_t attr; pthread_attr_init(&attr); pthread_attr_setstacksize(&attr, _stacklim); ok=pthread_create(&_thr._id, &attr, func, arg)==0; }
 				if(!ok){ Except("pthread: Thread create error\n"); } started = true; }
 		#endif

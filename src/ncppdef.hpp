@@ -2,7 +2,7 @@
 #pragma once
 #ifndef NCPP_H_DEF
 #define NCPP_H_DEF
-#define NCPP_VER "v0.0.1-1-rev0"
+#define NCPP_VER "v0.0.1-1-rev1"
 //#define NCPP_VER_MAJOR 0
 //#define NCPP_VER_MINOR 0
 //#define NCPP_VER_PATCH 1
@@ -39,16 +39,40 @@
 #include <fcntl.h> // for socket descryptor settings (non-bloking mode, etc).
 #endif
 
-namespace ncpp { void print(const char *cptr); const char* version(); void print(long long v); } //Only declaration.
+// ============ Lang Defines ============
+#if defined(__cplusplus) && defined(_MSVC_LANG) && _MSVC_LANG >= 201103L // MSVC cpp ver fix 
+#undef __cplusplus 
+#define __cplusplus _MSVC_LANG 
+#endif //_MSVC_LANG
 
 #define NPOS (size_t)-1
-#if __cplusplus >= 201103L
-#else //C++98
-#define noexcept throw()
+#if __cplusplus >= 201103L // ------------ C++11 ------------
+//#define THREAD_LOCAL thread_local
+//#define __thread thread_local
+// --- Attributes C++11 ---
+//#define NORETURN [[noreturn]]
+#else // ------------ C++98 ------------
+#define noexcept throw() //#define noexcept __attribute__((nothrow)) //"attributes are not allowed on a function-definition" :(
 #define nullptr NULL
-#define decltype __typeof__
-//#define unique_ptr auto_ptr
-#endif
+//#define unique_ptr auto_ptr //#define override //#define final
+//#define static_assert(cond, msg) typedef char ncpp_static_assert_dummy_[(cond)?0:-1]
+
+//#define [[noreturn]] __attribute__((noreturn)) //Не прокатит, а так хотелось :(
+#if defined(__GNUC__) || defined(__clang__) //GCC, Clang
+	#define decltype __typeof__
+	//#define THREAD_LOCAL __thread
+	// --- Attributes C++98 ---
+	//#define NORETURN __attribute__((noreturn))
+#elif defined(_MSC_VER) // MSVC
+	#define __thread __declspec(thread)
+	//#define THREAD_LOCAL __declspec(thread)
+	//#define __attribute__(x) __declspec x
+	//#define NORETURN __declspec(noreturn)
+#endif //__GNUC__
+
+#endif //__cplusplus
+
+namespace ncpp { void print(const char *cptr); const char* version(); void print(long long v); } //Only declaration.
 
 //#ifndef NCPP_LIB_USE
 #ifdef NCPP_USESTL

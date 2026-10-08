@@ -1,18 +1,24 @@
-#ifndef NCPP_H_STDINT
-#define NCPP_H_STDINT
-
 #ifndef NULL
-#define NULL 0
+#define NULL 0 //((void*)0)
 #endif
 
 #if !defined(_64BIT) && (defined(__LP64__) || defined(_WIN64) || __SIZEOF_POINTER__ == 8)
 #define _64BIT
 #endif
 
+// =========== stddef.h ===========
+#ifndef NCPP_H_STDDEF
+#define NCPP_H_STDDEF
+
+#ifndef offsetof
+#define offsetof(type, member) ((size_t) &(((type *)0)->member))
+#endif
+
+
 #ifndef _SIZE_T_
 #define _SIZE_T_
 //typedef __SIZE_TYPE__ size_t;
-#ifdef _64BIT
+#ifdef _64BIT //64 bits
 
 #ifdef _WIN32
 typedef unsigned long long size_t; typedef long long ssize_t;
@@ -35,8 +41,12 @@ typedef __UINTPTR_TYPE__  uintptr_t;
 typedef __INTPTR_TYPE__   intptr_t;
 #endif
 
+#endif //NCPP_H_STDDEF
+// =========== stdint.h ===========
+#ifndef NCPP_H_STDINT
+#define NCPP_H_STDINT
 
-typedef char int8_t; typedef unsigned char uint8_t;
+typedef signed char int8_t; typedef unsigned char uint8_t;
 #if __SIZEOF_INT__ == 2
 typedef int int16_t; typedef unsigned int uint16_t;
 #else //__SIZEOF_SHORT__ == 2
@@ -63,11 +73,12 @@ typedef long long int64_t; typedef unsigned long long uint64_t;
 typedef long long int128_t; typedef unsigned long long uint128_t;
 #elif __SIZEOF_INT128__
 typedef __int128 int128_t; typedef unsigned __int128 uint128_t;
-#elif USE_EXPERIMENTAL
+#elif defined(__cplusplus) && defined(USE_EXPERIMENTAL)
 //#include "../experimental/__int128.cpp"
 #endif
 
-// ======== limits.h ========
+#endif //NCPP_H_STDINT
+// =========== limits.h ===========
 #ifndef NCPP_H_LIMITS
 #define NCPP_H_LIMITS
 
@@ -113,5 +124,4 @@ typedef __int128 int128_t; typedef unsigned __int128 uint128_t;
 //__SIZEOF_LONG__ == N - Размер long
 //__SIZEOF_LONG_LONG__ == N - Размер long long
 
-#endif
 #endif //NCPP_H_LIMITS

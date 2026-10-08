@@ -8,10 +8,7 @@ using namespace ncpp;
 using namespace ncpp::GUI;
 using namespace ncpp::GL;
 #include "../tests-header.h"
-
-#ifdef _WIN32
 #define TEST_LOAD_TEXTURES
-#endif
 
 struct GLApp { GLApp(App* _app=NULL) : app(_app), camera(0, 5, 50.0){ FPS=0; FPSLim=60; ticks=25; fullscreen=false; }
 	int FPS, FPSLim; int ticks; bool fullscreen; enum ProjectionType { PERSPECTIVE, ORTHO };

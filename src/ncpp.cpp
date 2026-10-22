@@ -17,7 +17,6 @@
 #include "base/utils0.cpp" //Depends: None
 #include "base/Array.cpp" // Depends: utils0
 #include "base/String.cpp" // Depends: utils0, Array
-#include "base/readline.cpp" // Depends: String
 #include "base/dtos.cpp" //Depends: utils0, String
 #include "base/Buffer.cpp" //Depends: utils0, Array, String, dtos
 #include "base/HashMap.cpp" //Depends: utils0, Array
@@ -29,6 +28,7 @@
 #ifndef NCPP_BASE_ONLY
 
 #include "sys/utils.cpp"
+#include "base/readline.cpp" // Depends: windows.h, String
 #include "sys/fs.cpp"
 #include "sys/info.cpp"
 #include "sys/process.cpp"

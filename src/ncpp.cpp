@@ -13,7 +13,7 @@
 
 // ======== Direct Include Sources ========
 // --- Base ---
-#include "base/print.cpp" // Depends: None
+#include "base/print.c" // Depends: None
 #include "base/utils0.cpp" //Depends: None
 #include "base/Array.cpp" // Depends: utils0
 #include "base/String.cpp" // Depends: utils0, Array
@@ -65,8 +65,12 @@
 
 #ifndef NOUSE_MEDIA
 #include "experimental/media/images.cpp"
+
+#ifndef NOUSE_AUDIO
 #include "experimental/media/audio.cpp"
-#endif
+#endif //NOUSE_AUDIO
+
+#endif //NOUSE_MEDIA
 #endif //ends USE_EXPERIMENTAL
 
 #if defined(USE_GUI) //|| defined(_WIN32)

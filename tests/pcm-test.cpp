@@ -5,7 +5,7 @@ using namespace ncpp::Media;
 
 Console cons; Audio ply;
 
-//#define PATH "D:\\"
+//#define PATH ""
 
 //#define FNAME "Again - fragm1"
 //#define FNAME "OST Classroom of the Elite Soundtrack(ver2)"

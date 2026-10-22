@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #include <mmsystem.h> // -lwinmm
 #else
-#include <alsa/asoundlib.h> // -lasound //PulseAudio / PipeWire ?
+#include <alsa/asoundlib.h> // -l:libasound.so.2 //PulseAudio / PipeWire ?
 #endif
 //Linux packages: libasound2-dev
 //MP3: https://github.com/lieff/minimp3/blob/master/minimp3.h

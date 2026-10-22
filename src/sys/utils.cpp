@@ -128,9 +128,9 @@ Buffer Buffer::randBytes(int length){ Buffer buff(length); for(size_t i=0;i<buff
 	//void Sleep(unsigned int msec){ ::Sleep(msec); }
 	void usleep(unsigned int usec){
 		#if _WIN32_WINNT >= 0x0A00 //>= Win10
-			static __thread HANDLE hTimer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+			static __thread HANDLE hTimer=0; if(!hTimer) hTimer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
 		#else
-			static __thread HANDLE hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
+			static __thread HANDLE hTimer=0; if(!hTimer) hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
 		#endif
 		if(!hTimer) return; LARGE_INTEGER liDueTime; liDueTime.QuadPart = -((LONGLONG)usec*10);
 		if(SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, FALSE)){ WaitForSingleObject(hTimer, INFINITE); } //CloseHandle(hTimer);

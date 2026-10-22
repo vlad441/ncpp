@@ -30,7 +30,6 @@
 --- CPU: temperature
 -- Memory: Used = Total-Available; (Выгружаемый+Невыгружаемый пул?)
 -- Disk (wmic -> WinApi)
--- readline(): ReadFileW()
 - Threads (+/-)
 -- Thread (Event) Pool?
 -- ncpp::Thread::Signal.emit() (EventEmiter?) (condition_variable)?
@@ -50,7 +49,6 @@
 -- Минимальный набор(Кнопки, Input, Label, ...);
 -- Image (Win: GDI/GDI+, X11: XPutImage/XRender(GPU?), Wayland: ?)(Cairo: example)
 - Media
--- Images (+/-)
 -- Audio
 -- Video?
 - Закрыть все TODO?
@@ -60,8 +58,6 @@
 -- CI/CD (+/-)
 - Упаковать либу в .deb пакет?
 - Производительность: Минимизация вызовов malloc/free, SSO, SlabAllocator?
-Use -fno-strict-aliasing?
-
 
 https://en.wikipedia.org/wiki/Windows_Native_API
 https://emn178.github.io/online-tools/

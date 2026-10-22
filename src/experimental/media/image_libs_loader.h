@@ -1,4 +1,5 @@
 // For Linux: libpng + libjpeg loader
+#pragma once
 // --- Объявления libpng ---
 #ifndef PNG_COLOR_TYPE_PALETTE
 #define PNG_COLOR_TYPE_PALETTE 3
@@ -32,20 +33,27 @@ struct jpeg_decompress_struct { jpeg_common_fields; struct jpeg_source_mgr* src;
 //size_t compress_test_sizes[] = { 520 };
 struct jpeg_compress_struct { jpeg_common_fields; struct jpeg_destination_mgr* dest; int image_width; int image_height; 
 	int input_components; int in_color_space; double input_gamma; int data_precision; int num_components; int jpeg_color_space;
-	// ... мусорные поня, но необходимы для точного смещения next_scanline ...
+	// ... мусорные поля, но необходимы для точного смещения next_scanline ...
     void* comp_info; void* quant_tbl_ptrs[4]; void* dc_huff_tbl_ptrs[4]; void* ac_huff_tbl_ptrs[4];
     unsigned char arith_dc_L[16]; unsigned char arith_dc_U[16]; unsigned char arith_ac_K[16]; int num_scans; char pad_align2[4];
     void* scan_info; int raw_data_in; int arith_code; int optimize_coding; int CCIR601_sampling; int smoothing_factor; int dct_method;
     unsigned int restart_interval; int restart_in_rows; int write_JFIF_header; unsigned char JFIF_major_version; unsigned char JFIF_minor_version;
 	unsigned char density_unit; char pad_align3[1]; unsigned short X_density; unsigned short Y_density; int write_Adobe_marker;
     unsigned int next_scanline; // 4 байта (смещение 304)
-	char pad[PAD_SZ];
-};
+	char pad[PAD_SZ]; };
 #undef PAD_SZ
 #undef jpeg_common_fields
 
+#ifdef NCPP_IMAGE_LNKLIBS
+#define C_FN_DECL(retT, name, ...) extern "C" retT name(__VA_ARGS__);
+//#define C_FN_DECL1(retT, name, a1) extern "C" retT name(a1);
+#else
+#define C_FN_DECL(retT, name, ...) typedef retT (*PFN_##name)(__VA_ARGS__); PFN_##name name = NULL;
+//#define C_FN_DECL1(retT, name, a1) typedef retT (*PFN_##name)(a1); PFN_##name name = NULL;
+#endif
+#undef C_FN_DECL
 
-#ifdef NCPP_IMAGE_LNKLIB // Using linker -lpng + -ljpeg
+#ifdef NCPP_IMAGE_LNKLIBS // Using linker -lpng + -ljpeg
 extern "C" {
     // --- Объявления libpng ---
     void* png_create_read_struct(const char* ver, void* error_ptr, void* error_fn, void* warn_fn);
@@ -239,4 +247,4 @@ bool ncpp::Image::_loadSOLibs(){ static bool loaded = false; if(loaded) return t
     }
 	loaded = (jpgLib!=nullptr&&pngLib!=nullptr); return loaded; }
 #undef IMG_DLOAD_FUNC
-#endif //NCPP_IMAGE_LNKLIB
+#endif //NCPP_IMAGE_LNKLIBS

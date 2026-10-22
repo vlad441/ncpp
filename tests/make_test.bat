@@ -34,7 +34,7 @@ if "%~1"=="x32" (set "ARCH_FLAG=-m32" & set "WL_ENTRY_FNAME=__start" & shift)
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
 set FNO_FLAGS=-fno-exceptions -fno-rtti
 set FNO_FLAGS_WH=%FNO_FLAGS% -fwhole-program
-if "%COMPILER%"=="CLANG" (set "FNO_FLAGS_WH=%FNO_FLAGS% -flto=full -fvisibility=hidden -Wl,/OPT:REF -Wl,/OPT:ICF")
+::if "%COMPILER%"=="CLANG" (set "FNO_FLAGS_WH=%FNO_FLAGS% -flto=full -fvisibility=hidden -Wl,/OPT:REF -Wl,/OPT:ICF")
 set OPT_FLAGS=-O2 -std=%STDCXX% %FNO_FLAGS_WH%
 
 set DBG_LNK_FLAGS=%ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi

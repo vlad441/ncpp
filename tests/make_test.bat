@@ -34,7 +34,7 @@ if "%~1"=="x32" (set "ARCH_FLAG=-m32" & set "WL_ENTRY_FNAME=__start" & shift)
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
 set FNO_FLAGS=-fno-exceptions -fno-rtti
 set FNO_FLAGS_WH=%FNO_FLAGS% -fwhole-program
-if "%COMPILER%"=="CLANG" (set "FNO_FLAGS_WH=%FNO_FLAGS% -flto=full -fvisibility=hidden -Wl,/OPT:REF -Wl,/OPT:ICF")
+if "%COMPILER%"=="CLANG" (set "FNO_FLAGS_WH=%FNO_FLAGS% -fvisibility=hidden")
 set OPT_FLAGS=-O2 -std=%STDCXX% %FNO_FLAGS_WH%
 
 set DBG_LNK_FLAGS=%ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi
@@ -73,17 +73,61 @@ set start_time=%TIME%
 
 if not "%gccpath%"=="" (cd /d "%gccpath%")
 
-if "%mode%"=="LIB" echo Make via ncpp.a... & %CBIN% -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% -L"%currCD%\..\lib" -lncpp %LNK_FLAGS%
-if "%mode%"=="LIB_DLL" echo Make via ncpp.dll... & %CBIN% -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile%  -L"%currCD%\..\lib" -lncpp %D_LNK_FLAGS%
-if "%mode%"=="FAST" echo Make with -O3 -march=native... & %CBIN% %WARN_FLAGS% -O3 -std=$STDCXX %FNO_FLAGS_WH% %cppfile% -o %exefile% -march=native -mtune=native -flto -funroll-loops -fipa-cp-clone -ffast-math -fomit-frame-pointer %LNK_FLAGS%
-if "%mode%"=="DBG" echo Make debug -g -Og... & %CBIN% %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% %DBG_LNK_FLAGS%
-if "%mode%"=="SAN" echo Make using sanitizers... & %CBIN% %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% %D_LNK_FLAGS% -fsanitize=address,undefined
-if "%mode%"=="GUI" echo Make for GUI... & %CBIN% -DUSE_GUI -DNOUSE_GL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lgdi32
-if "%mode%"=="GL" echo Make for GL... & %CBIN% -DUSE_GUI %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 -lgdi32
-if "%mode%"=="EXP" echo Make for Experimental... & %CBIN% -DUSE_GUI -DUSE_EXPERIMENTAL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 %IMAGE_LIBS% %AUDIO_LIBS%
-if "%mode%"=="NOCRT" echo Make NOCRT... & %CBIN% -DNCPP_NOCRT %WARN_FLAGS% -O2 -std=%STDCXX% %FNO_FLAGS% %cppfile% -o %exefile% %ARCH_FLAG% -Wl,--entry=%WL_ENTRY_FNAME% -s -static -nostdlib -lkernel32
-if "%mode%"=="DLNK" echo Make DLNK (Dynamic Lnk)... & %CBIN% %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %D_LNK_FLAGS%
-if "%mode%"=="" echo Make (default)... & %CBIN% %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS%
+if "%mode%"=="LIB" (
+    echo Make via ncpp.a...
+    %CBIN% -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%" -L"%currCD%\..\lib" -lncpp %LNK_FLAGS%
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="LIB_DLL" (
+    echo Make via ncpp.dll...
+    %CBIN% -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%"  -L"%currCD%\..\lib" -lncpp %D_LNK_FLAGS%
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="FAST" (
+    echo Make with -O3 -march=native...
+    %CBIN% %WARN_FLAGS% -O3 -std=%STDCXX% %FNO_FLAGS_WH% "%cppfile%" -o "%exefile%" -march=native -mtune=native -flto -funroll-loops -fipa-cp-clone -ffast-math -fomit-frame-pointer %LNK_FLAGS%
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="DBG" (
+    echo Make debug -g -Og...
+    %CBIN% %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% "%cppfile%" -o "%exefile%" %DBG_LNK_FLAGS%
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="SAN" (
+    echo Make using sanitizers...
+    %CBIN% %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% "%cppfile%" -o "%exefile%" %D_LNK_FLAGS% -fsanitize=address,undefined
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="GUI" (
+    echo Make for GUI...
+    %CBIN% -DUSE_GUI -DNOUSE_GL %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%" %LNK_FLAGS% -lgdi32
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="GL" (
+    echo Make for GL...
+    %CBIN% -DUSE_GUI %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%" %LNK_FLAGS% -lopengl32 -lgdi32
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="EXP" (
+    echo Make for Experimental...
+    %CBIN% -DUSE_GUI -DUSE_EXPERIMENTAL %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%" %LNK_FLAGS% -lopengl32 %IMAGE_LIBS% %AUDIO_LIBS%
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="NOCRT" (
+    echo Make NOCRT...
+    %CBIN% -DNCPP_NOCRT %WARN_FLAGS% -O2 -std=%STDCXX% %FNO_FLAGS% "%cppfile%" -o "%exefile%" %ARCH_FLAG% -Wl,--entry=%WL_ENTRY_FNAME% -s -static -nostdlib -lkernel32
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="DLNK" (
+    echo Make DLNK ^(Dynamic Lnk^)...
+    %CBIN% %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%" %D_LNK_FLAGS%
+    if errorlevel 1 exit /b 1
+)
+if "%mode%"=="" (
+    echo Make ^(default^)...
+    %CBIN% %WARN_FLAGS% %OPT_FLAGS% "%cppfile%" -o "%exefile%" %LNK_FLAGS%
+    if errorlevel 1 exit /b 1
+)
 
 if not "%gccpath%"=="" (cd /d "%currCD%")
 
@@ -95,4 +139,4 @@ set /A durationMS=endMS-startMS
 set /A durationS=durationMS/1000
 set /A durationMS=durationMS%%1000
 echo Build Time: %durationS%.%durationMS% sec.
-pause
+exit /b 0

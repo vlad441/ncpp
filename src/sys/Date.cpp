@@ -11,17 +11,18 @@ struct Date { long long timestamp; static char utc; struct DValue { long long ye
 	int getMonth() const { return parseTimestamp(timestamp).month; }
 	int getDay() const { return parseTimestamp(timestamp).day; }
 	int getDate() const { return getDay(); }
-	#define EPOCH_DAYWEEK_OFFSET 4
-	int getDayWeek() const { return (timestamp/86400+EPOCH_DAYWEEK_OFFSET)%7; }
+	#define EPOCH_DAYWEEK_OFFSET 3
+	int getDayWeek() const { long long days=timestamp/86400; if(timestamp%86400<0) --days;
+		int day=(int)((days+EPOCH_DAYWEEK_OFFSET)%7); return day<0?day+7:day; }
 	
 	String toDirectDate(char sp1='.', bool toshort=false) const { DValue dv = parseTimestamp(timestamp+utc*3600); char sp[2]; sp[0]=sp1; sp[1]='\0';
 		String r; r<<(dv.day<10?"0":"")<<dv.day<<sp<<(dv.month<10?"0":"")<<dv.month<<sp<<dv.year<<" "; _toTime(r, toshort); return r; }
 	String toReverseDate(char sp1='.', bool toshort=false) const { DValue dv = parseTimestamp(timestamp+utc*3600); char sp[2]; sp[0]=sp1; sp[1]='\0';
 		String r; r<<dv.year<<sp<<(dv.month<10?"0":"")<<dv.month<<sp<<(dv.day<10?"0":"")<<dv.day<<" "; _toTime(r, toshort); return r; }
 	String toString(char sp='.') const { return toReverseDate(sp); }
-	String toString(const CString& mode, char sp='.') const { if(mode=="reverse"){ return toReverseDate(); }
-		else if(mode=="direct"){ return toDirectDate(); }else if(mode=="iso"||mode=="isostring"){ return toISOString(); }
-		else if(mode=="imf"||mode=="imf-fixdate"){ return toIMFDate(); }else{ return toReverseDate(); } }
+	String toString(const CString& mode, char sp='.') const { if(mode=="reverse"){ return toReverseDate(sp); }
+		else if(mode=="direct"){ return toDirectDate(sp); }else if(mode=="iso"||mode=="isostring"){ return toISOString(); }
+		else if(mode=="imf"||mode=="imf-fixdate"){ return toIMFDate(); }else{ return toReverseDate(sp); } }
 	String toISOString() const { DValue dv = parseTimestamp(timestamp);
 		String r; r<<dv.year<<"-"<<(dv.month<10?"0":"")<<dv.month<<"-"<<(dv.day<10?"0":"")<<dv.day<<"T";
 		r<<(dv.hour<10?"0":"")<<dv.hour<<":"<<(dv.minute<10?"0":"")<<dv.minute<<":"<<(dv.seconds<10?"0":"")<<dv.seconds<<"Z"; return r; }
@@ -31,7 +32,7 @@ struct Date { long long timestamp; static char utc; struct DValue { long long ye
 		r<<(dv.day<10?"0":"")<<dv.day<<" " << getMonth_Name(dv.month) << " " << dv.year << " "; _toTime(r, false); r <<" GMT"; return r; }
 		
 	String toTime(bool toshort=false) const { String ss; return _toTime(ss, toshort); }
-	String _toTime(String& ss, bool toshort=false) const { int ttsecs = timestamp % 86400; char time[3];
+	String _toTime(String& ss, bool toshort=false) const { int ttsecs = timestamp % 86400; if(ttsecs<0) ttsecs+=86400; char time[3];
 		time[0] = (char)(ttsecs / 3600); time[1] = (char)((ttsecs % 3600) / 60); ss<<(time[0]<10?"0":"")<<time[0]<<":"<<(time[1]<10?"0":"")<<time[1];
 		if(!toshort){ time[2] = ttsecs % 60; ss<<":"<<(time[2]<10?"0":"")<<time[2]; } return ss; }
 	/*void _toTimeDv(const DValue& dv, String& ss, bool toshort=false) const { ss<<(dv.hour<10?"0":"")<<dv.hour<<":"<<(dv.minute<10?"0":"")<<dv.minute; 
@@ -67,14 +68,14 @@ struct Date { long long timestamp; static char utc; struct DValue { long long ye
 		
 		long long era = (days >= 0 ? days : days - 146096) / 146097;
 		unsigned int doe = days - era * 146097;
-		unsigned int yoe = (doe * 29397) / 10737418; 
+		unsigned int yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;
 		long long y = yoe + era * 400;
 		unsigned int doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
 		unsigned int mp = (5 * doy + 2) / 153;
 		dv.day = doy - (153 * mp + 2) / 5 + 1;
 		dv.month = mp + (mp < 10 ? 3 : -9);		
 		//dv.year = y + (dv.month <= 2 ? 1 : 0);
-		dv.year = (int)(y + (mp >= 10)); return dv; }
+		dv.year = y + (mp >= 10); return dv; }
 		
 	static long long toTimestamp(const DValue& dv){ long long y = dv.year; unsigned int m = dv.month; unsigned int d = dv.day;
 		y -= (m <= 2);
@@ -96,8 +97,8 @@ struct Date { long long timestamp; static char utc; struct DValue { long long ye
 			dv.day = stoin(darr[1]); dv.month = getMonth_Idx(darr[2]); dv.year = stoin(darr[3]); darr = darr[4].split(":"); darr.resize(3); 
 			dv.hour = stoin(darr[0]); dv.minute = stoin(darr[1]); dv.seconds = stoin(darr[2]); return dv; }
 		
-		static String getDayWeek_Name(int day) { const char* const W_NAMES[] = { "", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }; 
-			 return (day>0&&day<=7)?W_NAMES[day]:"UNKNOWN"; }
+		static String getDayWeek_Name(int day) { const char* const W_NAMES[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+			 return (day>=0&&day<7)?W_NAMES[day]:"UNKNOWN"; }
 		static String getMonth_Name(int month) { const char* const M_NAMES[] = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }; 
 			 return (month>0&&month<=12)?M_NAMES[month]:"UNKNOWN"; }
 		static int getMonth_Idx(const CString name){ if(name=="Jan") return 1; if(name=="Feb") return 2; if(name=="Mar") return 3; if(name=="Apr") return 4;

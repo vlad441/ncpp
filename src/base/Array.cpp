@@ -123,7 +123,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 		tmp = a._mode; a._mode = b._mode; b._mode = tmp; }
 	
 	#if __cplusplus >= 201103L //move for C++11
-	Array(Array&& tmp) noexcept : _ptr(NULL){ move(*this, tmp); }
+	Array(Array&& tmp) noexcept : _ptr(NULL), _len(0), _msize(0), _mode(HEAP){ move(*this, tmp); }
 	Array& operator=(Array&& tmp) noexcept { move(*this, tmp); return *this; }
 	Array& steal(Array& tmp){ move(*this, tmp); return *this; }
 	Array& steal(Array&& tmp){ move(*this, tmp); return *this; }

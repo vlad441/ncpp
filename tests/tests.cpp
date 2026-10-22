@@ -44,6 +44,7 @@ template <typename T1, typename T2> void TEST_NE_W(const T1& v1, const T2& v2){ 
 // #endif
 
 #include "units/module-base.cpp" //Module_Base_test();
+#include "units/date-test.cpp"
 void Sys_module_test();
 #include "units/module-structs.cpp" //Module_Structs_test();
 #include "units/module-crypto.cpp" //Module_Crypto_test();
@@ -55,6 +56,7 @@ void __attribute__((constructor)) _init_chcp(){ SetConsoleOutputCP(CP_UTF8); Set
 int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); _ncpp_check_ver(); os_version(); //setInterval(_dbg_ShowAllocs, 1000);
 	// === BEGIN TEST ===
 	Module_Base_test();
+	Date_documented_test();
 	Module_Structs_test();
 	Module_Crypto_test();
 	// === END TEST ===

@@ -66,15 +66,18 @@
 
 Они имеют свои дополнительные _необязательные_ аргументы при сборке:
 ```bash
-make.sh [Версия C++] [Разрядность] [Режим сборки] [Имя точки входа (без расширения)]
+make.sh [Компилятор] [Версия C++] [Разрядность] [Режим сборки] [Имя точки входа (без расширения)]
 #Примеры
 make.sh project441
 make.sh С++11 example
-make.sh С++98 x32 proj2
-make.sh С++17 x64 GUI proj5
+make.sh GCC С++98 x32 proj2
+make.sh CLANG С++17 x64 GUI main
+make.sh RISCV64 EXP main
 ```
+- **Компиляторы**: `GCC`, `CLANG`, `MSVC` (только для `Windows`)
 - **Версии С++**: `C++98`, `C++11`, `C++17`, `C++23`
-- **Разрядность**: `x32`, `x64`
+- **Разрядность**: `x32`, `x64`.
+- - **Кросс-компиляция** (Только `Linux`): `ARM`/`ARM32`, `RISCV`/`RISCV32`, `I386`
 - **Режимы сборки**:
     - `LIB`: Режим сборки через статическую библиотеку `ncpp.a`
     - `LIB_SO`: Режим сборки через динамическую библиотеку `ncpp.dll`/`ncpp.so`
@@ -87,7 +90,7 @@ make.sh С++17 x64 GUI proj5
     - `SGUI`: Выполнить `GUI` с статической линковкой.
     - `GL`: Включить возможность использовать расширеную графику (OpenGL/Vulkan)
     - `EXP`: Включить экспериментальные компоненты
-	- `EXP`: Включить экспериментальные компоненты
+	- `NOCRT`: Режим сборки без стандартных библиотек `-nostdlib`
     - `DEF`: Режим по умолчанию. Указывать явно не требуется (обычно опускается).
 - **Имя точки входа**: Название вашего файла исходного когда, исключая `.cpp` расширение (`proj1.cpp` -> `proj1`). По умолчанию используется `example`
 
@@ -128,4 +131,39 @@ void onClose(TCPSocket& socket){ print("[] Closed connection: "); print(socket.d
 
 int main(int argc, char* argv[]){ srv.onRequest=onReq; srv.onConnect=onConnect; srv.onClose=onClose;
 	print("HTTP server runned on port: "); print(port); print("\n"); srv.run(); }
+```
+
+**Хеширование:**
+```cpp
+#include "src/ncpp.cpp"
+using namespace ncpp;
+
+int main(int argc, char* argv[]){
+	print("Hashed Simple v1: "); print(crypto::SHA256("sha256").digest().toHex()); print("\n");
+	print("Hashed Simple v2: "); print(crypto::SHA256::hash("sha256").toHex()); print("\n");
+	print("Hashed Update:    "); print(crypto::SHA256().update("sha").update("256").digest().toHex()); print("\n"); }
+```
+
+**Object (JSON):**
+```cpp
+#include "src/ncpp.cpp"
+using namespace ncpp;
+
+int main(int argc, char* argv[]){
+	Object obj; obj["str"]="txt"; obj["double"]=12.334; obj["int"]=13;
+	obj["int64"].set((long long)41);
+	obj["obj"]=Object(); 
+	obj["obj"]["buff"]=Buffer(3,1); 
+	obj["obj"]["deep"]=Object(); 
+	obj["obj"]["deep"]["state"]=true;
+	print(obj.cout(3)); print("\n\n");
+	print("JSON: "); print(JSON::stringify(obj)); print("\n"); }
+```
+
+**Информация об ОС:**
+```cpp
+#include "src/ncpp.cpp"
+using namespace ncpp;
+
+int main(int argc, char* argv[]){ print(system::info()); print("\n"); }
 ```

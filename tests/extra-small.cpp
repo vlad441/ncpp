@@ -6,8 +6,8 @@ int main(); typedef unsigned long long size_t; typedef unsigned int DWORD;
 	extern "C" __declspec(dllimport) void __stdcall ExitProcess(DWORD uExitCode) __attribute__((noreturn));
 	extern "C" __declspec(dllimport) int __stdcall WriteFile(void* hFile, const void* lpBuffer, DWORD nNumberOfBytesToWrite, DWORD* lpNumberOfBytesWritten, void* lpOverlapped );
 	extern "C" __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long nStdHandle);
-	extern "C" void _start(){ ExitProcess(main()); } //for 64 bit (В x32 линкер превращает _start() -> start(), т.е. нужно __start() -> _start())
-	//extern "C" void start(){ ExitProcess(main()); } //for 32 bit (x32 линкер превращает _start() -> start())
+	extern "C" void _start(){ ExitProcess(main()); } //for 64 bit (x32 линкер превращает _start() -> start(), т.е. нужно __start() -> _start())
+	//extern "C" void start(){ ExitProcess(main()); }  //for 32 bit (x32 линкер превращает _start() -> start()) + костыль для Clang, непонимающий _start
 	extern "C" void __main(){} //Заглушка для GCC
 #else //Linux: x86_64 only
 	typedef long ssize_t; //typedef unsigned long size_t;
@@ -28,5 +28,6 @@ extern "C" size_t strlen(const char* c){ size_t len=0; while(*c!='\0'){ len++; c
 #endif
 	void print(const char *cstr){ print(cstr, strlen(cstr)); }
 
-int main(){ //print(NCPP_COMPILE_INFO);
-	print("Hello, no-CRT\n"); }
+int main(){ print("Hello, no-CRT\n"); } //print(NCPP_COMPILE_INFO);
+//extern "C" void start(){ WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), "Hello, no-CRT\n", 14, NULL, NULL); ExitProcess(0); } //Smallest For Windows
+//extern "C" void start(){ write(STDOUT_FILENO, "Hello, no-CRT\n", 14); _syscall1(SYS_exit, 0); } //Smallest For Linux

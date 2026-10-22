@@ -7,11 +7,17 @@ namespace ncpp{ struct Console { enum Color { BLACK, RED, GREEN, YELLOW, BLUE, M
 	template <typename T, typename D>
 	Console& operator+=(const BaseString<T, D>& s){ print(s); return *this; }
 	
-	template <typename T> Console& operator<<(T val){ print(val); return *this; }
+	template <typename T> Console& operator<<(const T& val){ print(val); return *this; }
 	
 	Console& operator>>(String& s){ s=readline(); return *this; }
+	Console& operator>>(signed char& c){ c=(signed char)stoin(readline()); return *this; }
+	Console& operator>>(unsigned char& c){ c=(unsigned char)stoin(readline()); return *this; }
 	Console& operator>>(int& i){ i=stoin(readline()); return *this; }
+	Console& operator>>(unsigned int& i){ i=stoin(readline()); return *this; }
+	Console& operator>>(long& l){ l=stolln(readline()); return *this; }
+	Console& operator>>(unsigned long& ul){ ul=stolln(readline()); return *this; }
 	Console& operator>>(long long& ll){ ll=stolln(readline()); return *this; }
+	Console& operator>>(unsigned long long& ull){ ull=stolln(readline()); return *this; }
 	Console& operator>>(double& d){ d=stodn(readline()); return *this; }
 	Console& operator>>(float& f){ f=stofn(readline()); return *this; }
 	

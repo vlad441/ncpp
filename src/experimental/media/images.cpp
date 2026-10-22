@@ -14,7 +14,7 @@
 
 namespace ncpp { //BMP, PNG, JPEG
 //Windows Dependencies: -lgdiplus -lole32
-//Linux Dependencies: -lpng + -ljpeg  / (stb_image.h + stb_image_write.h)
+//Linux Dependencies: -l:libpng16.so.16 + -l:libjpeg.so.62  / (stb_image.h + stb_image_write.h)
 
 #include "colors.h"
 
@@ -52,11 +52,14 @@ struct Image { int w, h; Array<PixelT> px; //char bits=32;
 	static bool _initGDI(){ if(_GDI_inited) return true; Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 		if(GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL)!=S_OK){ return false; } _GDI_inited=true; return true; }
 	static void _freeGDI(){ Gdiplus::GdiplusShutdown(gdiplusToken); }
+	static bool init(){ return _initGDI(); }
 	#endif //_WIN32
 	#ifdef STBI_INCLUDE_STB_IMAGE_H
 	static Image _loadWithStb(const Buffer& data);
+	static bool init(){}
 	#elif !defined(_WIN32) // === libpng + libjpeg ===
 	static bool _loadSOLibs();
+	static bool init(){ return _loadSOLibs(); }
 	static void _libpng_mem_read_cb(void* png_ptr, unsigned char* outBytes, size_t byteCount);
 	static void _libpng_mem_write_cb(void* png_ptr, unsigned char* data, size_t length);
     static void _libjpeg_term_destination(void* cinfo);
@@ -231,11 +234,12 @@ int Image::_libjpeg_empty_output_buffer(void* cinfo){ struct jpeg_compress_struc
     _JpegMemDestCtx* ctx = (_JpegMemDestCtx*)comp->dest; ctx->buff->push(ctx->int_buff, ctx->bufsize);
     comp->dest->next_output_byte = ctx->int_buff; comp->dest->free_in_buffer = ctx->bufsize; return 1; }
 	
-void Image::_libjpeg_term_destination(void* cinfo){ struct jpeg_destination_mgr* dest = (struct jpeg_destination_mgr*)cinfo;
-    _JpegMemDestCtx* ctx = (_JpegMemDestCtx*)cinfo; size_t written = ctx->bufsize - dest->free_in_buffer;
+void Image::_libjpeg_term_destination(void* cinfo){ struct jpeg_compress_struct* comp = (struct jpeg_compress_struct*)cinfo;
+	struct jpeg_destination_mgr* dest = (struct jpeg_destination_mgr*)comp->dest;
+	_JpegMemDestCtx* ctx = (_JpegMemDestCtx*)dest; size_t written = ctx->bufsize - dest->free_in_buffer;
     if(written>0) ctx->buff->push(ctx->int_buff, written); }
 
-/*Buffer Image::toJPG(int quality) const { if(!_loadSOLibs() || !jpeg_CreateCompress || px.empty() || w <= 0 || h <= 0) return Buffer();
+Buffer Image::toJPG(int quality) const { if(!_loadSOLibs() || !jpeg_CreateCompress || px.empty() || w <= 0 || h <= 0) return Buffer();
     struct jpeg_compress_struct cinfo; struct jpeg_error_mgr jerr; cinfo.err = (struct jpeg_error_mgr*)jpeg_std_error(&jerr);
 	//Захардкодил 520 байт для версии 6b
     jpeg_CreateCompress(&cinfo, 62, 520); //(size_t)sizeof(struct jpeg_compress_struct)
@@ -256,6 +260,6 @@ void Image::_libjpeg_term_destination(void* cinfo){ struct jpeg_destination_mgr*
 	while(cinfo.next_scanline < (unsigned int)cinfo.image_height){ int y = cinfo.next_scanline; const PixelT* src_row = &px[y*w]; unsigned char* dst_row = row_rgb.data();
         for(int x = 0; x < w; ++x){ dst_row[x*3+0] = src_row[x].r; dst_row[x*3+1] = src_row[x].g; dst_row[x*3+2] = src_row[x].b; }
         unsigned char* row_ptr[1]; row_ptr[0] = dst_row; jpeg_write_scanlines(&cinfo, row_ptr, 1); }
-    jpeg_finish_compress(&cinfo); jpeg_destroy_compress(&cinfo); return res; }*/
+    jpeg_finish_compress(&cinfo); jpeg_destroy_compress(&cinfo); return res; }
 }
 #endif // === For Linux: use libpng + libjpeg ===

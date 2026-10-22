@@ -1,0 +1,131 @@
+# Windows: Minimal PE .exe 32 bit - Hello World example
+# =================== 1. DOS-ЗАГОЛОВОК (64 байта) ==============
+4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00  # MZ..........ÿÿ..
+B8 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00  # ¸.......@.......
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  # ................
+00 00 00 00 00 00 00 00 00 00 00 00 80 00 00 00  # ............€...
+
+# =================== 2. DOS-STUB (Заглушка) — Текст ошибки для старого DOS (можно забить нулями)
+0E 1F BA 0E 00 B4 09 CD 21 B8 01 4C CD 21 	       	     	 # Код вывода "This program cannot be run..."
+54 68 69 73 20 70 72 6F 67 72 61 6D 20 63 61 6E 6E 6F 74 20  # Текст: "This program cannot be run in DOS mode"
+62 65 20 72 75 6E 20 69 6E 20 44 4F 53 20 6D 6F              # (Занимает пространство до смещения 0x80)
+64 65 2E 0D 0D 0A 24 00 00 00 00 00 00 00
+
+# =================== 3. PE-ЗАГОЛОВОК (PE Signature + File Header / COFF Header) — Смещение 0x80
+50 45 00 00                    # Сигнатура PE ("PE\0\0")
+4C 01                          # Machine: i386 (32-битный x86)
+01 00                          # NumberOfSections: 1 (всего одна секция .text)
+00 00 00 00                    # TimeDateStamp: метка времени (можно 0)
+00 00 00 00                    # PointerToSymbolTable: нет
+00 00 00 00                    # NumberOfSymbols: 0
+E0 00                          # SizeOfOptionalHeader: размер Optional Header (96+NumberOfRvaAndSizes*8=224 байт) (E0 00 = 224 байта)
+02 01                          # Characteristics: исполняемый файл, 32-бит
+
+# =================== 4. OPTIONAL HEADER (Обязательные параметры запуска)
+0B 01                          # Magic: PE32 (32-битный формат)
+00 			       			   # MajorLinkerVersion
+00                             # MinorLinkerVersion
+00 02 00 00                    # SizeOfCode: размер кода
+00 02 00 00                    # SizeOfInitializedData: данные
+00 00 00 00                    # SizeOfUninitializedData
+00 10 00 00                    # AddressOfEntryPoint: точка входа (RVA 0x1000 на начало секции .text)
+00 10 00 00                    # BaseOfCode: начало кода
+00 20 00 00                    # BaseOfData: начало данных
+00 00 40 00                    # ImageBase: базовый адрес загрузки в память (0x00400000)
+10 00 00 00                    # SectionAlignment: выравнивание в памяти (16 байт) (Безопасно: 16/512 байт)
+10 00 00 00                    # FileAlignment: выравнивание на диске (16 байт) (Безопасно: 16/512 байт)
+04 00                          # MajorOperatingSystemVersion
+00 00                          # MinorOperatingSystemVersion
+01 00                          # MajorImageVersion
+00 00                          # MinorImageVersion
+04 00                          # MajorSubsystemVersion
+00 00                          # MinorSubsystemVersion
+00 00 00 00                    # Win32VersionValue
+00 20 00 00                    # SizeOfImage: размер в ОЗУ
+00 02 00 00                    # SizeOfHeaders: размер всех заголовков (округляется до FileAlignment) (?)
+00 00 00 00                    # CheckSum (0 для простых программ)
+03 00                          # Subsystem: Windows CUI (консольное приложение)
+00 00                          # DllCharacteristics
+00 10 00 00                    # SizeOfStackReserve
+10 00 00 00                    # SizeOfStackCommit
+00 10 00 00                    # SizeOfHeapReserve
+10 00 00 00                    # SizeOfHeapCommit
+00 00 00 00                    # LoaderFlags
+10 00 00 00                    # NumberOfRvaAndSizes: кол-во указателей в Data Directories (16) (обычно 16)
+
+# =================== 4.1 Data Directories (Указатели на таблицы импорта/экспорта и т.д.)
+00000000 00000000		# Export Directory RVA (нет) / Export Directory Size
+30100000 28000000      	# Import Directory RVA / Import Directory Size (RVA: 0x1030, Size: 0x28)
+# --- Указатели 3-12 на RVA / Size ---
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+# --- Указатель 13 на IAT Directory RVA (RVA: 0x1050, Size: 0x18) ---
+50100000 18000000		# IAT Directory RVA / IAT Directory Size
+# --- Указатели 14-15 на RVA / Size ---
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+# --- Паддинг? (кратно FileAlignment) ---
+00 00 00 00 00 00 00 00
+
+# =================== 5. SECTION HEADER (Описатель единственной секции)
+2E74657874000000            # Name: ".text\0\0\0"
+00100000                    # VirtualSize: размер секции в ОЗУ
+00100000                    # VirtualAddress: виртуальный адрес секции
+00020000                    # Raw Size: размер на диске
+00020000                    # Raw Address: Смещение в файле?
+00000000                    # Reloc Address
+00000000                    # Linenumbers (Pointer?)
+0000                        # Relocations Number
+0000                        # Linenumbers Number
+20000060                    # Characteristics: код, исполняемый, читаемый, записываемый
+
+# =================== 6. ТЕЛО СЕКЦИИ (.text) — Смещение 0x200 в файле (RVA 0x1000)
+# --- Машинный код (Entry Point) ---
+6A F4                          # push -12 (STD_OUTPUT_HANDLE)
+FF 15 60 10 40 00              # call [0x401060] -> GetStdHandle (IAT)
+50                             # push eax (дескриптор консоли)
+6A 00                          # push 0 (lpNumberOfBytesWritten)
+6A 0E                          # push 14 (длина строки "Hello, World!\n")
+68 20 10 00 00                 # push 0x401020 (указатель на строку: RVA 0x1020)
+FF 15 64 10 40 00              # call [0x401064] -> WriteFile (IAT)
+6A 00                          # push 0 (код возврата ExitProcess)
+FF 15 68 10 40 00              # call [0x401068] -> ExitProcess (IAT)
+
+# --- Данные: Строка сразу после кода (RVA 0x1020) ---
+48 65 6C 6C 6F 2C 20 57 6F 72 6C 64 21 0A        # "Hello, World!\n"
+00 00                          # Выравнивание до четного байта (до 0x1030)
+
+# =================== 7. IMAGE_IMPORT_DESCRIPTOR (RVA 0x1030) ======
+90 10 00 00                    # OriginalFirstThunk (RVA на INT: 0x1090)
+00 00 00 00                    # TimeDateStamp
+00 00 00 00                    # ForwarderChain
+60 10 00 00                    # Name RVA ("kernel32.dll": 0x1060)
+60 10 00 00                    # FirstThunk (IAT RVA: 0x1050)
+# --- Паддинг ---
+00 00 00 00 00 00 00 00 00 00 00 00
+
+# =================== 8. IMPORT ADDRESS TABLE (IAT) (RVA 0x1050) ===
+A0 10 00 00                    # RVA 0x10A0 (GetStdHandle)
+AA 10 00 00                    # RVA 0x10AA (WriteFile)
+B4 10 00 00                    # RVA 0x10B4 (ExitProcess)
+00 00 00 00                    # Конец IAT
+
+# =================== 9. Имена либ и функций (RVA 0x1060+) ==============
+# Имя DLL (RVA 0x1060)
+6B 65 72 6E 65 6C 33 32 2E 64 6C 6C 00          # "kernel32.dll\0"
+00 00 00                                       # Выравнивание
+
+# Import Name Table (INT) (RVA 0x1090)
+A0 10 00 00                    # Указатель на GetStdHandle
+AA 10 00 00                    # Указатель на WriteFile
+B4 10 00 00                    # Указатель на ExitProcess
+00 00 00 00                    # Конец INT
+
+# Hints и имена функций:
+# GetStdHandle (RVA 0x10A0)
+00 00 47 65 74 53 74 64 48 61 6E 64 6C 65 00     # Hint (0), "GetStdHandle\0"
+# WriteFile (RVA 0x10AA)
+00 00 57 72 69 74 65 46 69 6C 65 00             # Hint (0), "WriteFile\0"
+# ExitProcess (RVA 0x10B4)
+00 00 45 78 69 74 50 72 6F 63 65 73 73 00        # Hint (0), "ExitProcess\0"

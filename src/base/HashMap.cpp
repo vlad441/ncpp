@@ -139,4 +139,7 @@ typedef HashMap<String, double> DoubleMap;
 typedef HashMap<String, unsigned long long> ULLMap;
 typedef HashMap<String, long long> LLMap;
 //typedef HashMap<String, long long> Int64Map; // IntLLMap?
+
+template <typename K, typename V> void print(const HashMap<K,V>& map){ print(map.cout()); }
+template <typename K> void print(const HashSet<K>& set){ print(set.cout()); }
 }

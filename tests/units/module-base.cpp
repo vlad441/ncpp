@@ -442,11 +442,13 @@ void Date_test(){
 	
 }
 
+#include "hashmap-test.cpp"
+
 void Module_Base_test(){
 	Array_test();
 	String_test();
 	///Dtos_test();
 	Buffer_test();
-	///HashMap_test();
+	HashMap_test();
 	Date_test();
 }

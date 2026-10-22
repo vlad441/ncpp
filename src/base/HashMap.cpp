@@ -1,5 +1,7 @@
 //Rigtorp HashMap Modified (Linear Probing) O(~1)
 //MIT: https://github.com/rigtorp/HashMap
+#include <stdio.h>
+#include <locale.h>
 namespace ncpp {
 uint32_t Fnv1a(const char* data, size_t len){ uint32_t hash = 2166136261u;
     for(size_t i = 0; i < len; ++i) hash ^= (uint8_t)data[i], hash *= 16777619u; return hash; }
@@ -12,6 +14,61 @@ uint32_t hash(const char* c){ return Fnv1a(c, strlen(c)); }
 uint32_t hash(const String& s){ return Fnv1a(s.c_str(), s.size()); }
 uint32_t hash(const CString& cs){ return Fnv1a(cs.c_str(), cs.size()); }
 uint32_t hash(const Buffer& bf){ return Fnv1a((const char*)bf.data(), bf.size()); }
+
+namespace hash_detail {
+	String quote(const String& input){
+		String result("\""); const char* hex = "0123456789abcdef";
+		for(size_t i = 0; i < input.size(); ++i){
+			unsigned char ch = (unsigned char)input[i];
+			switch(ch){
+				case '"': result += "\\\""; break;
+				case '\\': result += "\\\\"; break;
+				case '\b': result += "\\b"; break;
+				case '\f': result += "\\f"; break;
+				case '\n': result += "\\n"; break;
+				case '\r': result += "\\r"; break;
+				case '\t': result += "\\t"; break;
+				default:
+					if(ch < 0x20){ result += "\\u00"; result += hex[ch >> 4]; result += hex[ch & 15]; }
+					else result += (char)ch;
+			}
+		}
+		result += '"'; return result;
+	}
+	String integer(unsigned long long magnitude, bool negative){
+		char digits[21]; size_t size = 0;
+		do { digits[size++] = (char)('0' + magnitude % 10); magnitude /= 10; } while(magnitude);
+		if(negative) digits[size++] = '-'; reverse(digits, digits + size);
+		return String(digits, size);
+	}
+	template <typename T> String text(const T& item){ String result; result << item; return result; }
+	String text(unsigned long long item){ return integer(item, false); }
+	String text(long long item){
+		unsigned long long magnitude = (unsigned long long)item;
+		if(item < 0) magnitude = 0ULL - magnitude;
+		return integer(magnitude, item < 0);
+	}
+	String text(long item){ return text((long long)item); }
+	String text(unsigned long item){ return text((unsigned long long)item); }
+	String text(bool item){ return item ? "true" : "false"; }
+	String floating(double item, int precision){
+		if(isNaN(item)) return "null"; // JSON has no NaN or infinity literals.
+		char buffer[64]; int size = snprintf(buffer, sizeof(buffer), "%.*g", precision, item);
+		if(size < 0 || (size_t)size >= sizeof(buffer)) return "null";
+		String result(buffer, (size_t)size);
+		const char* point = localeconv()->decimal_point;
+		if(point && *point && strcmp(point, ".") != 0) result = result.replaceAll(point, ".");
+		return result;
+	}
+	String text(double item){ return floating(item, 17); }
+	String text(float item){ return floating(item, 9); }
+	template <typename T> String value(const T& item){ return text(item); }
+	String value(const String& item){ return quote(item); }
+	String value(const CString& item){ return quote(String(item)); }
+	String value(const char* item){ return item ? quote(String(item)) : String("null"); }
+	String value(char* item){ return value((const char*)item); }
+	template <typename T> String key(const T& item){ return quote(text(item)); }
+}
 
 //template <> struct hash<int>{ size_t operator()(int val) const { return val; } }
 
@@ -55,7 +112,7 @@ class _HashTable {
 
 		IterDerived& operator++(){ do{ ++idx; }while(idx < tbl->size() && !(*tbl)[idx].occupied); return (IterDerived&)*this; } //prefix ++it
 		IterDerived operator++(int){ IterDerived it0=IterDerived(tbl, idx); ++(*this); return it0; } //postfix it++
-		IterDerived& operator--(){ if(idx == 0) return *this; do { --idx; }while(idx > 0 && !(*tbl)[idx].occupied); return (IterDerived&)*this; } //prefix --it
+		IterDerived& operator--(){ if(idx == 0) return (IterDerived&)*this; do { --idx; }while(idx > 0 && !(*tbl)[idx].occupied); return (IterDerived&)*this; } //prefix --it
 		IterDerived operator--(int){ IterDerived it0=IterDerived(tbl, idx); --(*this); return it0; } //postfix it--
 	};
 
@@ -111,19 +168,23 @@ public: typedef _HashTable MapT; //typedef _HashTable<K, V, KVData, Derived> Map
 	// == ==
 	
 	//typedef typename MapType::iterator iterator; typedef typename MapType::const_iterator const_iterator;
-	Array<K> keys() const { Array<K> keys; for(typename MapT::ConstIter it = begin(); it != end(); ++it){ keys.push(it->first); } return keys; }
+	Array<K> keys() const { Array<K> keys; for(typename MapT::ConstIter it = begin(); it != end(); ++it){ keys.push(it->key()); } return keys; }
 	bool has(const K& key) const { return this->find(key) != this->end(); }
 	static Derived& assign(Derived& target, const Derived& map2){
-		for(ConstIter it = map2.begin(); it != map2.end(); ++it){ target[it->first]=it->second; } return target; }
+		for(ConstIter it = map2.begin(); it != map2.end(); ++it){ target[it->key()]=it->value(); } return target; }
 	static Derived& assign(Derived& target, const Array<Derived>& maps){ for(size_t i=0;i<maps.size();i++){ target.assign(target, maps[i]); } return target; }
 	String cout() const { String ss("{");
-		for(ConstIter it = this->begin(); it != this->end(); ++it){ ss << "\n  \"" << it->first << "\": " << it->second << ", "; } ss+="}"; return ss; }
-	String toJSON() const { String ss("{"); for(ConstIter it = this->begin(); it != this->end(); ++it){ ss << "\"" << it->first << "\":" << it->second<<","; }
-		ss.resize(ss.size()-1); ss << "}"; return ss; }
+		for(ConstIter it = this->begin(); it != this->end(); ++it){ ss << "\n  \"" << it->key() << "\": " << it->value() << ", "; } ss+="}"; return ss; }
+	String toJSON() const { String ss("{"); bool first = true;
+		for(ConstIter it = this->begin(); it != this->end(); ++it){
+			if(!first) ss += ','; first = false;
+			ss << hash_detail::key(it->key()) << ":" << hash_detail::value(it->value());
+		}
+		ss += '}'; return ss; }
 	String toString() const { return cout(); }
 	String type() const { return "map"; }
 	// unsafe
-	const V& at(const K& key) const { ConstIter it = this->find(key); if(it == this->end()){ return begin()->second; } return it->second; }
+	const V& at(const K& key) const { ConstIter it = this->find(key); if(it == this->end()){ return begin()->value(); } return it->value(); }
 	//const V& operator[](const K& key) const;
 };
 

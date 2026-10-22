@@ -7,7 +7,8 @@ extern "C" {
 #define STD_INPUT_HANDLE -10UL
 #include <wchar.h> //for ReadConsoleW, WideCharToMultiByte
 __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long nStdHandle); struct _OVERLAPPED;
-__declspec(dllimport) int __stdcall ReadConsoleW(void* hInput, void* lpBuffer, unsigned long nNumberOfCharsToRead, unsigned long* lpNumberOfCharsRead, void* lpReserved);
+struct _CONSOLE_READCONSOLE_CONTROL;
+__declspec(dllimport) int __stdcall ReadConsoleW(void* hInput, void* lpBuffer, unsigned long nNumberOfCharsToRead, unsigned long* lpNumberOfCharsRead, struct _CONSOLE_READCONSOLE_CONTROL* pInputControl);
 __declspec(dllimport) int __stdcall WideCharToMultiByte(unsigned int CodePage, unsigned long dwFlags, const wchar_t*, int, char*, int, const char*, int*);
 //__declspec(dllimport) int __stdcall ReadFile(void* hFile, void* lpBuffer, unsigned long nNumberOfBytesToRead, unsigned long* lpNumberOfBytesRead, struct _OVERLAPPED* lpOverlapped);
 #endif

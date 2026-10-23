@@ -237,7 +237,7 @@ struct String : BaseString<char, String>{ //String ≈ std::string
 	String& fill(char c)				{ memset(_ptr, c, _len); 			return *this; }
 	
 	//void push_front(char v){ insert(0, v); }
-	void pop_front(){ erase((size_t)0); }
+	void pop_front(){ erase((size_t)0, 1); }
 	
 	String replace(const CString& from, const CString& to, bool all = false) const {
 		String result(*this); if(from.empty()){ return result; } size_t cpos=0; size_t fpos;

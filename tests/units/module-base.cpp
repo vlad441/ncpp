@@ -139,10 +139,253 @@ void Array_test(){
 }
 
 void String_test(){
-	NextTest("String()"); String str; TEST_EQ(str.size(), 0U);
+	NextTest("String()"); String str; TEST_EQ(str.size(), 0U); TEST_EQ(str.empty(), true); TEST_EQ(str, "");
 	
-	//String(const char* ptr, size_t len){ _init(len); _set(ptr, len); }
-	//String(const char* cptr){ _init(strlen(cptr)); _set(cptr, _len); }
+	// Конструкторы
+	NextTest("String(const char* cptr)"); String s1("Hello");
+	TEST_EQ(s1.size(), 5U); TEST_EQ(s1, "Hello"); TEST_EQ(strncmp(s1.c_str(), "Hello", 5), 0);
+	
+	NextTest("String(const char* ptr, size_t len)"); String s2("Hello", 3);
+	TEST_EQ(s2.size(), 3U); TEST_EQ(s2, "Hel");
+	// Краевой случай: нулевая длина
+	String s2b("Hello", (size_t)0); TEST_EQ(s2b.size(), 0U); TEST_EQ(s2b, "");
+	
+	NextTest("String(const char* begin, const char* end)"); const char* csrc="abcdef";
+	String s3(csrc+1, csrc+4); TEST_EQ(s3.size(), 3U); TEST_EQ(s3, "bcd");
+	// Краевой случай: begin > end => пустая строка
+	String s3b(csrc+4, csrc+1); TEST_EQ(s3b.size(), 0U);
+	
+	NextTest("String(const char (&arr)[N])"); char carr[]="array";
+	String s4(carr); TEST_EQ(s4.size(), 5U); TEST_EQ(s4, "array");
+	
+	NextTest("String(const String& s)"); String s5(s1);
+	TEST_EQ(s5.size(), s1.size()); TEST_EQ(s5, s1);
+	s5[0]='h'; TEST_EQ(s5, "hello"); TEST_EQ(s1, "Hello"); // Копия не должна менять оригинал
+	
+	// Операторы присваивания
+	NextTest("String.operator=(const char*)"); String s6; s6="assign";
+	TEST_EQ(s6.size(), 6U); TEST_EQ(s6, "assign");
+	s6=""; TEST_EQ(s6.size(), 0U); // Краевой случай: пустая строка
+	
+	NextTest("String.operator=(const String&)"); s6=s1; TEST_EQ(s6, "Hello"); TEST_EQ(s6.size(), 5U);
+	
+	NextTest("String.operator=(const char (&arr)[N])"); s6=carr; TEST_EQ(s6, "array");
+	
+	// Управление памятью
+	NextTest("String.reserve(size_t sz)"); String r1("abc"); size_t cap=r1.capacity();
+	r1.reserve(64); TEST_EQ(r1.size(), 3U); TEST_NE(r1.capacity(), cap); TEST_EQ(r1, "abc");
+	size_t cap2=r1.capacity(); r1.reserve(1); TEST_EQ(r1.capacity(), cap2); // Емкость не уменьшается
+	
+	NextTest("String.resize(size_t len)"); String r2("abc");
+	r2.resize(2); TEST_EQ(r2.size(), 2U); TEST_EQ(r2, "ab");
+	r2.resize(4); TEST_EQ(r2.size(), 4U); r2.fill('z'); TEST_EQ(r2, "zzzz");
+	
+	// push / pop
+	NextTest("String.push_back(char) / pop_back()"); String p1("ab");
+	p1.push_back('c'); TEST_EQ(p1, "abc"); p1.pop_back(); TEST_EQ(p1, "ab");
+	
+	NextTest("String.push(const char* ptr, size_t len)"); String p2("A"); p2.push("BC", 2);
+	TEST_EQ(p2.size(), 3U); TEST_EQ(p2, "ABC");
+	p2.push("ignored", (size_t)0); TEST_EQ(p2, "ABC"); // Краевой случай: len=0
+	
+	NextTest("String.push(const String& s)"); p2.push(String("DE")); TEST_EQ(p2, "ABCDE");
+	
+	NextTest("String.push(char c)"); p2.push('F'); TEST_EQ(p2, "ABCDEF");
+	
+	NextTest("String.push(const CString& cs)"); const char* cg="G"; p2.push(CString(cg)); TEST_EQ(p2, "ABCDEFG");
+	
+	NextTest("String.pop()"); String p3("abc"); p3.pop();
+	TEST_EQ(p3.size(), 2U); TEST_EQ(p3, "ab");
+	
+	NextTest("String.fill(char c)"); String f1("abcd"); f1.fill('x');
+	TEST_EQ(f1.size(), 4U); TEST_EQ(f1, "xxxx");
+	
+	NextTest("String.pop_front()"); String pf("abc"); pf.pop_front();
+	TEST_EQ(pf.size(), 2U); TEST_EQ(pf, "bc");
+	
+	NextTest("String.clear()"); String c1("abc"); c1.clear();
+	TEST_EQ(c1.size(), 0U); TEST_EQ(c1.empty(), true);
+	
+	// erase
+	NextTest("String.erase(size_t pos, size_t len)"); String e1("hello world");
+	e1.erase(5, 6); TEST_EQ(e1, "hello");
+	e1.erase(100); TEST_EQ(e1, "hello"); // Краевой случай: pos за границей
+	
+	NextTest("String.erase(Iter first, Iter last)"); String e2("abcdef");
+	e2.erase(e2.begin()+2, e2.begin()+4); TEST_EQ(e2.size(), 4U); TEST_EQ(e2, "abef");
+	
+	NextTest("String.erase(Iter ipos)"); String e3("abc");
+	e3.erase(e3.begin()+1); TEST_EQ(e3, "ac");
+	
+	// Поиск
+	NextTest("String.indexOf(const char* delim, size_t start)"); String i1("hello world");
+	TEST_EQ(i1.indexOf("world"), 6U); TEST_EQ(i1.indexOf("l"), 2U);
+	TEST_EQ(i1.indexOf("zzz"), (size_t)-1); // Негативный сценарий: подстрока отсутствует
+	
+	NextTest("String.indexOf(const char* delim, size_t len, size_t start)"); 
+	TEST_EQ(i1.indexOf("wor", 3, 0), 6U); TEST_EQ(i1.indexOf("wor", 3, 7), (size_t)-1);
+	
+	NextTest("String.indexOf(char c, size_t start)"); 
+	TEST_EQ(i1.indexOf('o'), 4U); TEST_EQ(i1.indexOf('o', 5), 7U); TEST_EQ(i1.indexOf('z'), (size_t)-1);
+	
+	NextTest("String.includes(...)"); 
+	TEST_EQ(i1.includes("lo w"), true); TEST_EQ(i1.includes("xyz"), false);
+	TEST_EQ(i1.includes('w'), true); TEST_EQ(i1.includes('z'), false);
+	TEST_EQ(i1.includes(String("world")), true); TEST_EQ(i1.includes(String("World")), false);
+	
+	NextTest("String.find(const char* s) / find(char c)"); 
+	TEST_EQ(i1.find("world"), 6U); TEST_EQ(i1.find('h'), 0U); TEST_EQ(i1.find("nope"), (size_t)-1);
+	
+	NextTest("String.find_first_of(const char* chars) / find_last_of(...)"); String fo("abcabc");
+	TEST_EQ(fo.find_first_of("cb"), 1U); TEST_EQ(fo.find_last_of("cb"), 5U);
+	TEST_EQ(fo.find_first_of("zz"), (size_t)-1); // Негативный сценарий
+	
+	NextTest("String.find_first_not_of(...) / find_last_not_of(...)"); String fn("  ab  ");
+	TEST_EQ(fn.find_first_not_of(" "), 2U); TEST_EQ(fn.find_last_not_of(" "), 3U);
+	TEST_EQ(String("   ").find_first_not_of(" "), (size_t)-1); // Краевой случай: строка из разделителей
+	
+	NextTest("String.startsWith(const char* prefix)"); 
+	TEST_EQ(i1.startsWith("hello"), true); TEST_EQ(i1.startsWith("world"), false);
+	TEST_EQ(i1.startsWith("hello world!"), false); // Префикс длиннее строки
+	
+	NextTest("String.endsWith(const char* suffix)"); 
+	TEST_EQ(i1.endsWith("world"), true); TEST_EQ(i1.endsWith("hello"), false);
+	TEST_EQ(i1.endsWith("hello world!"), false); // Суффикс длиннее строки
+	
+	// Срезы
+	NextTest("String.slice(int start, int end)"); String sl("0123456789");
+	TEST_EQ(sl.slice(2, 5), "234"); TEST_EQ(sl.slice(7), "789");
+	TEST_EQ(sl.slice(-3), "789"); TEST_EQ(sl.slice(-3, -1), "78");
+	TEST_EQ(sl.slice(20).size(), 0U); // Краевой случай: start за границей
+	
+	NextTest("String.substr(int start, int end)"); 
+	TEST_EQ(sl.substr(0, 3), "012"); TEST_EQ(sl.substr(5), "56789");
+	
+	// Разбиение
+	NextTest("String.split(const char* delim)"); String sp("a,b,c");
+	Array<String> parts = sp.split(",");
+	TEST_EQ(parts.size(), 3U); TEST_EQ(parts[0], "a"); TEST_EQ(parts[1], "b"); TEST_EQ(parts[2], "c");
+	TEST_EQ(String("abc").split(",").size(), 1U); // Негативный сценарий: разделителя нет
+	
+	NextTest("String.split(char delim)"); TEST_EQ(sp.split(',').size(), 3U); TEST_EQ(sp.split(';').size(), 1U);
+	
+	NextTest("String.split(const char* delim, size_t len, int maxparts)"); 
+	Array<String> mp = sp.split(",", 1, 2);
+	TEST_EQ(mp.size(), 2U); TEST_EQ(mp[0], "a"); TEST_EQ(mp[1], "b,c");
+	
+	NextTest("String.split(const BaseString&)"); String sp3("a-b-c");
+	TEST_EQ(sp3.split(String("-")).size(), 3U); TEST_EQ(sp3.split(String("-"))[1], "b");
+	
+	NextTest("String.splitTokens(int limit, const char* chars)"); String tk("  a  b  c  ");
+	Array<String> toks = tk.splitTokens();
+	TEST_EQ(toks.size(), 3U); TEST_EQ(toks[0], "a"); TEST_EQ(toks[2], "c");
+	TEST_EQ(String("   ").splitTokens().size(), 0U); // Краевой случай: только разделители
+	
+	NextTest("String.splitParts(int partSz)"); String pt("abcde");
+	Array<String> pparts = pt.splitParts(2);
+	TEST_EQ(pparts.size(), 3U); TEST_EQ(pparts[0], "ab"); TEST_EQ(pparts[2], "e");
+	TEST_EQ(pt.splitParts(0).size(), 1U); // Краевой случай: размер части <= 0
+	
+	// Замена и регистр
+	NextTest("String.replace(const CString& from, const CString& to, bool all)"); String rp("abcabc");
+	TEST_EQ(rp.replace("b", "X"), "aXcabc"); TEST_EQ(rp.replace("b", "X", true), "aXcaXc");
+	TEST_EQ(rp.replace("zzz", "X"), "abcabc"); // Негативный сценарий: подстрока отсутствует
+	TEST_EQ(rp.replace("", "X"), "abcabc"); // Краевой случай: пустая подстрока
+	
+	NextTest("String.replaceAll(const CString& from, const CString& to)"); 
+	TEST_EQ(rp.replaceAll("abc", "!"), "!!");
+	
+	NextTest("String.toLowerCase()"); 
+	TEST_EQ(String("AbC1").toLowerCase(), "abc1"); TEST_EQ(String("").toLowerCase(), "");
+	
+	NextTest("String.toUpperCase()"); 
+	TEST_EQ(String("AbC1").toUpperCase(), "ABC1"); TEST_EQ(String("").toUpperCase(), "");
+	
+	NextTest("String.trim()"); 
+	TEST_EQ(String("  hi  ").trim(), "hi"); TEST_EQ(String("	 hi \r\n").trim(), "hi");
+	TEST_EQ(String("   ").trim(), ""); TEST_EQ(String("hi").trim(), "hi"); // Краевые случаи
+	
+	NextTest("String.toBool()"); 
+	TEST_EQ(String("true").toBool(), true); TEST_EQ(String("1").toBool(), true);
+	TEST_EQ(String("false").toBool(), false); TEST_EQ(String("yes").toBool(), false);
+	
+	// Операторы
+	NextTest("String.operator[](size_t pos) / at()"); String op("abc");
+	TEST_EQ(op[1], 'b'); op[1]='Z'; TEST_EQ(op.at(1), 'Z');
+	TEST_EQ(op.at(100), 0); // Краевой случай: выход за границы
+	
+	NextTest("String.operator+=(const char*)"); String a1("A"); a1+="B"; TEST_EQ(a1, "AB");
+	NextTest("String.operator+=(const String&)"); a1+=String("C"); TEST_EQ(a1, "ABC");
+	NextTest("String.operator+=(char)"); a1+='D'; TEST_EQ(a1, "ABCD");
+	
+	NextTest("String.operator+(...)"); 
+	TEST_EQ(String("A") + "B", "AB"); TEST_EQ(String("A") + String("B"), "AB");
+	TEST_EQ(String("A") + 'B', "AB");
+	
+	NextTest("String.operator<<(...)"); String a3; a3 << "abc" << String("de");
+	TEST_EQ(a3, "abcde"); a3 << 42; TEST_EQ(a3, "abcde42");
+	
+	NextTest("String.operator Array<char>()"); Array<char> carr_out = String("abc");
+	TEST_EQ(carr_out.size(), 3U); TEST_EQ(carr_out[0], 'a'); TEST_EQ(carr_out[2], 'c');
+	
+	NextTest("String.swap(String& other)"); String sw1("one"), sw2("two");
+	sw1.swap(sw2); TEST_EQ(sw1, "two"); TEST_EQ(sw2, "one");
+	
+	NextTest("String.front() / back()"); String fb("xyz");
+	TEST_EQ(fb.front(), 'x'); TEST_EQ(fb.back(), 'z');
+	
+	NextTest("String.capacity() / length()"); String cl("abcd");
+	TEST_EQ(cl.length(), 4U); TEST_NE(cl.capacity(), 0U);
+}
+
+// CString ≈ string_view: не владеет данными
+void CString_test(){
+	const char* chello="hello"; // не литерал, чтобы не сработал ctor от char[N]
+	
+	NextTest("CString()"); CString cs0; TEST_EQ(cs0.size(), 0U); TEST_EQ(cs0.empty(), true);
+	
+	NextTest("CString(const char* c)"); CString cs1(chello);
+	TEST_EQ(cs1.size(), 5U); TEST_EQ(cs1, "hello"); TEST_EQ(strncmp(cs1.c_str(), chello, 5), 0);
+	
+	NextTest("CString(const char* c, size_t len)"); CString cs2(chello, 3);
+	TEST_EQ(cs2.size(), 3U); TEST_EQ(cs2, "hel");
+	
+	NextTest("CString(const char* first, const char* end)"); const char* csrc="abcdef";
+	CString cs3(csrc+1, csrc+4); TEST_EQ(cs3.size(), 3U); TEST_EQ(cs3, "bcd");
+	CString cs3b(csrc+4, csrc+1); TEST_EQ(cs3b.size(), 0U); // Краевой случай: first > end
+	
+	NextTest("CString(const String& s)"); String vsrc("view");
+	CString cs4(vsrc); TEST_EQ(cs4.size(), 4U); TEST_EQ(cs4, "view");
+	
+	NextTest("CString(const CString& cs)"); CString cs5(cs1);
+	TEST_EQ(cs5.size(), cs1.size()); TEST_EQ(cs5, cs1);
+	
+	NextTest("CString.operator=(const char*)"); CString cs6; cs6=chello;
+	TEST_EQ(cs6.size(), 5U); TEST_EQ(cs6, "hello");
+	
+	NextTest("CString.operator[](size_t pos) / at()"); 
+	TEST_EQ(cs1[1], 'e'); TEST_EQ(cs1.at(1), 'e');
+	TEST_EQ(cs1.at(100), 0); // Краевой случай: выход за границы
+	
+	NextTest("CString.startsWith / endsWith"); 
+	TEST_EQ(cs1.startsWith("he"), true); TEST_EQ(cs1.startsWith("lo"), false);
+	TEST_EQ(cs1.endsWith("lo"), true); TEST_EQ(cs1.endsWith("he"), false);
+	
+	NextTest("CString.indexOf / includes"); 
+	TEST_EQ(cs1.indexOf("llo"), 2U); TEST_EQ(cs1.indexOf("xyz"), (size_t)-1);
+	TEST_EQ(cs1.includes('x'), false); TEST_EQ(cs1.includes('e'), true);
+	
+	NextTest("CString.slice(int start, int end)"); 
+	TEST_EQ(cs1.slice(1, 3), "el"); TEST_EQ(cs1.slice(-2), "lo");
+	
+	NextTest("CString.operator+(const char*)"); 
+	TEST_EQ(cs1 + "!", "hello!"); TEST_EQ(cs1 + String("?"), "hello?");
+	
+	NextTest("CString.toBool()"); const char* ct="true"; const char* cf="no";
+	TEST_EQ(CString(ct).toBool(), true); TEST_EQ(CString(cf).toBool(), false);
+	
+	NextTest("CString.split(char delim)"); const char* ccsv="a,b,c"; CString csv(ccsv);
+	TEST_EQ(csv.split(',').size(), 3U); TEST_EQ(csv.split(',')[2], "c");
 }
 
 void Buffer_test(){ const char* ctest="Test str"; Buffer copy; unsigned int tmpval[2]; unsigned char uarr[]={5,8,11};
@@ -445,6 +688,7 @@ void Date_test(){
 void Module_Base_test(){
 	Array_test();
 	String_test();
+	CString_test();
 	///Dtos_test();
 	Buffer_test();
 	///HashMap_test();

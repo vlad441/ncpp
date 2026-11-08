@@ -32,12 +32,14 @@ if "%~1"=="x32" (set "ARCH_FLAG=-m32" & set "WL_ENTRY_FNAME=__start" & shift)
 ::if "%ARCH_FLAG%"=="-m32" if "%COMPILER%"=="CLANG" (set "ARCH_FLAG=-target i686-w64-mingw32 %ARCH_FLAG%")
 
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
+::-Wall -Wextra -Wpedantic -Wparentheses -Wconversion -Wfloat-equal -Wuseless-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wundef -Werror
 set FNO_FLAGS=-fno-exceptions -fno-rtti
 set FNO_FLAGS_WH=%FNO_FLAGS% -fwhole-program
 ::if "%COMPILER%"=="CLANG" (set "FNO_FLAGS_WH=%FNO_FLAGS% -flto=full -fvisibility=hidden -Wl,/OPT:REF -Wl,/OPT:ICF")
 set OPT_FLAGS=-O2 -std=%STDCXX% %FNO_FLAGS_WH%
 
 set DBG_LNK_FLAGS=%ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi
+::-D_WIN32_WINNT=0x0501 | 0x0600 | 0x0A00; GCC 3.4 _WIN32_WINNT=0x0400; GCC >=13 _WIN32_WINNT=0x0A00;
 ::if "%COMPILER%"=="GCC" set DBG_LNK_FLAGS=%ARCH_FLAG% -nodefaultlibs -lws2_32 -lpsapi -liphlpapi -lsupc++ -lpthread -lmingw32 -lmingwex -lmsvcrt -lgcc -ladvapi32 -lkernel32
 ::if "%COMPILER%"=="CLANG" set DBG_LNK_FLAGS=%ARCH_FLAG% -nodefaultlibs -lws2_32 -lpsapi -liphlpapi -lpthread -lc++ -lclang_rt.builtins-i386 -lmingw32 -lmingwex -lmsvcrt -ladvapi32 -luser32 -lkernel32
 if "%COMPILER%"=="CLANG" (set "DBG_LNK_FLAGS=-target i686-w64-mingw32 %DBG_LNK_FLAGS% -pthread")
@@ -45,6 +47,7 @@ if "%COMPILER%"=="CLANG" (set "DBG_LNK_FLAGS=-target i686-w64-mingw32 %DBG_LNK_F
 set GCC_LIBS=-static-libgcc -static-libstdc++
 set D_LNK_FLAGS=-s %GCC_LIBS% %DBG_LNK_FLAGS%
 set LNK_FLAGS=-static %D_LNK_FLAGS%
+::--coverage gcov tests.cpp Set-ExecutionPolicy Bypass -Scope Process
 
 set AUDIO_LIBS=-lwinmm
 set IMAGE_LIBS=-lgdiplus -lgdi32 -lole32
@@ -61,21 +64,23 @@ if "%~1"=="GUI" (set "mode=%~1")
 if "%~1"=="SGUI" (set "mode=GUI")
 if "%~1"=="GL" (set "mode=%~1")
 if "%~1"=="EXP" (set "mode=%~1")
+if "%~1"=="ALL" (set "mode=EXP")
 if "%~1"=="NOCRT" (set "mode=%~1")
 if "%~1"=="DLNK" (set "mode=%~1")
+if "%~1"=="COVERAGE" (set "mode=%~1")
 if "%1"=="DEF" (shift)
 if not "%mode%"=="" (shift)
 
 if "%~1"=="" (set fname=tests) else (set fname=%1)
-set cppfile=%CD%\%fname%.cpp
-set exefile=%CD%\%fname%.exe
+set cppfile="%CD%\%fname%.cpp"
+set exefile="%CD%\%fname%.exe"
 set start_time=%TIME%
 
-if not "%gccpath%"=="" (cd /d "%gccpath%")
+if not "%gccpath%"=="" (cd /d "%gccpath%" && set CBIN=.\%CBIN%.exe)
 
 if "%mode%"=="LIB" echo Make via ncpp.a... & %CBIN% -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% -L"%currCD%\..\lib" -lncpp %LNK_FLAGS%
 if "%mode%"=="LIB_DLL" echo Make via ncpp.dll... & %CBIN% -D NCPP_LIB_USE %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile%  -L"%currCD%\..\lib" -lncpp %D_LNK_FLAGS%
-if "%mode%"=="FAST" echo Make with -O3 -march=native... & %CBIN% %WARN_FLAGS% -O3 -std=$STDCXX %FNO_FLAGS_WH% %cppfile% -o %exefile% -march=native -mtune=native -flto -funroll-loops -fipa-cp-clone -ffast-math -fomit-frame-pointer %LNK_FLAGS%
+if "%mode%"=="FAST" echo Make with -Ofast -march=native... & %CBIN% %WARN_FLAGS% -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% -Ofast -march=native -mtune=native -ffast-math -funroll-loops -fno-stack-protector -fno-plt %LNK_FLAGS%
 if "%mode%"=="DBG" echo Make debug -g -Og... & %CBIN% %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% %DBG_LNK_FLAGS%
 if "%mode%"=="SAN" echo Make using sanitizers... & %CBIN% %WARN_FLAGS% -g -Og -std=%STDCXX% %FNO_FLAGS_WH% %cppfile% -o %exefile% %D_LNK_FLAGS% -fsanitize=address,undefined
 if "%mode%"=="GUI" echo Make for GUI... & %CBIN% -DUSE_GUI -DNOUSE_GL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lgdi32
@@ -83,6 +88,7 @@ if "%mode%"=="GL" echo Make for GL... & %CBIN% -DUSE_GUI %WARN_FLAGS% %OPT_FLAGS
 if "%mode%"=="EXP" echo Make for Experimental... & %CBIN% -DUSE_GUI -DUSE_EXPERIMENTAL %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% -lopengl32 %IMAGE_LIBS% %AUDIO_LIBS%
 if "%mode%"=="NOCRT" echo Make NOCRT... & %CBIN% -DNCPP_NOCRT %WARN_FLAGS% -O2 -std=%STDCXX% %FNO_FLAGS% %cppfile% -o %exefile% %ARCH_FLAG% -Wl,--entry=%WL_ENTRY_FNAME% -s -static -nostdlib -lkernel32
 if "%mode%"=="DLNK" echo Make DLNK (Dynamic Lnk)... & %CBIN% %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %D_LNK_FLAGS%
+if "%mode%"=="COVERAGE" echo Make for --coverage... & %CBIN% --coverage %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS% && .\%fname%.exe & gcov -n -m -f -b %fname%.cpp > gcov-coverage.txt & del %fname%.gcda & del %fname%.gcno & node ..\scripts\calc-coverage.js
 if "%mode%"=="" echo Make (default)... & %CBIN% %WARN_FLAGS% %OPT_FLAGS% %cppfile% -o %exefile% %LNK_FLAGS%
 
 if not "%gccpath%"=="" (cd /d "%currCD%")

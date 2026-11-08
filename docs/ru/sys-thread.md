@@ -358,6 +358,7 @@ void clearInterval(int id);
 ```cpp
 template<typename T>
 int setInterval(void(*func)(T*), int msec, void* arg = NULL);
+int setInterval(void(*func)(size_t), int msec, size_t arg=0);
 int setInterval(void(*func)(), int msec);
 ```
 Запускает выполнение функции каждые `msec` миллисекунд.
@@ -366,6 +367,7 @@ int setInterval(void(*func)(), int msec);
 ```cpp
 template<typename T>
 int setTimeout(void(*func)(T*), int msec, void* arg = NULL);
+int setTimeout(void(*func)(size_t), int msec, size_t arg=0);
 int setTimeout(void(*func)(), int msec);
 ```
 Запускает выполнение функции один раз через `msec` миллисекунд.

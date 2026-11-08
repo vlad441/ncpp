@@ -253,26 +253,32 @@ namespace ncpp {
 	#define UniquePtr UPtr //template<typename T> struct UniquePtr : UPtr<T>{};
 	#endif
 	
-	namespace Timers { Mutex _ThrMtx; bool _run=false; Thread _TimerThr; int _tMaxIdx=0; static void _handler();
+	namespace Timers { Mutex _ThrMtx; bool _ThrAutoCreate=true; bool _run=false; Thread _TimerThr; int _tMaxIdx=0; void _handler();
 		struct Timer { void(*func)(void*); long long msec; long long last; bool once; void* arg; }; typedef HashMap<int, Timer> TimersL;
 		TimersL tList;
 		template<typename F>
 		int add(F func, int msec, bool once=false, void* arg=NULL){ Timer timer; timer.func=(void(*)(void*))func; 
 			timer.arg=(void*)arg; timer.msec=msec; timer.last=GetTimestamp('m'); timer.once=once; 
 			_ThrMtx.lock(); bool empty=tList.empty(); tList[_tMaxIdx]=timer; /*tList.push(timer);*/ int idx=_tMaxIdx++; _ThrMtx.unlock();
-			if(empty){ _TimerThr=Thread(_handler); /*_TimerThr.detach();*/ } return idx; }
-		
-		static void _handler(){ _run=true;
-			while(!tList.empty()){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m');
-				for(TimersL::Iter it = tList.begin(); it != tList.end(); ++it){ Timer& t = it->second;
-					long long timeLeft = t.msec-(now-t.last); if(timeLeft < minTime){ minTime = timeLeft; } }
+			if(empty&&_ThrAutoCreate){ _TimerThr=Thread(_handler); /*_TimerThr.detach();*/ } return idx; }
+			
+		long long _calcAwaitTime(){ long long minTime = 9223372036854775807LL; long long now = GetTimestamp('m');
+			for(TimersL::Iter it = tList.begin(); it != tList.end(); ++it){ Timer& t = it->second;
+				long long timeLeft = t.msec-(now-t.last); if(timeLeft < minTime){ minTime = timeLeft; } } return minTime; }
 				
-				if(minTime>0&&minTime!=LLONG_MAX){ Sleep((int)minTime); } now = GetTimestamp('m');
-				for(TimersL::Iter it = tList.begin(); it != tList.end(); ){ if(!_run){ _ThrMtx.lock(); tList.clear(); _ThrMtx.unlock(); break; } 
-					Timer& t = it->second;
-					if((now-t.last) >= t.msec){ t.func(t.arg); t.last += t.msec;
-						if(t.once){ _ThrMtx.lock(); it = tList.erase(it); _ThrMtx.unlock(); continue; } } ++it; }
-			} }
+		void _execTimers(){ long long now = GetTimestamp('m');
+			for(TimersL::Iter it = tList.begin(); it != tList.end(); ){ if(!_run){ tList.clear(); break; } Timer& t = it->second; 
+				if((now-t.last) >= t.msec){ t.func(t.arg); t.last += t.msec; if(t.once){ it = tList.erase(it); continue; } } ++it; } }
+				
+		void _execTimersMtx(){ long long now = GetTimestamp('m');
+			for(TimersL::Iter it = tList.begin(); it != tList.end(); ){ if(!_run){ _ThrMtx.lock(); tList.clear(); _ThrMtx.unlock(); break; } 
+				Timer& t = it->second;
+				if((now-t.last) >= t.msec){ t.func(t.arg); t.last += t.msec;
+					if(t.once){ _ThrMtx.lock(); it = tList.erase(it); _ThrMtx.unlock(); continue; } } ++it; } }
+		
+		void _handler(){ _run=true;
+			while(!tList.empty()){ long long minTime = _calcAwaitTime(); if(minTime>0&&minTime!=LLONG_MAX){ Sleep((int)minTime); } _execTimersMtx(); } }
+			
 		void clear(){ _run=false; _tMaxIdx=0; }
 		void wait(){ if(_TimerThr.joinable()) _TimerThr.join(); }
 		void detach(){ if(_TimerThr.joinable()) _TimerThr.detach(); }
@@ -282,9 +288,11 @@ namespace ncpp {
 	void clearInterval(int id){ Timers::Delete(id); }
 	template<typename T>
 	int setInterval(void(*func)(T*), int msec, void* arg=NULL){ return Timers::add(func, msec, false, arg); };
+	int setInterval(void(*func)(size_t), int msec, size_t arg=0){ return Timers::add(func, msec, false, (void*)arg); };
 	int setInterval(void(*func)(), int msec){ return Timers::add(func, msec, false); };
 	template<typename T>
 	int setTimeout(void(*func)(T*), int msec, void* arg=NULL){ return Timers::add(func, msec, true, arg); };
+	int setTimeout(void(*func)(size_t), int msec, size_t arg=0){ return Timers::add(func, msec, true, (void*)arg); };
 	int setTimeout(void(*func)(), int msec){ return Timers::add(func, msec, true); };
 	
 }

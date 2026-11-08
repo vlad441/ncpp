@@ -299,17 +299,15 @@ void Buffer_test(){ const char* ctest="Test str"; Buffer copy; unsigned int tmpv
 	TEST_EQ(buff[0], 0x11); TEST_EQ(buff[7], 0x88);
 
 	// Битовые операции
-	unsigned char byte_val = 0xA5; // 10100101
-	NextTest("Buffer::BitsRead(const void* ptr)");
-	Buffer bits = Buffer::BitsRead(&byte_val);
-	TEST_EQ(bits.size(), 8U); TEST_EQ(bits[0], 1); TEST_EQ(bits[1], 0); TEST_EQ(bits[7], 1);
+	unsigned char bits[8]; unsigned char byte_val = 0xA5; // 10100101
+	NextTest("Buffer::Bits8Read(unsigned char bits[8], const void* src)");
+	Buffer::Bits8Read(bits, &byte_val); TEST_EQ(bits[0], 1); TEST_EQ(bits[1], 0); TEST_EQ(bits[7], 1);
 	
-	NextTest("Buffer::BitsWrite(void* ptr, const Buffer& bits)");
-	unsigned char new_byte = 0; bits = Buffer::IntToBits(0x5A, 8); // 01011010
-	Buffer::BitsWrite(&new_byte, bits); TEST_EQ(new_byte, 0x5A);
+	NextTest("Buffer::Bits8Write(void* dst, const unsigned char* bits, size_t bitlen=8)");
+	unsigned char new_byte = 0; Buffer::IntToBits(bits, 0x5AU, 8); // 01011010
+	Buffer::Bits8Write(&new_byte, bits); TEST_EQ(new_byte, 0x5AU);
 	
-	NextTest("Buffer::BitsToInt(const Buffer& bits)");
-	TEST_EQ(Buffer::BitsToInt(bits), 0x5A);
+	NextTest("Buffer::BitsToInt(const Buffer& bits)"); TEST_EQ(Buffer::BitsToInt(bits), 0x5AU);
 	
 	NextTest("Buffer::IntToBits(int numb, size_t bitlen)");
 	Buffer bits2 = Buffer::IntToBits(5, 4); // 0101
@@ -443,6 +441,7 @@ void Date_test(){
 }
 
 void Module_Base_test(){
+	Except("[Test] - Except test");
 	Array_test();
 	String_test();
 	///Dtos_test();

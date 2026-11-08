@@ -34,19 +34,10 @@ namespace ncpp{ //namespace allocators;
 		~SlabAlloc(){ clear(); }
 		
 		//Intrusive Free List: sizeof(T) >= sizeof(void*)
-		void* alloc(){ if(freeListHead){ T* ptr = freeListHead; freeListHead = *(T**)ptr; return ptr; }
+		T* alloc(){ if(freeListHead){ T* ptr = freeListHead; freeListHead = *(T**)ptr; return ptr; }
 			if(!end || end->offset >= blockSz) _newblock();
 			T* ptr = (T*)((char*)end->data + end->offset * _sizeT); end->offset++; return ptr; }
 		void dealloc(void* ptr){ if(!ptr) return; *(T**)ptr = freeListHead; freeListHead = ptr; }
-		
-		//Usage Array Pointers
-		// void* alloc(){ if(!freePtrs.empty()) return freePtrs.pop(); if(!end || end->offset >= blockSz) _newblock();
-			// T* ptr = (T*)((char*)end->data+end->offset*_sizeT); end->offset++; return ptr; }
-		// void dealloc(void* ptr){ freePtrs.push(ptr); }
-		
-		//Old Intrusive Free List
-		//T* alloc(){ if (!nextFreeBlock) return _newblock(); T* result = nextFreeBlock; nextFreeBlock = *(T**)result; return result; }
-		//void dealloc(T* ptr){ *(T**)ptr = nextFreeBlock; nextFreeBlock = ptr; }
 
 		T* New(){ return new (alloc()) T(); }
 		void Delete(T* ptr){ ptr->~T(); dealloc(ptr); } //dealloc(ptr, _sizeT); // не применяется
@@ -62,9 +53,7 @@ namespace ncpp{ //namespace allocators;
 		void _newblock(){ Block* b = (Block*)_allocFN(sizeof(Block)+blockSz*_sizeT); if(!b){ Except("SlabAlloc: _newblock() alloc fail"); return; }
 			b->offset = 0; b->next = NULL; b->data = (T*)((char*)b+sizeof(Block)); 
 			if(!first){ first = end = b; }else{ end->next = b; end = b; } }
-		//void _clearBlock(){  } //Операция деструктора всех объектов в блоке не реализована
-		//(char*)this + sizeof(Block);
-		//(char*)this + sizeof(Block);
+		//void _clearBlock(){  } //Операция деструктора всех объектов в блоке не реализована //(char*)this + sizeof(Block);
 	};
 	
 	template<void* (*_allocFN)(size_t) = malloc, void (*_freeFN)(void*) = free> //void* (*_realloc)(void* ptr, size_t size);

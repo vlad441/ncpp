@@ -44,8 +44,6 @@
     - [Buffer.write()](#bufferwrite)
     - [Buffer.readAny()](#bufferreadany)
     - [Buffer.writeAny()](#bufferwriteany)
-    - [Buffer.BitsRead()](#bufferbitsread)
-    - [Buffer.BitsWrite()](#bufferbitswrite)
     - [Buffer.readT_BE()](#bufferreadt_be)
     - [Buffer.readT_LE()](#bufferreadt_le)
     - [Buffer.writeT_BE()](#bufferwritet_be)
@@ -78,6 +76,12 @@
     - [Buffer.readDoubleLE()](#bufferreaddoublele)
     - [Buffer.writeDoubleBE()](#bufferwritedoublebe)
     - [Buffer.writeDoubleLE()](#bufferwritedoublele)
+	- [Buffer.BitsRead()](#bufferbitsread)
+    - [Buffer.BitsWrite()](#bufferbitswrite)
+	- [Buffer.BitsReadInt()](#bufferbitsreadint)
+    - [Buffer.BitsWriteInt()](#bufferbitswriteint)
+    - [Buffer::Bits8Read()](#bufferbits8read)
+    - [Buffer::Bits8Write()](#bufferbits8write)
     - [Buffer::BitsToInt()](#bufferbitsint)
     - [Buffer::IntToBits()](#bufferinttobits)
 	- [Buffer::XOR()](#bufferxor)
@@ -435,20 +439,6 @@ void writeAny(const T& data, size_t offset=0);
 ```
 Записывает значение произвольного типа `T` по смещению.
 
-### Buffer.BitsRead()
-```cpp
-Buffer BitsRead(size_t offset=0) const;
-static Buffer BitsRead(const void* ptr);
-```
-Читает 8 бит (1 байт) и возвращает буфер из 8 элементов, где каждый элемент равен 0 или 1.
-
-### Buffer.BitsWrite()
-```cpp
-void BitsWrite(const Buffer& bits, size_t offset=0);
-static void BitsWrite(void* ptr, const Buffer& bits);
-```
-Записывает биты из буфера (массив нулей и единиц) в один байт по указанному адресу/смещению.
-
 ### Buffer.readT_BE()
 ```cpp
 template <typename T>
@@ -645,16 +635,55 @@ void writeDoubleLE(double value, size_t offset=0);
 ```
 -
 
-### Buffer.BitsToInt()
+### Buffer.BitsRead()
 ```cpp
-static int BitsToInt(const void* bits, size_t len);
-static int BitsToInt(const Buffer& bits);
+Buffer BitsRead(size_t bitpos=0, size_t bitlen=8) const;
+static void BitsRead(unsigned char* bits, const void* src, size_t bitpos, size_t bitlen);
+```
+Читает произвольные биты возвращает буфер из элементов, где каждый элемент равен 0 или 1.
+
+### Buffer.BitsWrite()
+```cpp
+void BitsWrite(const void* src, size_t bitpos=0, size_t bitlen=8);
+static void BitsWrite(void* dst, const unsigned char* bits, size_t bitpos, size_t bitlen);
+```
+Записывает произвольные биты из буфера в этот экземпляр `Buffer` по указанному `bitpos`.
+
+### Buffer.BitsReadInt()
+```cpp
+unsigned int BitsReadInt(size_t bitpos=0, size_t bitlen=8) const;
+unsigned long long BitsReadInt64(size_t bitpos=0, size_t bitlen=8) const;
+```
+Записывает произвольные биты из буфера в этот экземпляр `Buffer` по указанному `bitpos`.
+
+### Buffer.BitsWriteInt()
+```cpp
+void BitsWriteInt(int numb, size_t bitpos=0, size_t bitlen=8);
+```
+Читает произвольные биты возвращает буфер из элементов, где каждый элемент равен 0 или 1.
+
+### Buffer::Bits8Read()
+```cpp
+static void Bits8Read(unsigned char bits[8], const void* src);
+```
+Читает 8 бит (1 байт) и записывает из в переданный массив из 8 элементов `bits`, где каждый элемент равен 0 или 1.
+
+### Buffer::Bits8Write()
+```cpp
+static void Bits8Write(void* dst, const unsigned char* bits, size_t bitlen=8);
+```
+Записывает до 8 бит из буфера в один байт по указанному адресу `dst`.
+
+### Buffer::BitsToInt()
+```cpp
+static unsigned int BitsToInt(unsigned char* bits, size_t bitlen);
+static unsigned int BitsToInt(const Buffer& bits);
 ```
 Преобразует массив бит (где каждый элемент равен 0 или 1) в целое число `int`.
 
-### Buffer.IntToBits()
+### Buffer::IntToBits()
 ```cpp
-static void IntToBits(void* dst, int numb, int bitlen);
+static void IntToBits(unsigned char* bits, int numb, int bitlen);
 static Buffer IntToBits(int numb, size_t bitlen=sizeof(int)*8);
 ```
 Преобразует целое число в массив бит (0 и 1).
@@ -773,8 +802,9 @@ static void ctoh(char hex[2], unsigned char value);
 
 ### Buffer::htoll()
 ```cpp
+static unsigned long long htoll(const char* hex, char len);
 static unsigned long long htoll(const char* hex);
-static unsigned long long htoll(const String& str);
+static unsigned long long htoll(const CString& str);
 ```
 Преобразует hex-строку в число `unsigned long long`.
 

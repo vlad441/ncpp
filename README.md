@@ -1,9 +1,11 @@
-![version](https://img.shields.io/badge/version-v0.0.1-blue) [![C++](https://img.shields.io/badge/C%2B%2B-98-00599C?logo=c%2B%2B)](https://ru.cppreference.com/w/cpp/98) [![C++](https://img.shields.io/badge/C%2B%2B-11-00599C?logo=c%2B%2B)](https://ru.cppreference.com/w/cpp/11) [![ru](https://img.shields.io/badge/%D1%8F%D0%B7%D1%8B%D0%BA-%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9%20%F0%9F%87%B7%F0%9F%87%BA-white)](README.md) [![en](https://img.shields.io/badge/lang-English%20%F0%9F%87%BA%F0%9F%87%B8-white)](README-EN.md) [![docs-ru](https://img.shields.io/badge/docs-%F0%9F%93%84%20RU-lightgrey)](docs/ru/introduction.md) [![docs-en](https://img.shields.io/badge/docs-%F0%9F%93%84%20EN-lightgrey)](docs/en/introduction.md) [![Github link](https://img.shields.io/badge/github-gray)](https://github.com/vlad441/ncpp) [![License](https://img.shields.io/badge/license-PD-blue.svg)](https://github.com/vlad441/ncpp/blob/main/UNLICENSE) [![Windows](https://img.shields.io/badge/Windows-✅%20Supported-0078D6?logo=windows)](https://www.microsoft.com/windows) [![Linux](https://img.shields.io/badge/Linux-✅%20Supported-0078D6?logo=linux)](https://kernel.org)
+![version](https://img.shields.io/badge/version-v0.0.1-blue) [![C++](https://img.shields.io/badge/C%2B%2B-98-00599C?logo=c%2B%2B)](https://ru.cppreference.com/cpp/98) [![C++](https://img.shields.io/badge/C%2B%2B-11-00599C?logo=c%2B%2B)](https://ru.cppreference.com/cpp/11) [![ru](https://img.shields.io/badge/%D1%8F%D0%B7%D1%8B%D0%BA-%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9%20%F0%9F%87%B7%F0%9F%87%BA-white)](README.md) [![en](https://img.shields.io/badge/lang-English%20%F0%9F%87%BA%F0%9F%87%B8-white)](README-EN.md) [![docs-ru](https://img.shields.io/badge/docs-%F0%9F%93%84%20RU-lightgrey)](docs/ru/introduction.md) [![docs-en](https://img.shields.io/badge/docs-%F0%9F%93%84%20EN-lightgrey)](docs/en/introduction.md) [![Github link](https://img.shields.io/badge/github-gray)](https://github.com/vlad441/ncpp) [![License](https://img.shields.io/badge/license-PD-blue.svg)](https://github.com/vlad441/ncpp/blob/main/UNLICENSE) 
+[![Windows](https://img.shields.io/badge/Windows-✅%20Supported-0078D6?logo=windows)](https://www.microsoft.com/windows) [![Linux](https://img.shields.io/badge/Linux-✅%20Supported-0078D6?logo=linux)](https://kernel.org) ![CI](https://github.com/vlad441/ncpp/actions/workflows/main.yml/badge.svg) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/vlad441/ncpp) ![GitHub repo size](https://img.shields.io/github/repo-size/vlad441/ncpp) ![GitHub all releases](https://img.shields.io/github/downloads/vlad441/ncpp/total) [![Coverage Status](https://coveralls.io/repos/github/vlad441/ncpp/badge.svg?branch=dev)](https://coveralls.io/github/vlad441/ncpp?branch=dev)
 
 **ncpp** (Node C++) — минималистичная системная библиотека, которая стремится предоставить простой и эффективный кроссплатформенный мультитул, вдохновленный документацией Node.js.
 
 ncpp предлагает реализации из различных областей для стандартов C++98 и выше, такие как обработка буферов, файлов, сети, шифрования и многое другое, минимизируя внешние зависимости и сохраняя минимальный размер.
 
+[Быстрый старт](#быстрый-старт)
 [Возможности](#возможности)
 
 [Сборка](#сборка)
@@ -18,6 +20,14 @@ ncpp предлагает реализации из различных обла�
   - [Установка пакета через apt](#установка-пакета-через-apt)
 
 [Документация](#документация)
+
+## Быстрый старт
+ - Если у вас нет компилятора - можете установить компилятор из этого [списка](docs/ru/introduction.md#компилятор).
+ - Файл [example.cpp](example.cpp) в корне проекта уже содержит пример, но вы можете изменить его по своему усмотрению или из [примеров](docs/ru/introduction.md#примеры).
+	- Соберите свой первый пример из исходного кода для вашей ОС: [Windows](#windows) или [Linux](#linux).
+		- (Или же, вы можете [скачать](https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip) этот репозиторий, и запустить скрипт `make.bat`/`make.sh` мышкой в корне проекта)
+
+Если вы новичок, рекомендуем изучить наше [введение](docs/ru/introduction.md#начало-работы) для начала работы с языком и библиотекой.
 
 ## Возможности
 - **Основа:**
@@ -59,7 +69,9 @@ ncpp предлагает реализации из различных обла�
   
 ### Зависимости
 Проект стремится к минимизации внешних зависимостей, однако для отдельных компонентов могут требоваться дополнительные пакеты:
-- **Windows**: - (Все необходимые компоненты уже вшиты в стандартную комплектацию системы)
+
+- **Windows**: Зависимости не требуются. (Все необходимые компоненты уже вшиты в стандартную комплектацию системы).
+
 - **Linux**: Необходим `glibc`/`musl` (Обычно включены в минимальный состав любого дистрибутива)
 Также, для работы компонентов `GUI`, `GL`, `Experimental` могут требоваться следующие пакеты:
 ```bash
@@ -79,9 +91,9 @@ apt install libasound2-dev -y --no-install-recommends
 Это основной (и пока единственный) способ, особенно если вы хотите самостоятельно выбрать уровень оптимизации при компиляции каждого вашего проекта под конкретную платформу.
 
 Для упрощения и ускорения сборки используется `Unity Build` стиль, где собирается единая единица трансляции (мастер-файл) из `.cpp` файлов в необходимой последовательности, 
-что может помочь с оптимизациями, однако может потреблять больше памяти в сравнении классической модульной сборкой.
+что может помочь с оптимизациями, однако может потреблять больше памяти в сравнении классической раздельной сборкой.
 
-Вы можете использовать скрипт `make.sh`/`make.bat` в `scripts` для этих целей. (Необходимо запускать находясь в директории `scripts`).
+Вы можете использовать скрипт `make.sh`/`make.bat` для этих целей. (Необходимо запускать из корня проекта).
 По умолчанию скрипт соберет пример `example.cpp` в корне проекта.
 
 Также, можете просто подключить мастер-файл `#include "src/ncpp.cpp"` в ваш код. Это подключит в ваш файл полную реализацию библиотеки.
@@ -93,7 +105,7 @@ git clone --single-branch --branch dev --depth 1 https://github.com/vlad441/ncpp
 ::Или: вы можете скачать архив: https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip
 ::Т.к Git автоматически приводит формат окончания строк к LF, при скачивании архива для make.bat может понадобиться сменить формат окончания строк на CRLF
 
-cd ncpp/scripts
+cd ncpp
 make.bat
 ```
 
@@ -102,7 +114,7 @@ make.bat
 git clone --single-branch --branch dev --depth 1 https://github.com/vlad441/ncpp.git
 #Или: вы можете скачать архив: wget https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip
 
-cd ncpp/scripts
+cd ncpp
 chmod 755 make.sh
 bash make.sh
 ```
@@ -110,8 +122,8 @@ bash make.sh
 ### Сборка библиотеки из исходников
 На данный момент полноценная поддержка этого способа **не предоставляется**.
 
-Хоть и возможна сборка динамических библиотек `.so` (Linux) и `.dll` (Windows), заголовочные файлы `.h` при этом пока не предоставляются.
-Сборка статических библиотек `.a` (Linux) и `.a`/`.lib` (Windows) на данный момент также возможна, но бинарные варианты библиотеки могут быть не оптимизированы.
+Сборка динамических библиотек `.so` (Linux) и `.dll` (Windows) еще не поддерживаются, заголовочные файлы `.h` при этом пока не предоставляются.
+Сборка статических библиотек `.a` (Linux) и `.a`/`.lib` (Windows) на данный момент также еще не поддерживается.
 
 Вы можете их собрать через скрипт `build.sh`/`build.bat` в `scripts`, где статическая библиотека будет собрана в **единый** объектный файл.
 Собранные библиотеки будут помещены в директорию `lib`.
@@ -123,7 +135,7 @@ bash make.sh
 
 Также вы можете посмотреть пару примеров в [разделе](docs/ru/introduction.md#примеры) документации.
 
-Более сложный пример с Experimental компонентами, включающий GUI и OpenGL доступен только для `dev` ветки в `tests/gui`, собрав его `make_gui.bat gl-perspective`/`bash make_gui.sh gl-perspective`.
+Более сложный пример с `Experimental` компонентами, включающий `GUI` и `OpenGL` доступен только для `dev` ветки в `tests/gui`, собрав его `make_gui.bat gl-perspective`/`bash make_gui.sh gl-perspective`.
 
 ### Линковка предварительно собранной библиотеки
 Сами библиотеки скомпилированы для наиболее распространенных сценариев использования, однако в окружениях где использование этих предварительных сборок библиотек невозможно, вы можете использовать [Прямое включение исходного кода](#прямое-включение-исходного-кода) или [Сборка библиотеки из исходников](#сборка-библиотеки-из-исходников).

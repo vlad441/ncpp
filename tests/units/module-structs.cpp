@@ -1,30 +1,3 @@
-/*void bigint_matan_test_old(){ // 26959946667150639794667015087019625481340285887712943950607281029120 / 65537 = 411369862324345633682759587515748744699029340490302332279586814
-    NextTest("Buffer::Math::divide_single(Buffer&, unsigned int, bool)");
-	BigInt r1("26959946667150639794667015087019625481340285887712943950607281029120"); Buffer::Math::divide_single(r1, 65537, true);
-	cons << "--- divide_single: " << r1.toIntString() << "\n"; 
-	TEST_EQ(r1.toIntString(), "411369862324345633682759587515748744699029340490302332279586814");
-	
-	NextTest("Buffer::Math::binary_divmod(const Buffer& a, const Buffer& b, bool)"); rsetCons(); Pair<Buffer, Buffer> qr;
-	qr.first = Buffer::Math::divide(BigInt("26959946667150639794667015087019625481340285887712943950607281029120"), BigInt("65537"));
-	TEST_EQ(qr.first.toIntString(), "411369862324345633682759587515748744699029340490302332279586814");
-	cons << "---- Math::divide: " << qr.first.toIntString() << "\n";
-	
-	qr=Buffer::Math::binary_divmod(BigInt("180"), BigInt("7")); TEST_EQ(qr.first.toIntString(), "25"); TEST_EQ(qr.second.toIntString(), "5");
-	cons << "---Buffer::Math::divide: 180/7 = " << qr.first.toIntString() << " (Correct: ~25.71 - R: 5) | R: " << qr.second.toIntString() << "\n";
-	
-	qr=Buffer::Math::binary_divmod(BigInt("500"), BigInt("80")); TEST_EQ(qr.first.toIntString(), "6"); TEST_EQ(qr.second.toIntString(), "20");
-	cons << "---Buffer::Math::divide: 500/80 = " << qr.first.toIntString() << " (Correct: 6,25 - R: 20) | R: " << qr.second.toIntString() << "\n";
-	
-	qr=Buffer::Math::binary_divmod(BigInt("23242"), BigInt("123")); TEST_EQ(qr.first.toIntString(), "188"); TEST_EQ(qr.second.toIntString(), "118");
-	cons << "---Buffer::Math::divide: 23242/123 = " << qr.first.toIntString() << " (Correct: ~188,95 - R: 118) | R: " << qr.second.toIntString() << "\n";
-	
-	qr=Buffer::Math::binary_divmod(BigInt("1892642"), BigInt("1623")); TEST_EQ(qr.first.toIntString(), "1166"); TEST_EQ(qr.second.toIntString(), "224");
-	cons << "---Buffer::Math::divide: 1892642/1623 = " << qr.first.toIntString() << " (Correct: ~1166,13 - R: 224) | R: " << qr.second.toIntString() << "\n";
-	
-	qr=Buffer::Math::binary_divmod(BigInt("162305008000"), BigInt("12305008000")); TEST_EQ(qr.first.toIntString(), "13"); TEST_EQ(qr.second.toIntString(), "2339904000");
-	cons << "---Buffer::Math::divide: 162305008000/12305008000 = " << qr.first.toIntString() << " (Correct: ~13.19 - R: 2339904000) | R: " << qr.second.toIntString() << "\n";
-}*/
-
 void bigint_powMod_test(){
 	//cons << "long long multiply: 318269061 * 3242605871 = " << 318269061*3242605871 << "\n";
 	//cons << "BigInt multiply:    318269061 * 3242605871 = " << BigInt("318269061")*BigInt("3242605871") << "\n"; 
@@ -39,13 +12,13 @@ void bigint_powMod_test(){
 	pow_time = GetTimestamp('u');
 	powmod = BigInt::powMod(BigInt("448441098339"), 65537, BigInt("8337081413648785545319633427184794663442231257812474053748924357873034396348443147463459176658193871428912054316060197154657584308858711521584149869800409"));
 	TEST_EQ(powmod.toString(), "8235268947183623068183478460196304961213547175072910579233784236435658850672398906533320054125179477276517696070551883850668816422827485613146966261594282");
-	cons << "--- Encrypt powMod(512 bits) = " << powmod.toString() << "\n";
+	cons << "--- Encrypt powMod(" << powmod.bits() << " bits) = " << powmod.toString() << "\n";
 	cons << "--- == Time: " << dtos((GetTimestamp('u')-pow_time)/1000.0, 3) << " msec.\n";
 	
 	pow_time = GetTimestamp('u');
 	powmod = BigInt::powMod(BigInt("8235268947183623068183478460196304961213547175072910579233784236435658850672398906533320054125179477276517696070551883850668816422827485613146966261594282"), BigInt("1255199083090049391575275386820153027208820907591676175112388980867803384176392806418198950849985557076510219996257973803858569120555626307266334391903437"), BigInt("8337081413648785545319633427184794663442231257812474053748924357873034396348443147463459176658193871428912054316060197154657584308858711521584149869800409"));
 	TEST_EQ(powmod.toString(), "448441098339");
-	cons << "--- Decrypt powMod(512 bits) = " << powmod.toString() << "\n";
+	cons << "--- Decrypt powMod(" << powmod.bits() << " bits) = " << powmod.toString() << "\n";
 	cons << "--- == Time: " << dtos((GetTimestamp('u')-pow_time)/1000.0, 3) << " msec.\n";
 }
 
@@ -113,6 +86,23 @@ void bigint_test(){
 	cons << "---mod: 1440000000000000000000980 % 999888777 = " << modval.toString()  << " (Correct R: 752126543)\n";
 	modval = BigInt::mod("14499999989490968294177999999", "22446744069414584323"); TEST_EQ(modval.toString(), "473985");
 	cons << "---mod: 14499999989490968294177999999 % 22446744069414584323 = " << modval.toString() << "\n";
+
+	NextTest("BigInt portable limbs, signed arithmetic and Knuth division");
+	TEST_EQ((BigInt("-7") / BigInt("3")).toString(), "-2");
+	TEST_EQ((BigInt("-7") % BigInt("3")).toString(), "-1");
+	TEST_EQ((BigInt("7") / BigInt("-3")).toString(), "-2");
+	TEST_EQ((BigInt("7") % BigInt("-3")).toString(), "1");
+	TEST_EQ((BigInt("-7") + BigInt("7")).toString(), "0");
+	TEST_EQ(BigInt("-7").toString(), "-7");
+	TEST_EQ(BigInt("+7").toString(), "7");
+	TEST_EQ(BigInt(-9223372036854775807LL - 1).toString(), "-9223372036854775808");
+	BigInt overwritten = BigInt("18446744073709551615");
+	overwritten = Buffer(8, 0);
+	TEST_EQ(overwritten.toString(), "0");
+	qr = BigInt::divmod(BigInt("18446744073709551615"), BigInt("4294967295"));
+	TEST_EQ(qr.first.toString(), "4294967297");
+	TEST_EQ(qr.second.toString(), "0");
+	TEST_EQ(BigInt::fromBuffBE(BigInt("4294967296").toBuffBE()).toString(), "4294967296");
 	
 	bigint_powMod_test();
 }

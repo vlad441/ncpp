@@ -1,8 +1,33 @@
-#ifdef _WIN32 // == Windows Headers ==
+#ifdef _WIN32 // ====== Windows System Headers ======
+
+#if defined(USE_NPOLL) && (!defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0600) //poll() for >= Windows Vista
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+
+#define WIN32_LEAN_AND_MEAN  // Исключает редко используемые компоненты из заголовков Windows
+#define NOSERVICE            // Исключает API служб
+#define NOMCX                // Исключает API модемов
+#define NOIME                // Исключает API ввода символов (иероглифы и т.д.)
+#define NOHELP               // Исключает старый WinHelp API
+#define NOPROFILER           // Исключает функции профилирования производительности
+#define NOTAPE               // Исключает API для работы с ленточными накопителями
+#define NOKANJI           	 // Исключает поддержку Кандзи (японская кодировка)
+//#define NOCOMM             // Исключает API последовательных (COM) портов
+//#define NOSOUND            // Исключает старый звуковой API (PlaySound, etc.)
+//#define NOATOM             // Исключает менеджер системных атомов
+//#define NOCOLOR            // Исключает стандартные системные цвета
+
+// #ifndef USE_GUI
+// #define NOGDI 				 //Исключает весь GDI
+// #endif
+
 #include <windows.h>
+// --- Net headers ---
 #include <winsock2.h> // (includes <windows.h>)
 #include <ws2tcpip.h>
 #include <mswsock.h>  // for AcceptEx
+// --- Other headers ---
 #include <wchar.h> // for wcslen()
 #if defined(__GNUC__) && __GNUC__ < 4
 #include "gcc3_winxpdef.hpp"
@@ -15,7 +40,17 @@
 #define DLIB_LOAD(name) LoadLibraryA(name)
 #define DLIB_FREE(handle) FreeLibrary(handle)
 #define DGET_ADDR(handle, name) GetProcAddress(handle, name)
-#else // == Linux Headers ==
+
+#else // ====== Linux System Headers ======
+#include <unistd.h> // Linux POSIX API (write(), close(), getpid, _fd, etc...)
+#include <sys/types.h> //pid_t, uid_t, gid_t, off_t
+#include <sys/socket.h>
+#include <netdb.h> // for getaddrinfo
+#include <arpa/inet.h> // struct in_addr, inet_pton, inet_ntop
+#include <spawn.h> // for posix_spawn
+#include <signal.h> // signals kill, etc.
+#include <sys/time.h> // time api: gettimeofday
+#include <fcntl.h> // for socket descryptor settings (non-bloking mode, etc).
 #include <dlfcn.h>
 #include <sys/mman.h> //mmap, mprotect.
 //namespace ncpp { typedef void* LibHandle; } //Linux Dynamic Lib Loader
@@ -23,7 +58,7 @@
 #define DLIB_LOAD(name) dlopen(name, RTLD_NOW) //RTLD_NOW, RTLD_LAZY
 #define DLIB_FREE(handle) dlclose(handle)
 #define DGET_ADDR(handle, name) dlsym(handle, name)
-#endif
+#endif //_WIN32
 
 namespace ncpp {
 
@@ -129,6 +164,8 @@ Buffer Buffer::randBytes(int length){ Buffer buff(length); for(size_t i=0;i<buff
 	void usleep(unsigned int usec){
 		#if _WIN32_WINNT >= 0x0A00 //>= Win10
 			static __thread HANDLE hTimer=0; if(!hTimer) hTimer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+		#elif defined(__GNUC__) && __GNUC__ < 4 //GCC 3.4: error: thread-local storage not supported for this target
+			static HANDLE hTimer=0; if(!hTimer) hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
 		#else
 			static __thread HANDLE hTimer=0; if(!hTimer) hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
 		#endif

@@ -36,9 +36,10 @@ esac
 CBIN="${CROSS_PREFIX}$CBIN"
 
 WARN_FLAGS="-Wall -Wno-misleading-indentation"
+#-Wall -Wextra -Wpedantic -Wparentheses -Wconversion -Wfloat-equal -Wuseless-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wundef -Werror
 FNO_FLAGS="-fno-exceptions -fno-rtti"
 FNO_FLAGS_WH="$FNO_FLAGS -fwhole-program"
-[[ "$COMPILER" == "CLANG" ]] && FNO_FLAGS_WH="$FNO_FLAGS -flto=full -fvisibility=hidden"
+#[[ "$COMPILER" == "CLANG" ]] && FNO_FLAGS_WH="$FNO_FLAGS -flto=full -fvisibility=hidden"
 OPT_FLAGS="-O2 -std=$STDCXX $FNO_FLAGS_WH"
 
 GCC_LIBS="$ARCH_FLAG -static-libgcc -static-libstdc++"
@@ -53,7 +54,7 @@ AUDIO_LIBS="-l:libasound.so.2"
 #S_DEFLIBS_D="-Wl,-Bstatic -lm -lc -Wl,-Bdynamic"
 
 mode=""
-case "$1" in "LIB" | "LIB_DLL" | "LIB_SO" | "FAST" | "SAN" | "SDBG" | "DBG" | "MUSL" | "SGUI" | "GUI" | "GL" | "EXP" | "EXP_SAN" | "NOCRT" | "DLNK" | "DEF")
+case "$1" in "LIB" | "LIB_DLL" | "LIB_SO" | "FAST" | "SAN" | "SDBG" | "DBG" | "MUSL" | "SGUI" | "GUI" | "GL" | "EXP" | "ALL" | "EXP_SAN" | "NOCRT" | "DLNK" | "COVERAGE" | "DEF")
 	mode=$1; shift ;;
 esac
 [ -z "$1" ] && fname=tests || fname=$1
@@ -62,8 +63,7 @@ exefile="$currCD/$fname"
 start_time=$(date +%s)
 
 #if [ -z "$gccpath" ]; then gccbin="${CROSS_PREFIX}g++"; else cd "$gccpath" && gccbin="./${CROSS_PREFIX}g++"; fi
-[ -n "$gccpath" ] && cd "$gccpath"
-
+[ -n "$gccpath" ] && cd "$gccpath" && CBIN=./$CBIN
 #CBIN="g++4.9"
 
 case "$mode" in
@@ -76,12 +76,14 @@ case "$mode" in
 	"GUI") echo "Make for GUI..."; $CBIN -DUSE_GUI -DNOUSE_GL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" -s $X11_LIBS $D_LNK_FLAGS ;;
 	"SGUI") echo "Make for SGUI..."; $CBIN -DUSE_GUI -DNOUSE_GL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" -lXtst -lXext -lX11 -lxcb -lXau -lXdmcp $LNK_FLAGS ;;
 	"GL") echo "Make for GL..."; $CBIN -DUSE_GUI $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $GL_LIBS $D_LNK_FLAGS ;;
-	"EXP") echo "Make for Experimental..."; $CBIN -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $GL_LIBS $AUDIO_LIBS $D_LNK_FLAGS ;;
+	"EXP"|"ALL") echo "Make for Experimental..."; $CBIN -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $GL_LIBS $AUDIO_LIBS $D_LNK_FLAGS ;;
 	"EXP_SAN") echo "Make using sanitizers (for Experimental)..."; $CBIN -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS -g -Og -std=$STDCXX $FNO_FLAGS_WH "$cppfile" -o "$exefile" $GL_LIBS $AUDIO_LIBS -lpthread -fsanitize=address,undefined ;;
 	"NOCRT") echo Make NOCRT... & $CBIN -DNCPP_NOCRT $WARN_FLAGS -O2 -std=$STDCXX $FNO_FLAGS "$cppfile" -o "$exefile" $ARCH_FLAG -Wl,--entry=_start -s -static -nostdlib ;;
 	"DLNK") echo "Make DLNK (Dynamic Lnk)..."; $CBIN $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $D_LNK_FLAGS ;;
+	"COVERAGE") echo "Make for --coverage..." && $CBIN --coverage $WARN_FLAGS $OPT_FLAGS $cppfile -o $exefile $LNK_FLAGS && ./$fname || gcov -n -m -f -b $fname.cpp > gcov-coverage.txt || node ../scripts/calc-coverage.js ;;
 	*) echo "Make (default)..."; $CBIN $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_FLAGS ;;
 esac
+#rm -f $fname.gcda $fname.gcno
 [ -n "$gccpath" ] && cd "$currCD"
 
 # === Time ===

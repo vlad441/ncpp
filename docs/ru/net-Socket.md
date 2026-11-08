@@ -177,12 +177,15 @@ Buffer recv();
 
 ### TCPSocket.accept()
 ```cpp
-TCPSocket* accept() const;
-TCPSocket _accept() const;
+TCPSocket* accept(Socket* (*allocFN)() = NULL) const;
+static TCPSocket* accept(int srvfd, Socket* (*allocFN)());
+
 int acceptFd() const;
-int acceptFd(IPAddr* addr) const;
+static int acceptFd(int srvfd);
+static int acceptFd(int srvfd, IPAddr* addr);
 ```
 Ожидает новое подключение к сокету (возможно только после привязки `bind()` и `listen()`). Если `TCPSocket.getfd()` равен `-1`, произошла ошибка.
+Функция `accept` также может принимать кастомный аллокатор `Socket* (*allocFN)()` для создания сокета.
 
 ## ncpp::UDPSocket
 ```cpp

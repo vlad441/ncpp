@@ -1,6 +1,7 @@
 // ncpp (Node C++). Primary entry point for direct compilation with GCC/Clang. (Unity Build style)
 // PD: No rights reserved. Released into the Public Domain.
 // Project Site: http://ncpp.art | Project in GitHub: https://github.com/vlad441/ncpp
+#pragma once
 #ifndef NCPP_CPP
 #define NCPP_CPP
 #include "ncppdef.hpp"
@@ -14,8 +15,9 @@
 // ======== Direct Include Sources ========
 // --- Base ---
 #include "base/print.c" // Depends: None
-#include "base/utils0.cpp" //Depends: None
-#include "base/Array.cpp" // Depends: utils0
+#include "base/utils0.hpp" //Depends: None
+#include "base/Except.cpp" //Depends: utils0
+#include "base/Array.hpp" // Depends: utils0
 #include "base/String.cpp" // Depends: utils0, Array
 #include "base/dtos.cpp" //Depends: utils0, String
 #include "base/Buffer.cpp" //Depends: utils0, Array, String, dtos

@@ -26,7 +26,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	Buffer& _fromHex(const char* hexstr, size_t len){ len/=2; if(this->size()!=len){ resize(len); }
         for(size_t i=0;i<len;++i){ (*this)[i] = htoc(hexstr+2*i); } return *this; }
 	Buffer& _fromIntString(const CString& cs){ this->clear(); size_t i=0; if(cs.size()>0&&(cs[0]=='-'||cs[0]=='+')) i=1;
-		Buffer temp(cs.size()); for(; i < cs.size(); ++i){ temp[i] = cs[i] - '0'; } size_t st = 0;
+		Buffer temp(cs.size()-i); for(size_t j=0; j<temp.size(); ++j, ++i){ temp[j] = cs[i] - '0'; } size_t st = 0;
 		while(st < temp.size() && !(st == temp.size() - 1 && temp[st] == 0)){ unsigned int remainder = 0;
 			for(size_t i = st; i < temp.size(); ++i){ unsigned int current = remainder * 10 + temp[i]; temp[i] = current / 256; remainder = current % 256; }
 			push((unsigned char)remainder); while(st < temp.size() && temp[st] == 0) st++; } reverse(); return *this; }
@@ -121,9 +121,6 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	void writeAny(const T& data, size_t offset=0){ if(ncpp::is_pointer<T>::V){ Except("writeAny(T&): not accept pointers type\n", 1); return; }
 		return write(&data, sizeof(data), offset); }
 	
-	Buffer BitsRead(size_t offset=0) const { return BitsRead(_ptr+offset); }
-	void BitsWrite(const Buffer& bits, size_t offset=0){ BitsWrite(_ptr+offset, bits); }
-	
 	// == представления
 	template <typename T>
 	T readT_BE(size_t offset=0, int length=sizeof(T)) const { T value=readT_LE<T>(offset); ncpp::reverse((char*)&value, (char*)&value+length); return value; }
@@ -167,18 +164,43 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	double readDoubleLE(size_t offset=0) const { return readT_LE<double>(offset); }
 	void writeDoubleBE(double value, size_t offset=0){ writeT_BE<double>(value, offset); }
 	void writeDoubleLE(double value, size_t offset=0){ writeT_LE<double>(value, offset); }
-	// === static funcs ===
-	static Buffer BitsRead(const unsigned char* ptr){ unsigned char bits[8];
-		for(unsigned char indx = 0; indx < 8; ++indx){ bits[indx] = (*ptr >> (7 - indx)) & 1; } return Buffer(bits); }
-	static void BitsWrite(unsigned char* ptr, const Buffer& bits){ *ptr=0;
-		for(size_t indx = 0; indx < bits.size(); ++indx){ *ptr = (*ptr << 1) | bits[indx]; } }
-	static Buffer BitsRead(const void* ptr){ return BitsRead((const unsigned char*)ptr); }
-	static void BitsWrite(void* ptr, const Buffer& bits){ BitsWrite((unsigned char*)ptr, bits); }
 	
-	static int BitsToInt(const void* bits, size_t len){ int numb=0; for(size_t i=0; i<len; ++i){ numb = (numb << 1) | ((unsigned char*)bits)[i]; } return numb; }
-	static int BitsToInt(const Buffer& bits){ return BitsToInt(bits.data(), bits.size()); }
-	//static void IntToBits(void* dst, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ ((unsigned char*)dst)[i] = (numb >> i) & 1; } } // LE Order
-	static void IntToBits(void* dst, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ ((unsigned char*)dst)[i] = (numb >> (bitlen-1-i)) & 1; } }
+	Buffer BitsRead(size_t bitpos=0, size_t bitlen=8) const { Buffer bits; bits.reserve(bitlen);
+		for(size_t i=0; i<bitlen; ++i){ size_t pos = bitpos+i; size_t byteIdx = pos/8; size_t bitOffset = pos%8; // от 0 (MSB) до 7 (LSB)
+			bits.push((_ptr[byteIdx] >> (7-bitOffset)) & 1); } return bits; }
+
+	void BitsWrite(const unsigned char* bits, size_t bitpos=0, size_t bitlen=8){ size_t minLen = (bitpos+bitlen+7)/8; if(_len < minLen) resize(minLen);
+		for(size_t i = 0; i < bitlen; ++i){ size_t pos = bitpos+i; size_t byteIdx = pos/8; size_t bitOffset = pos%8;
+			unsigned char mask = 1 << (7-bitOffset); if(bits[i]){ _ptr[byteIdx] |= mask; }else{ _ptr[byteIdx] &= ~mask; } } }
+			
+	unsigned int BitsReadInt(size_t bitpos=0, size_t bitlen=8) const { unsigned char bits[sizeof(int)*8]; 
+		BitsRead(bits, _ptr, bitpos, bitlen); return BitsToInt(bits, bitlen); }
+	unsigned long long BitsReadInt64(size_t bitpos=0, size_t bitlen=8) const { unsigned char bits[sizeof(long long)*8]; BitsRead(bits, _ptr, bitpos, bitlen); 
+		unsigned long long numb=0; for(size_t i=0; i<bitlen; ++i){ numb = (numb << 1) | bits[i]; } return numb; }
+		
+	void BitsWriteInt(int numb, size_t bitpos=0, size_t bitlen=8){ unsigned char bits[sizeof(int)*8]; IntToBits(bits, numb, bitlen);
+		size_t minLen = (bitpos+bitlen+7)/8; if(_len < minLen) resize(minLen); BitsWrite(_ptr, bits, bitpos, bitlen); }
+	
+	// === static funcs ===
+	static void BitsRead(unsigned char* bits, const void* src, size_t bitpos, size_t bitlen){ const unsigned char* ptr=(const unsigned char*)src;
+		for(size_t i=0; i<bitlen; ++i){ size_t pos = bitpos+i; size_t byteIdx = pos/8; size_t bitOffset = pos%8; // от 0 (MSB) до 7 (LSB)
+			bits[i] = (ptr[byteIdx] >> (7-bitOffset)) & 1; 
+			// if(byteIdx < _len){ bits[i] = (_ptr[byteIdx] >> (7 - bitOffset)) & 1; } 
+			// else { bits[i] = 0; } // если вышли за границы буфера, возвращаем 0
+		} }
+		
+	static void BitsWrite(void* dst, const unsigned char* bits, size_t bitpos, size_t bitlen){ unsigned char* ptr=(unsigned char*)dst;
+		for(size_t i = 0; i < bitlen; ++i){ size_t pos = bitpos+i; size_t byteIdx = pos/8; size_t bitOffset = pos%8;
+			unsigned char mask = 1 << (7-bitOffset); if(bits[i]){ ptr[byteIdx] |= mask; }else{ ptr[byteIdx] &= ~mask; } } }
+			
+	static void Bits8Read(unsigned char bits[8], const void* src){ const unsigned char* ptr=(const unsigned char*)src; //MSB-first
+		for(unsigned char indx=0; indx<8; ++indx){ bits[indx] = (*ptr >> (7 - indx)) & 1; } }
+	static void Bits8Write(void* dst, const unsigned char* bits, size_t bitlen=8){ unsigned char* ptr=(unsigned char*)dst; *ptr=0;
+		for(size_t indx=0; indx < bitlen; ++indx){ *ptr = (*ptr << 1) | bits[indx]; } }
+	
+	static unsigned int BitsToInt(unsigned char* bits, size_t bitlen){ unsigned int numb=0; for(size_t i=0; i<bitlen; ++i){ numb = (numb << 1) | bits[i]; } return numb; }
+	static unsigned int BitsToInt(const Buffer& bits){ return BitsToInt(bits.data(), bits.size()); }
+	static void IntToBits(unsigned char* bits, int numb, int bitlen){ for(int i=0; i<bitlen; ++i){ bits[i] = (numb >> (bitlen-1-i)) & 1; } }
 	static Buffer IntToBits(int numb, int bitlen=sizeof(int)*8){ Buffer bits(bitlen); IntToBits(bits.data(), numb, bits.size()); return bits; }
 	
 	static void XOR(Buffer& buff1, const Buffer& buff2){ size_t minSz = min(buff1.size(), buff2.size()); for(size_t i=0; i<minSz; ++i) buff1[i] ^= buff2[i]; }
@@ -317,7 +339,7 @@ struct Buffer : BaseString<unsigned char, Buffer>{ //Buffer ≈ Array<unsigned c
 	static unsigned long long htoll(const char* hex, char len){ unsigned long long num = 0; char rem=len%2; len=len/2; if(len>8) len=8;
 		for(int i = 0; i < len; ++i){ num = (num << 8) | htoc(&hex[i*2]); } if(rem){ char h[]={'0',hex[len-1]}; num = (num << 4) | htoc(h); } return num; }
 	static unsigned long long htoll(const char* hex){ return htoll(hex, strlen(hex)); }
-	static unsigned long long htoll(const String& str){ return htoll(str.data(), str.size()); }
+	static unsigned long long htoll(const CString& str){ return htoll(str.data(), str.size()); }
 	static void lltoh(char hex[16], unsigned long long value){ for(int i = 7; i >= 0; --i){ ctoh(&hex[i*2], value & 0xFF); value >>= 8; } }
 	static String lltoh(unsigned long long value){ char hex[16]; if(!value){ return String(2, '0'); }
 		for(int i = 7; i >= 0; --i){ ctoh(&hex[i*2], value & 0xFF); value >>= 8; }

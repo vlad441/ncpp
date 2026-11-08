@@ -1,23 +1,33 @@
-![version](https://img.shields.io/badge/version-v0.0.1-blue) [![C++](https://img.shields.io/badge/C%2B%2B-98-00599C?logo=c%2B%2B)](https://ru.cppreference.com/w/cpp/98) [![C++](https://img.shields.io/badge/C%2B%2B-11-00599C?logo=c%2B%2B)](https://ru.cppreference.com/w/cpp/11) [![ru](https://img.shields.io/badge/%D1%8F%D0%B7%D1%8B%D0%BA-%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9%20%F0%9F%87%B7%F0%9F%87%BA-white)](README.md) [![en](https://img.shields.io/badge/lang-English%20%F0%9F%87%BA%F0%9F%87%B8-white)](README-EN.md) [![docs-ru](https://img.shields.io/badge/docs-%F0%9F%93%84%20RU-lightgrey)](docs/ru/introduction.md) [![docs-en](https://img.shields.io/badge/docs-%F0%9F%93%84%20EN-lightgrey)](docs/en/introduction.md) [![Github link](https://img.shields.io/badge/github-gray)](https://github.com/vlad441/ncpp) [![License](https://img.shields.io/badge/license-PD-blue.svg)](https://github.com/vlad441/ncpp/blob/main/UNLICENSE) [![Windows](https://img.shields.io/badge/Windows-✅%20Supported-0078D6?logo=windows)](https://www.microsoft.com/windows) [![Linux](https://img.shields.io/badge/Linux-✅%20Supported-0078D6?logo=linux)](https://kernel.org)
+![version](https://img.shields.io/badge/version-v0.0.1-blue) [![C++](https://img.shields.io/badge/C%2B%2B-98-00599C?logo=c%2B%2B)](https://ru.cppreference.com/cpp/98) [![C++](https://img.shields.io/badge/C%2B%2B-11-00599C?logo=c%2B%2B)](https://ru.cppreference.com/cpp/11) [![ru](https://img.shields.io/badge/%D1%8F%D0%B7%D1%8B%D0%BA-%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9%20%F0%9F%87%B7%F0%9F%87%BA-white)](README.md) [![en](https://img.shields.io/badge/lang-English%20%F0%9F%87%BA%F0%9F%87%B8-white)](README-EN.md) [![docs-ru](https://img.shields.io/badge/docs-%F0%9F%93%84%20RU-lightgrey)](docs/ru/introduction.md) [![docs-en](https://img.shields.io/badge/docs-%F0%9F%93%84%20EN-lightgrey)](docs/ru/introduction.md) [![Github link](https://img.shields.io/badge/github-gray)](https://github.com/vlad441/ncpp) [![License](https://img.shields.io/badge/license-PD-blue.svg)](https://github.com/vlad441/ncpp/blob/main/UNLICENSE) 
+[![Windows](https://img.shields.io/badge/Windows-✅%20Supported-0078D6?logo=windows)](https://www.microsoft.com/windows) [![Linux](https://img.shields.io/badge/Linux-✅%20Supported-0078D6?logo=linux)](https://kernel.org) ![CI](https://github.com/vlad441/ncpp/actions/workflows/main.yml/badge.svg) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/vlad441/ncpp) ![GitHub repo size](https://img.shields.io/github/repo-size/vlad441/ncpp) ![GitHub all releases](https://img.shields.io/github/downloads/vlad441/ncpp/total) [![Coverage Status](https://coveralls.io/repos/github/vlad441/ncpp/badge.svg?branch=dev)](https://coveralls.io/github/vlad441/ncpp?branch=dev)
 
-**ncpp** (Node C++) — a minimalistic system library that aims to provide a simple and efficient cross-platform multitool inspired by Node.js documentation.
+**ncpp** (Node C++) is a minimalist system library that aims to provide a simple and efficient cross-platform multi-tool inspired by the Node.js documentation.
 
-ncpp offers implementations across various domains for C++98 standards and above, such as buffer handling, files, networking, encryption, and more, while minimizing external dependencies and maintaining a minimal footprint.
+ncpp offers implementations from various domains for C++98 and higher standards, such as buffer processing, file handling, networking, cryptography, and much more, while minimizing external dependencies and maintaining a minimal footprint.
 
+[Quick Start](#quick-start)
 [Features](#features)
 
-[Build](#build)
+[Building](#building)
 - [Dependencies](#dependencies)
 - [Direct Source Inclusion](#direct-source-inclusion)
-- [Building from Source](#building-from-source)
+- [Building the Library from Source](#building-the-library-from-source)
 
 [Usage](#usage)
 - [Examples](#examples)
-- [Linking the Compiled Library](#linking-the-pre-compiled-library)
+- [Linking the Built Library](#linking-the-pre-built-library)
 - [Package Managers](#package-managers)
-  - [APT Installation](#installing-via-apt)
+  - [Installing via apt](#installing-via-apt)
 
 [Documentation](#documentation)
+
+## Quick Start
+ - If you don't have a compiler installed, you can choose one from this [list](docs/ru/introduction.md#compiler).
+ - The [example.cpp](example.cpp) file in the project root already contains an example, but you can modify it to your liking or choose from the [examples](docs/ru/introduction.md#examples).
+	- Build your first example from source for your OS: [Windows](#windows) or [Linux](#linux).
+		- (Alternatively, you can [download](https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip) this repository and run the `make.bat`/`make.sh` script with a double click in the project root).
+
+If you are a beginner, we recommend checking out our [introduction](docs/ru/introduction.md#getting-started) to get started with the language and the library.
 
 ## Features
 - **Core:**
@@ -30,7 +40,7 @@ ncpp offers implementations across various domains for C++98 standards and above
   - Process and thread management.
   - Console: console management.
   - Network: Sockets (TCP/UDP/Unix), HTTP client, TCP/HTTP server, WebSockets.
-  - Date and system time utilities.
+  - Date and system time operations.
 - **Structures and Algorithms:**
   - CBOR/JSON/BSON support.
   - BigInt: Arbitrary-precision integers.
@@ -42,7 +52,7 @@ ncpp offers implementations across various domains for C++98 standards and above
   - OpenGL context initialization.
   - Event handling.
 
-## Build
+## Building
 - **Compiler Support**:
   - [x] GCC/MinGW >= 3.4.2 (recommended >= 4.9.2)
   - [x] Clang >= 3.5.2
@@ -58,10 +68,12 @@ ncpp offers implementations across various domains for C++98 standards and above
   - [ ] ~~MacOS, iOS~~ (not planned)
   
 ### Dependencies
-The project strives to minimize external dependencies, though some components may require additional packages:
-- **Windows**: - (All necessary components are already included in the standard system setup)
-- **Linux**: Requires `glibc`/`musl` (Usually included in the minimal setup of any distribution)
-For `GUI`, `GL`, and `Experimental` components, the following packages may be required:
+The project strives to minimize external dependencies, but individual components may require additional packages:
+
+- **Windows**: No dependencies required. (All necessary components are already included in the standard OS package).
+
+- **Linux**: Requires `glibc`/`musl` (usually included in the minimal setup of any distribution).
+Additionally, `GUI`, `GL`, and `Experimental` components may require the following packages:
 ```bash
 # GUI -> X11 packages: 
 apt install libx11-dev libxtst-dev -y --no-install-recommends
@@ -69,65 +81,70 @@ apt install libx11-dev libxtst-dev -y --no-install-recommends
 apt install libgl1-mesa-dev -y --no-install-recommends
 # Experimental -> Audio:
 apt install libasound2-dev -y --no-install-recommends
-# Experimental -> Images: Requires stb_image implementation (Not included in the project code)
+# Experimental -> Images: 
+# apt install libpng16-16 libjpeg62-turbo -y --no-install-recommends
+# OR: apt install libpng-dev libjpeg-dev -y --no-install-recommends
+# OR: Requires enabling the stb_image implementation (not included in the project code by default)
 ```
-### Direct Source Inclusion
-This is the primary (and currently only) method, especially if you want to manually choose the optimization level when compiling each project for a specific platform.
 
-To simplify and speed up the build, a `Unity Build` style is used, where a single translation unit (master file) is compiled from `.cpp` files in the required sequence. This helps with optimizations but may consume more memory compared to classical modular builds.
+### Direct Source Code Inclusion
+This is the primary (and currently main) method, especially if you want to manually configure optimization levels when compiling your project for a specific target platform.
 
-You can use the `make.sh`/`make.bat` scripts in the `scripts` directory for this purpose. (Must be run from the `scripts` directory).
-By default, the script will build the `example.cpp` located in the project root.
+To simplify and speed up compilation, a `Unity Build` style approach is used: a single translation unit (master file) is compiled from `.cpp` files in the required order. This can aid compiler optimization, though it may consume more RAM during compilation compared to traditional separate module builds.
 
-Additionally, you can simply include the master file `#include "src/ncpp.cpp"` in your code. This will include the full library implementation into your file.
-(Note: in this case, you may need to manually set compiler flags and link system libraries).
+You can use the `make.sh`/`make.bat` scripts for this purpose (must be executed from the project root).  
+By default, the script compiles `example.cpp` in the root directory.
+
+You can also simply include the master file `#include "src/ncpp.cpp"` in your own code. This includes the full implementation of the library into your compilation unit.  
+*(Note: In this case, you may need to set compiler flags manually and link system libraries yourself).*
 
 #### Windows
 ```batch
 git clone --single-branch --branch dev --depth 1 https://github.com/vlad441/ncpp.git
-::Or: you can download the archive: https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip
-::Since Git automatically converts line endings to LF, you may need to change the line ending format to CRLF for make.bat when downloading the archive
+:: Or download zip archive: https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip
+:: Since Git converts line endings to LF, downloading via archive might require converting line endings to CRLF for make.bat
 
-cd ncpp/scripts
+cd ncpp
 make.bat
 ```
 
 #### Linux
 ```bash
 git clone --single-branch --branch dev --depth 1 https://github.com/vlad441/ncpp.git
-#Or: you can download the archive: https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip
+# Or download zip archive: wget https://github.com/vlad441/ncpp/archive/refs/heads/dev.zip
 
-cd ncpp/scripts
+cd ncpp
 chmod 755 make.sh
 bash make.sh
 ```
 
-### Building Library from Source
-Full support for this method is **not currently provided**.
+### Building the Library from Source
+Full support for building separate library binaries is **currently not provided**.
 
-While building dynamic libraries `.so` (Linux) and `.dll` (Windows) is possible, header files (`.h`) are not yet provided for this method.
-Building static libraries `.a` (Linux) and `.a`/`.lib` (Windows) is also possible, but binary versions of the library may not be optimized.
+Building dynamic shared libraries (`.so` on Linux, `.dll` on Windows) is not supported yet, and standalone `.h` headers are not currently provided.  
+Static libraries (`.a` on Linux, `.a`/`.lib` on Windows) are also not directly supported at this moment.
 
-You can build them using the `build.sh`/`build.bat` scripts in `scripts`, where the static library will be compiled into a **single** object file.
-The built libraries will be placed in the `lib` directory.
+However, you can build them using the `build.sh`/`build.bat` scripts located in `scripts`, where the static library will be built into a **single** object file.  
+The compiled outputs will be placed in the `lib` directory.
 
 ## Usage
 
 ### Examples
-You can check out the simple [example.cpp](example.cpp) in the root of the project.
+You can inspect the basic [example.cpp](example.cpp) in the root directory.
 
-You can also find a few examples in the [examples section](docs/ru/introduction.md#examples) of the documentation.
+Additionally, check out a few examples in the documentation [section](docs/ru/introduction.md#examples).
 
-A more complex example featuring Experimental components, including GUI and OpenGL, is available only in the `dev` branch under `tests/gui`. It can be built using `make_gui.bat gl-perspective` / `bash make_gui.sh gl-perspective`.
+A more complex example using `Experimental` components—including `GUI` and `OpenGL`—is currently available only on the `dev` branch under `tests/gui`. You can build it by running `make_gui.bat gl-perspective` or `bash make_gui.sh gl-perspective`.
 
-### Linking the Pre-built Library
-The libraries themselves are compiled for the most common use cases. However, in environments where these pre-built libraries cannot be used, you can use [Direct Source Inclusion](#direct-source-inclusion) or [Building Library from Source](#building-library-from-source).
-Currently, using a pre-built library may not provide a significant boost in build speed, as part of the codebase uses templates that cannot be pre-compiled.
+### Linking a Pre-built Library
+Pre-built libraries are compiled for common usage scenarios. However, in environments where these pre-built libraries cannot be used, rely on [Direct Source Code Inclusion](#direct-source-code-inclusion) or [Building the Library from Source](#building-the-library-from-source).  
+Currently, using pre-built libraries may not significantly reduce build times because parts of the codebase rely on templates, which cannot be pre-compiled.
 
 ### Package Managers
-For Linux systems, you can connect repository package managers to install the library into your system.
-#### Installation via apt
+For Linux systems, you can add repositories to package managers to install the library system-wide.
+
+#### Installing via apt
 Currently, `.deb` packages are not provided.
 
 ## Documentation
-For more detailed information, you can find the documentation [here](docs/en/introduction.md).
+For detailed information, check out the documentation [here](docs/ru/introduction.md).

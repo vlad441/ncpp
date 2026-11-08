@@ -29,6 +29,7 @@ void onMessage(WebSocket& ws, const Buffer& data, http::Req& req){ print("WebSoc
 	res.end("true"); print("\n"); }*/
 
 int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); os_version();
+	print("NCPP_NET_MULTIPLEXER: "); print(NCPP_NET_MULTIPLEXER); print("\n");
 	srv.onRequest=onReq; setInterval(ShowReqCnt, 1000); print("HTTP server runned on port: "); print(port); print("\n"); 
 	print("sizeof(Socket): "); print(sizeof(Socket)); print("\n"); 
 	print("sizeof(WebSocket): "); print(sizeof(WebSocket)); print("\n"); 

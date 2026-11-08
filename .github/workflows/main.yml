@@ -48,6 +48,36 @@ jobs:
         run: |
           cd tests/
           tests.exe
+          
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Download and Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Compiling & Execute Tests
+        run: |
+          cd tests/
+          chmod +x ./make_test.sh
+          bash ./make_test.sh COVERAGE
+          
+      - name: Install lcov
+        run: |
+          sudo apt update -q && sudo apt-get install lcov -y -q --no-install-recommends
+          
+      - name: Generate Report
+        run: |
+          cd tests/
+          lcov --capture --directory . --output-file lcov.info --rc lcov_branch_coverage=1
+          lcov --remove lcov.info '/usr/*' 'tests/*' --output-file lcov.info
+
+      - name: Push to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: tests/lcov.info
 
   # qemu-tests:
     # runs-on: ubuntu-latest

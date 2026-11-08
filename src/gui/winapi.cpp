@@ -19,6 +19,7 @@ namespace ncpp { namespace GUI { //typedef HWND WndID;
         
         static App create(){ return App(); }
         
+		//EventLoop API:
         void run(){ while(GetMessage(&Msg, NULL, 0, 0) > 0){ TranslateMessage(&Msg); DispatchMessage(&Msg); } } //Блокирующий Event-Loop
 		void waitOneEvent(){ if(GetMessage(&Msg, NULL, 0, 0) > 0) evSeen = true; }
 		bool hasEvents(){ if(evSeen) return true; if(PeekMessage(&Msg, NULL, 0, 0, PM_REMOVE)){ evSeen = true; return true; } return false; }

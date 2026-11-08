@@ -2,17 +2,17 @@
 #pragma once
 #ifndef NCPP_H_DEF
 #define NCPP_H_DEF
-#define NCPP_VER "v0.0.1-1-rev2"
+#define NCPP_VER "v0.0.1-1-rev3"
 //#define NCPP_VER_MAJOR 0
 //#define NCPP_VER_MINOR 0
 //#define NCPP_VER_PATCH 1
 //#define NCPP_VERSION(major, minor, patch) ((major << 16) | (minor << 8) | (patch))
 //#define NCPP_VER_CODE NCPP_VERSION(NCPP_VER_MAJOR, NCPP_VER_MINOR, NCPP_VER_PATCH)
 
-/*#ifdef _WIN32_WINNT
+#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x0501 //Minimal Requirements: WinXP+
 #undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0A00 // 0x0400 - Win 95; 0x0410 - Win 98; 0x0500 - Win 2000; 0x0501 - WinXP; 0x0601 - Win7; 0x0602 - Win8; 0x0A00 - Win10;
-#endif*/	
+#define _WIN32_WINNT 0x0501 // 0x0400 - Win 95; 0x0410 - Win 98; 0x0500 - Win 2000; 0x0501 - WinXP; 0x0601 - Win7; 0x0602 - Win8; 0x0A00 - Win10;
+#endif
 
 #include <stdlib.h> // C lib
 #include <string.h> // strlen, memcpy, etc.
@@ -21,23 +21,6 @@
 #include <ctype.h> // isdigit, isalpha, isalnum, etc.
 #include <errno.h> // errno: UNIX get last error;
 #include <limits.h> // INT_MAX, LLONG_MAX, ULLONG_MAX, PATH_MAX constant, etc.
-
-#ifdef _WIN32 // == Windows Headers ==
-#define WIN32_LEAN_AND_MEAN  // Исключает редко используемые компоненты из заголовков Windows
-#define NOSERVICE            // Исключает API служб
-#define NOMCX                // Исключает API модемов
-#define NOIME                // Исключает API ввода символов (иероглифы и т.д.)
-#else // == Linux Headers ==
-#include <unistd.h> // Linux POSIX API (write(), close(), getpid, _fd, etc...)
-#include <sys/types.h> //pid_t, uid_t, gid_t, off_t
-#include <sys/socket.h>
-#include <netdb.h> // for getaddrinfo
-#include <arpa/inet.h> // struct in_addr, inet_pton, inet_ntop
-#include <spawn.h> // for posix_spawn
-#include <signal.h> // signals kill, etc.
-#include <sys/time.h> // time api: gettimeofday
-#include <fcntl.h> // for socket descryptor settings (non-bloking mode, etc).
-#endif
 
 // ============ Lang Defines ============
 #if defined(__cplusplus) && defined(_MSVC_LANG) && _MSVC_LANG >= 201103L // MSVC cpp ver fix 

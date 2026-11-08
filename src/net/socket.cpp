@@ -44,8 +44,41 @@ const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
 namespace ncpp{ 
 #define DEF_SOCK_SIZE 4096 //#define DEF_SOCK_SIZE 16384
 	struct BindInfo { String ip; int port; String family; String type; };
-	struct IPAddr { String ip; int port; char ipver; //TODO: MMDB LPM (Radix Tree)
+	struct IPAddr { String ip; int port; char ipver; //uint64_t ipHi, ipLo; //TODO: MMDB LPM (Radix Tree)
 		IPAddr(const CString& ip="", int port=0, char ipver=4): ip(ip), port(port), ipver(ipver){}
+		
+		static String IPv4ToStr(uint32_t ip){ unsigned char b1 = (ip >> 24) & 0xFF; unsigned char b2 = (ip >> 16) & 0xFF;
+			unsigned char b3 = (ip >> 8) & 0xFF; unsigned char b4 = ip & 0xFF;
+			String s; s.reserve(16); s << b1 << "." << b2 << "." << b3 << "." << b4; return s; }
+
+		static uint32_t StrToIPv4(const CString& cs){ Array<String> parts = cs.split('.'); if(parts.size() != 4) return 0;
+			uint32_t b1 = stoin(parts[0]); uint32_t b2 = stoin(parts[1]); uint32_t b3 = stoin(parts[2]); uint32_t b4 = stoin(parts[3]);
+			return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4; }
+
+		static String IPv6ToStr(uint64_t& ipHi, uint64_t& ipLo){ uint16_t hextets[8];
+			hextets[0] = (uint16_t)((ipHi >> 48) & 0xFFFF); hextets[1] = (uint16_t)((ipHi >> 32) & 0xFFFF);
+			hextets[2] = (uint16_t)((ipHi >> 16) & 0xFFFF); hextets[3] = (uint16_t)(ipHi & 0xFFFF);
+			hextets[4] = (uint16_t)((ipLo >> 48) & 0xFFFF); hextets[5] = (uint16_t)((ipLo >> 32) & 0xFFFF);
+			hextets[6] = (uint16_t)((ipLo >> 16) & 0xFFFF);	hextets[7] = (uint16_t)(ipLo & 0xFFFF);
+			String s; s.reserve(39); for(int i=0; i<8; ++i){ if(i>0) s+=":"; s += Buffer::lltoh(hextets[i]); } return s; }
+		
+		static String IPv6toFull(const CString& cs){ uint16_t hextets[8]; for(int k = 0; k<8; ++k){ hextets[k] = 0; } Array<String> mParts = cs.split("::");
+			if(mParts.size() >= 2){
+				Array<String> leftParts = mParts[0].split(":"); int lCount = 0; // 1. Заполняем левую часть (с начала массива)
+				for(int i = 0; i < (int)leftParts.size() && lCount < 8; ++i){ hextets[lCount++] = Buffer::htoll(leftParts[i]); }
+				Array<String> rightParts = mParts[1].split(":"); int rCount = rightParts.size(); // 2. Заполняем правую часть (с конца массива)
+				for(int i = 0; i < rCount && i < 8; ++i){ hextets[7-i] = Buffer::htoll(rightParts[rCount-1-i]); }
+			}else{ Array<String> parts = cs.split(':'); for(size_t i = 0; i < parts.size() && i < 8; ++i){ hextets[i] = Buffer::htoll(parts[i]); } }
+			String s; s.reserve(39); for(int i=0; i<8; ++i){ if(i>0) s+=":"; s += Buffer::lltoh(hextets[i]); } return s; }
+		static String IPv6toShort(const CString& cs);
+		
+		static void StrToIPv6(uint64_t& ipHi, uint64_t& ipLo, const CString& cs){ ipLo=ipHi=0; if(cs.empty()) return;
+			String fullStr = IPv6toFull(cs); Array<String> parts = fullStr.split(":"); if(parts.size() < 8) return;
+			uint16_t hextets[8]; for(int i=0; i<8; ++i){ hextets[i] = (uint16_t)Buffer::htoll(parts[i]); }
+			ipHi = ((uint64_t)hextets[0] << 48) | ((uint64_t)hextets[1] << 32) | ((uint64_t)hextets[2] << 16) | (uint64_t)hextets[3]; // Собираем старшие 64 бита из первых 4 хексетов (ipHi)
+			ipLo = ((uint64_t)hextets[4] << 48) | ((uint64_t)hextets[5] << 32) | ((uint64_t)hextets[6] << 16) | (uint64_t)hextets[7]; } // Собираем младшие 64 бита из оставшихся 4 хексетов (ipLo)
+		
+		//String getIP(){ return IPv4ToStr((uint32_t)ipLo); }
 		String toString() const { if(ipver==4){ return ip+":"+dtos(port); }else{ return "["+ip+"]:"+dtos(port); } }
 		static IPAddr fromStr(const CString& host){ Array<String> ip; IPAddr addr; 
 			if(host.indexOf("]:")!=NPOS){ ip=host.split("]:", 2, 2); ip[0]=ip[0].slice(1); addr.ipver=6; }
@@ -53,7 +86,7 @@ namespace ncpp{
 			addr.ip=ip[0]; if(ip.size()>1){ addr.port=stoin(ip[1]); } return addr; }
 	};
 	
-	struct Socket { int sockfd; bool connected; bool isbind; enum Type { NONE, TCP, UDP, UNIX } _type;
+	struct Socket { int sockfd; bool connected; bool isbind; enum Type { NONE, TCP, UDP, UNIX }; char _type;
 		IPAddr destAddr; bool autodestroy; int errcode; //int buffsize; void* data; volatile unsigned int ref_cnt;
         Socket() : sockfd(-1), connected(false), isbind(false), _type(TCP), autodestroy(true), errcode(0){}
 		Socket(const CString& ip, int port, Type type=TCP) : sockfd(-1), connected(false), isbind(false), _type(type), autodestroy(true), errcode(0){ destAddr.ip=ip; destAddr.port=port; }
@@ -103,8 +136,14 @@ namespace ncpp{
 				Except("Connection failed: "+dtos(GetErr())+"\n"); destroy(sockfd); return false; } }
 			connected = true; destAddr = _from_sockaddr_in(&addr); return true; }
 		bool connect4(){ return connect4(destAddr.ip, destAddr.port); };
-			
-		bool bind(int port = 0, const CString& bindip = "::"){ WIN_WSAinit(); errcode=0;
+		
+		#if defined(_WIN32_WINNT) && _WIN32_WINNT <= 0x0501 //WinXP unsupported bind IPv6 ("::")?
+		#define DEF_BIND_IP "0.0.0.0"
+		#else
+		#define DEF_BIND_IP "::"
+		#endif
+		bool bind(int port = 0, const CString& bindip = DEF_BIND_IP){ WIN_WSAinit(); errcode=0;
+		#undef DEF_BIND_IP
 			struct addrinfo hints, *res, *p; memset(&hints, 0, sizeof(hints)); hints.ai_family = AF_UNSPEC;
 			if(_type==TCP){ hints.ai_socktype = SOCK_STREAM; }else{ hints.ai_socktype = SOCK_DGRAM; } hints.ai_flags = AI_PASSIVE;  // Используем для сокетов сервера
 
@@ -199,7 +238,7 @@ namespace ncpp{
 		friend void swap(Socket& a, Socket& b){ int tmpfd = a.sockfd; a.sockfd = b.sockfd; b.sockfd = tmpfd;
 			bool tmpb = a.connected; a.connected = b.connected; b.connected = tmpb;
 			tmpb = a.isbind; a.isbind = b.isbind; b.isbind = tmpb;
-			Type _tmpt = a._type; a._type = b._type; b._type = _tmpt;
+			char _tmpt = a._type; a._type = b._type; b._type = _tmpt;
 			IPAddr tmpaddr = a.destAddr; a.destAddr = b.destAddr; b.destAddr = tmpaddr;
 			tmpb = a.autodestroy; a.autodestroy = b.autodestroy; b.autodestroy = tmpb;
 			tmpfd = a.errcode; a.errcode = b.errcode; b.errcode = tmpfd; }
@@ -251,12 +290,15 @@ namespace ncpp{
 		Buffer recv(){ Buffer buff; recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
 		
+		static int acceptFd(int srvfd){ return ::accept(srvfd, NULL, NULL); }
+		static int acceptFd(int srvfd, IPAddr* addr){ sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr); 
+			int fd = ::accept(srvfd, (sockaddr*)&client_addr, &addrlen); *addr = _from_sockaddr_storage(&client_addr); return fd; }
 		int acceptFd() const { return ::accept(sockfd, NULL, NULL); }
-		int acceptFd(IPAddr* addr) const { sockaddr_storage client_addr; socklen_t addrlen = sizeof(client_addr); 
-			int fd = ::accept(sockfd, (sockaddr*)&client_addr, &addrlen); *addr = _from_sockaddr_storage(&client_addr); return fd; }
 		
-		TCPSocket* accept() const { TCPSocket* s = new TCPSocket(); s->sockfd = acceptFd(&s->destAddr); return s; }
-		TCPSocket _accept() const { TCPSocket s; s.sockfd = acceptFd(&s.destAddr); return s; }
+		static TCPSocket* accept(int srvfd, Socket* (*allocFN)()){ TCPSocket* s; if(allocFN){ s = (TCPSocket*)allocFN(); }else{ s = new TCPSocket(); }
+			s->sockfd = acceptFd(srvfd, &s->destAddr); return s; }
+		TCPSocket* accept(Socket* (*allocFN)() = NULL) const { return TCPSocket::accept(sockfd, allocFN); }
+		TCPSocket _accept() const { TCPSocket s; s.sockfd = acceptFd(sockfd, &s.destAddr); return s; }
 			
 		//friend void move(TCPSocket& dst, TCPSocket& tmp){ move((Socket&)dst, (Socket&)tmp); }
 	};

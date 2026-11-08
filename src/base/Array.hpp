@@ -1,3 +1,4 @@
+#pragma once
 namespace ncpp {
 struct String;
 template <typename T, void* (*_allocFN)(size_t) = malloc, void (*_freeFN)(void*) = free> //Array<T> ≈ std::vector<T>
@@ -188,7 +189,7 @@ struct Array { enum Mode { HEAP, STACK, STACK_ONLY };
 /*template<typename T, size_t N> //SArray<T> ≈ std::array<T>
 struct SArray { T _ptr[N]; size_t size() const { return N; } }; //ConstArray? FixedArray? */
 
-#ifdef NCPP_LIB_BUILD
+#ifdef NCPP_LIB_BUILD //NCPP_IMPL
 //template struct Array<int>; //Принудительно сгенерировать код для Array<int>
 //template struct Array<char>;
 #endif

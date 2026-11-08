@@ -1,24 +1,24 @@
 namespace ncpp{
-#if __SIZEOF_INT128__
+#ifdef __SIZEOF_INT128__
     typedef __int128 int128_t;
 	typedef unsigned __int128 uint128_t;
     //#define CARRY_MAX (CARRY_T)-1 // VS ~((CARRY_T)0)
 //#elif defined(USE_EXPERIMENTAL)
 	//#include "../experimental/__int128.cpp"
 #endif
-	//TODO: умножение Карацубы, modular exponential Монтгомери
+	//TODO: умножение Карацубы, modular exponential Монтгомери 
 	struct BigInt { //(https://gmplib.org/manual/Algorithms)
-	#if __SIZEOF_INT128__
-		typedef unsigned long long ELEM_T; typedef uint128_t CARRY_T; typedef int128_t DIFF_T;
+	#ifdef __SIZEOF_INT128__
+		typedef uint64_t ELEM_T; typedef uint128_t CARRY_T; typedef int128_t DIFF_T;
 		static const ELEM_T ELEM_MAX = 0xFFFFFFFFFFFFFFFF; //ULLONG_MAX;
 		static const CARRY_T ELEM_BASE = (CARRY_T)ELEM_MAX+1ULL;
 	#else
-		typedef unsigned int ELEM_T; typedef unsigned long long CARRY_T; typedef long long DIFF_T;
-		static const ELEM_T ELEM_MAX = 0xFFFFFFFF; //UINT_MAX;
-		static const unsigned long long ELEM_BASE = UINT_MAX+1ULL;
+		typedef uint32_t ELEM_T; typedef uint64_t CARRY_T; typedef int64_t DIFF_T;
+		static const ELEM_T ELEM_MAX = 0xFFFFFFFFU; static const CARRY_T ELEM_BASE = 0x100000000ULL;
 	#endif
-		static const unsigned char ELEM_SZ = sizeof(ELEM_T);
+		static const unsigned char ELEM_SZ = sizeof(ELEM_T), ELEM_BITS = ELEM_SZ*8;
 		Array<ELEM_T> parts; bool sign;
+		
 		BigInt() : sign(true){}
 		~BigInt(){} // Деструктор
         BigInt(const CString& value, const CString& type="dec") : sign(true){ if(type=="hex"){ _fromHex(value); }else{ _fromIntString(value); } }
@@ -30,7 +30,10 @@ namespace ncpp{
 		BigInt(long long ll){ set(ll); }
 		BigInt(const Buffer& bf) : sign(true){ set(bf); }
 		
-		BigInt& _fromIntString(const CString& cs){ sign=(cs.size()>0&&cs[0]=='-')?false:true; set(Buffer::fromInt(cs)); return *this; }
+		// BigInt& _fromIntString(const CString& cs){ sign=(cs.size()>0&&cs[0]=='-')?false:true; set(Buffer::fromInt(cs)); return *this; }
+			
+		BigInt& _fromIntString(const CString& cs){ set(Buffer::fromInt(cs)); sign=!(cs.size()>0&&cs[0]=='-')||IsZero(); return *this; }
+		
 		BigInt& _fromHex(const CString& cs){ sign=(cs.size()>0&&cs[0]=='-')?false:true; set(Buffer::fromHex(cs)); return *this; }
 		BigInt& _fromBuffLE(const Buffer& bf){ parts.resize(bf.size()/ELEM_SZ+1); if(bf.size()%ELEM_SZ==0) parts.resize(parts.size()-1); 
 			memcpy((char*)parts.data(), bf.data(), bf.size()); return *this; }
@@ -82,23 +85,23 @@ namespace ncpp{
 		static BigInt safeRandom(size_t bits); // Slower and Safe
 		
 		//=== simple matan ===
-		static void increment(BigInt& bint, unsigned int value=1, bool insert = true){ Array<ELEM_T>& arr = bint.parts;
+		static void increment(BigInt& bint, ELEM_T value=1, bool insert = true){ Array<ELEM_T>& arr = bint.parts;
 			if(value==1&&!insert){ for(size_t j = 0; j < arr.size(); j++){ if(++arr[j] != 0) return; } return; } CARRY_T carry = value;
 			for(size_t i = 0; i < arr.size(); i++){ CARRY_T sum = (CARRY_T)arr[i] + carry; arr[i] = sum & ELEM_MAX; carry = sum >> (ELEM_SZ*8); }
 			if(insert && carry != 0){ while(carry != 0){ arr.push(carry & ELEM_MAX); carry >>= (ELEM_SZ*8); } } }
 
-		static void decrement(BigInt& bint, unsigned int value=1, bool erase = true){ Array<ELEM_T>& arr = bint.parts; CARRY_T borrow = value;
+		static void decrement(BigInt& bint, ELEM_T value=1, bool erase = true){ Array<ELEM_T>& arr = bint.parts; CARRY_T borrow = value;
 			if(value==1&&!erase){ for(size_t j = 0; j < arr.size(); j++){ if(--arr[j] != ELEM_MAX) return; } return; }
 			for(size_t i = 0; i < arr.size(); i++){ DIFF_T diff = arr[i] - borrow; arr[i] = (diff + ELEM_BASE) & ELEM_MAX;
 				borrow = (diff < 0) ? 1 : 0; if(borrow == 0) break; //value >>= (ELEM_SZ*8); borrow += (value & ELEM_MAX);
 			} if(erase){ if(borrow > 0){ arr.fill(0); } removeLeadingZeros(bint); } }
 		
-		static void multiply_single(BigInt& bint, unsigned int value, bool insert = true){ CARRY_T carry = 0; Array<ELEM_T>& arr = bint.parts;
+		static void multiply_single(BigInt& bint, ELEM_T value, bool insert = true){ CARRY_T carry = 0; Array<ELEM_T>& arr = bint.parts;
 			for(size_t i = 0; i < arr.size(); i++){ CARRY_T product = (CARRY_T)arr[i] * value + carry; arr[i] = product & ELEM_MAX; carry = product >> (ELEM_SZ*8); }
 			if(insert && carry != 0){ while(carry != 0){ arr.push(carry & ELEM_MAX); carry >>= (ELEM_SZ*8); } } }
 
-		static unsigned int divide_single(BigInt& bint, unsigned int value, bool erase = true){
-			if(value == 0){ print("(!) Matan rule 0: Never divide by zero :)"); return 0; } CARRY_T r = 0; Array<ELEM_T>& arr = bint.parts;
+		static unsigned int divide_single(BigInt& bint, ELEM_T value, bool erase = true){
+			if(value == 0){ Except("BigInt: Matan rule 0: Never divide by zero :)"); return 0; } CARRY_T r = 0; Array<ELEM_T>& arr = bint.parts;
 			for(int i = arr.size() - 1; i >= 0; --i){ CARRY_T current = (r << (ELEM_SZ*8)) | arr[i]; 
 				arr[i] = current / value; r = current % value; } if(erase){ removeLeadingZeros(bint); } return r; }
 
@@ -136,19 +139,18 @@ namespace ncpp{
 			if(cmp_ab < 0){ return Pair<BigInt,BigInt>(0, a); }
 			if(cmp_ab == 0){ return Pair<BigInt,BigInt>(1, 0); }
 			//if(b.parts.size()==1){ BigInt q=a; ELEM_T r = divide_single(q, b.parts[0]); return Pair<BigInt,BigInt>(q, r); }
-			return divmod_binary(a, b, resize); }
+			return divmod_knuth(a, b, resize); }
 		
 		// "Нативный" (школьный) алгоритм: O(N^2)
 		static BigInt multiply_native(const BigInt& a, const BigInt& b, bool resize = true){ const Array<ELEM_T>& arr_a = a.parts; const Array<ELEM_T>& arr_b = b.parts;
 			const size_t ARR_SZ = arr_a.size()+arr_b.size(); BigInt resp; Array<ELEM_T>& result = resp.parts; result.resize(ARR_SZ, 0);
-			// Основной цикл (школьный алгоритм): O(N^2)
-			for(size_t i = 0; i < arr_a.size(); ++i){ CARRY_T carry = 0;
+			for(size_t i = 0; i < arr_a.size(); ++i){ CARRY_T carry = 0; // Основной цикл (школьный алгоритм): O(N^2)
 				for(size_t j = 0; j < arr_b.size(); ++j){ CARRY_T product = (CARRY_T)arr_a[i] * arr_b[j] + (CARRY_T)result[i + j] + carry;                        
 					result[i + j] = (ELEM_T)(product & ELEM_MAX); carry = product >> (ELEM_SZ*8); }
 				if(carry != 0){ result[i + arr_b.size()] = (ELEM_T)carry; } }
 			if(resize){ removeLeadingZeros(resp); } return resp; }
 			
-		//Binary Division (Сдвиги и Вычитания): O(N^2)
+		//Binary Division (Сдвиги и Вычитания): O(ELEM_BITS * N^2)
 		static Pair<BigInt,BigInt> divmod_binary(const BigInt& a, const BigInt& b, bool resize = true){
 			//print("(#DEBUG) divmod_binary: "); print(a.toString()); print("/"); print(b.toString()); print(" ==\n");
 			BigInt remainder = a; BigInt quotient(0); BigInt temp_b = b; unsigned int shifts = 0;
@@ -165,10 +167,71 @@ namespace ncpp{
 			return Pair<BigInt,BigInt>(quotient, remainder); }
 			
 		//=== advanced matan ===
-		static BigInt multiply_karatsuba(const BigInt& a, const BigInt& b, bool resize = true);
 		
-		//Knuth’s Algorithm D (https://skanthak.hier-im-netz.de/division.html) - Не реализован :(
-		static Pair<BigInt,BigInt> divmod_knuth(const BigInt& a, const BigInt& b, bool resize = true);
+		//Knuth’s Algorithm D (https://skanthak.hier-im-netz.de/division.html)
+		static Pair<BigInt,BigInt> divmod_knuth(const BigInt& a, const BigInt& b, bool resize=true){
+			if(b.IsZero()){ Except("BigInt division by zero\n", 0); return Pair<BigInt,BigInt>(0, 0); }
+
+			BigInt dividend = a; BigInt divisor = b; dividend.abs(); divisor.abs();
+			removeLeadingZeros(dividend); removeLeadingZeros(divisor);
+			char cmp = compare(dividend, divisor);
+			if(cmp < 0){ BigInt remainder = a; return Pair<BigInt,BigInt>(BigInt(0), remainder); }
+			if(cmp == 0){ BigInt quotient(1); quotient.sign = a.sign == b.sign;
+				if(!quotient.sign && quotient.IsZero()){ quotient.sign = true; }
+				BigInt remainder(0); return Pair<BigInt,BigInt>(quotient, remainder); }
+
+			BigInt quotient; BigInt remainder;
+			if(divisor.parts.size() == 1){ quotient = dividend; unsigned int rem = divide_single(quotient, divisor.parts[0], true); remainder.set(rem); }
+			else{
+				const size_t n = divisor.parts.size(); const size_t m = dividend.parts.size() - n;
+				const unsigned int shift = leadingZeroBits(divisor.parts[n-1]);
+				Array<ELEM_T> normalized_divisor(n, 0); Array<ELEM_T> normalized_dividend(dividend.parts.size() + 1, 0); 
+				Array<ELEM_T> quotient_digits(m + 1, 0); CARRY_T carry = 0;
+				
+				for(size_t i=0; i<n; ++i){ CARRY_T value = ((CARRY_T)divisor.parts[i] << shift) | carry;
+					normalized_divisor[i] = (ELEM_T)value; carry = value >> ELEM_BITS; }
+
+				carry = 0;
+				for(size_t i=0; i<dividend.parts.size(); ++i){ CARRY_T value = ((CARRY_T)dividend.parts[i] << shift) | carry;
+					normalized_dividend[i] = (ELEM_T)value; carry = value >> ELEM_BITS; }
+					
+				normalized_dividend[dividend.parts.size()] = (ELEM_T)carry;
+
+				for(size_t j=m+1; j-- > 0;){ CARRY_T numerator = ((CARRY_T)normalized_dividend[j+n] << ELEM_BITS) | normalized_dividend[j+n-1];
+					CARRY_T qhat, rhat;
+					if(normalized_dividend[j+n] == normalized_divisor[n-1]){
+						qhat = ELEM_MAX; rhat = (CARRY_T)normalized_dividend[j+n-1] + normalized_divisor[n-1]; }
+					else{ qhat = numerator / normalized_divisor[n-1]; rhat = numerator % normalized_divisor[n-1]; }
+
+					while(rhat < ELEM_BASE && qhat * normalized_divisor[n-2] > (rhat << ELEM_BITS) + normalized_dividend[j+n-2])
+					{  --qhat; rhat += normalized_divisor[n-1]; }
+
+					CARRY_T borrow = 0;
+					for(size_t i=0; i<n; ++i){ CARRY_T product = qhat * normalized_divisor[i] + borrow;
+						ELEM_T low = (ELEM_T)product; borrow = product >> ELEM_BITS;
+						ELEM_T current = normalized_dividend[j+i]; normalized_dividend[j+i] = (ELEM_T)(current - low); if(current < low){ ++borrow; } }
+					ELEM_T high = normalized_dividend[j+n]; bool underflow = (CARRY_T)high < borrow; 
+					normalized_dividend[j+n] = (ELEM_T)((CARRY_T)high - borrow);
+
+					if(underflow){ --qhat; carry = 0;
+						for(size_t i=0; i<n; ++i){ CARRY_T sum = (CARRY_T)normalized_dividend[j+i] + normalized_divisor[i] + carry;
+							normalized_dividend[j+i] = (ELEM_T)sum; carry = sum >> ELEM_BITS; }
+						normalized_dividend[j+n] = (ELEM_T)(normalized_dividend[j+n] + carry); }
+					quotient_digits[j] = (ELEM_T)qhat;
+				}
+
+				quotient.parts = quotient_digits; remainder.parts.resize(n, 0);
+				for(size_t i=0; i<n; ++i){ remainder.parts[i] = normalized_dividend[i]; }
+				if(shift != 0){ ELEM_T bit_carry = 0;
+					for(size_t i=n; i-- > 0;){ ELEM_T current = remainder.parts[i]; 
+						remainder.parts[i] = (current >> shift) | bit_carry; bit_carry = (ELEM_T)(current << (ELEM_BITS - shift)); } }
+			}
+			quotient.sign = a.sign == b.sign; remainder.sign = a.sign;
+			if(resize){ removeLeadingZeros(quotient); removeLeadingZeros(remainder); }
+			if(quotient.IsZero()){ quotient.sign = true; } if(remainder.IsZero()){ remainder.sign = true; } 
+			return Pair<BigInt,BigInt>(quotient, remainder); }
+		
+		static BigInt multiply_karatsuba(const BigInt& a, const BigInt& b, bool resize = true);
 		
 		static BigInt pow(BigInt base, BigInt exp){ BigInt result(1);
 			while(exp > 0){ if(exp % 2 == 1){ result = (result * base); }
@@ -182,11 +245,13 @@ namespace ncpp{
 		//BigInt gcd(const BigInt& other) const;
 		
 		// Перегрузки
-		BigInt& operator+=(const BigInt& other){ if(sign == other.sign){ _add(*this, other, true); }else{ 
-				if(compare(*this, other) >= 0){ _subtract(*this, other, true); }
-				else{ *this=subtract(other, *this, true); sign = other.sign; } } return *this; }
+		BigInt& operator+=(const BigInt& other){ if(sign == other.sign){ _add(*this, other, true); }
+			else{ char cmp=compare(*this, other); if(cmp==0){ set(0U); sign=true; }
+				else if(cmp>0){ _subtract(*this, other, true); }else{ *this=subtract(other, *this, true); sign = other.sign; } } return *this; }
+				
 		BigInt& operator+=(unsigned int value){ if(sign){ increment(*this, value, true); }
 			else{ decrement(*this, value, true); if(IsZero()) sign = true; } return *this; }
+			
 		BigInt operator+(const BigInt& other) const { BigInt result = *this; result += other; return result; }
 		BigInt operator+(unsigned int value) const { BigInt result = *this; result += value; return result; }
 		BigInt& operator++(){ *this+=1; return *this; } // prefix: ++a
@@ -236,6 +301,10 @@ namespace ncpp{
 		
 		static void removeLeadingZeros(BigInt& bint){ while(bint.parts.size() > 1 && bint.parts.back() == 0) bint.parts.pop(); }
 		private:
+			static unsigned int leadingZeroBits(ELEM_T value){
+				unsigned int bits = 0; ELEM_T mask = (ELEM_T)1 << (ELEM_BITS - 1);
+				while((value & mask) == 0){ ++bits; mask >>= 1; } return bits;
+			}
 			BigInt& _shift_left(unsigned int bits){ if(IsZero() || bits == 0) return *this; // O(N)
 				const unsigned int ELEM_BITS = ELEM_SZ*8;
 				unsigned int elem_shift = bits / ELEM_BITS; // Сдвиг на целое кол-во элементов

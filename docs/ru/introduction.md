@@ -42,6 +42,7 @@
 
 ### Компилятор
 
+#### Windows 
 Для Windows вы можете использовать готовые сборки компиляторов [GCC](https://gcc.gnu.org/releases.html)/[Clang](https://releases.llvm.org/), например:
  * [MinGW-w64 project](https://www.mingw-w64.org/downloads)
  * * [niXman/mingw-builds-binaries](https://github.com/niXman/mingw-builds-binaries/releases)
@@ -58,11 +59,14 @@
  * [vlad441/gcc_mini_builds](https://github.com/vlad441/gcc_mini_builds/releases)
  * * (Минимизованные версии сборок с вырезанными библиотеками для экстра-малых программ)
  
+#### Linux
 Для Linux вы можете использовать пакетные менеджеры вашей системы для установки GCC/Clang, например:
 * Debian/Ubuntu: `apt install g++ -y --no-install-recommends`.
+* CentOS: `yum install -y gcc-c++` / `dnf install -y --setopt=install_weak_deps=False gcc-c++`
+* Arch: `pacman -S --needed --noconfirm gcc`.
 
 ### Параметры сборки
-Скрипты `make.bat` и `make.sh` в папке `scripts` представляют собой идентичную функцию `Unity Build` сборки для систем `Windows`/`Linix` соответственно.
+Скрипты `make.bat` и `make.sh` представляют собой идентичную функцию `Unity Build` сборки для систем `Windows`/`Linix` соответственно.
 
 Они имеют свои дополнительные _необязательные_ аргументы при сборке:
 ```bash
@@ -131,6 +135,34 @@ void onClose(TCPSocket& socket){ print("[] Closed connection: "); print(socket.d
 
 int main(int argc, char* argv[]){ srv.onRequest=onReq; srv.onConnect=onConnect; srv.onClose=onClose;
 	print("HTTP server runned on port: "); print(port); print("\n"); srv.run(); }
+```
+
+**TCP сервер:**
+```cpp
+#include "src/ncpp.cpp"
+using namespace ncpp;
+int port = 3000; TCPServer srv(port);
+
+void onConnect(TCPSocket& socket){ print("[] New connection: "); print(socket.destAddr.toString()); print("\n"); }
+void onClose(TCPSocket& socket){ print("[] Closed connection: "); print(socket.destAddr.toString()); print("\n"); }
+
+void onData(TCPSocket& socket, const Buffer& data){ print("[Data]: "); print(data.toString()); print("\n"); 
+	socket.send("My response to you, client"); }
+
+int main(int argc, char* argv[]){ srv.onData=onData; srv.onConnect=onConnect; srv.onClose=onClose;
+	print("TCPServer runned on port: "); print(port); print("\n"); srv.run(); }
+```
+
+**TCP клиент:**
+```cpp
+#include "src/ncpp.cpp"
+using namespace ncpp;
+String ip="127.0.0.1"; int port = 3000; TCPSocket sock;
+
+int main(int argc, char* argv[]){
+	if(!sock.connect(ip, port)){ print("[Error] Socket not connected to server"); return 1; }
+	print("[#] Socket Connected.\n"); sock.send("Hello, Server."); print("[#] Socket sent message.\n"); 
+	Buffer resp = sock.recv(); print("[Server][Data]: "); print(resp.toString()); print("\n"); }
 ```
 
 **Хеширование:**

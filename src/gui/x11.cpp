@@ -1,6 +1,6 @@
 namespace ncpp { namespace GUI { //typedef XID XWindowID;
 	typedef HashMap<XWindowID, WNDHandlerInfo> EventMap;
-	typedef HashMap<String, Window*> WndIDList;
+	//typedef HashMap<String, Window*> WndIDList;
 	typedef HashMap<XWindowID, Window*> WndList;
 	
 	enum WndClass { NONE, BUTTON, LABEL, INPUT, CHECKBOX };
@@ -19,7 +19,8 @@ namespace ncpp { namespace GUI { //typedef XID XWindowID;
         ~App(){ XFreeGC(display, gc); XCloseDisplay(display); }
 
         static App create(){ return App(); }
-
+		
+		//EventLoop API:
         void run(){ while(true){ XNextEvent(display, &xMsg); handleEvent(xMsg); } } //if(xMsg.type == DestroyNotify) break;
 		void waitOneEvent(){ if(evSeen) return; XNextEvent(display, &xMsg); evSeen = true; }
 		bool hasEvents(){ if(evSeen) return true; if(XPending(display)>0){ XNextEvent(display, &xMsg); evSeen = true; return true; } return false; }

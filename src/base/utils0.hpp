@@ -1,6 +1,3 @@
-#ifndef NCPP_USESTL
-void* operator new(size_t size, void* ptr) noexcept { return ptr; } //Определение для placement new
-#endif
 namespace ncpp {
 
 template <typename T> void reverse(T* begin, T* end){ T c; while(begin < end){ c = *begin; *begin++ = *--end; *end = c; } }
@@ -26,16 +23,11 @@ template <typename K, typename V>
 struct Pair { K first; V second; Pair(const K& k=K(), const V& v=V()) : first(k), second(v){}
 	K& key(){ return first; } const K& key() const { return first; }
 	V& value(){ return second; } const V& value() const { return second; } };
-
-void (*onExcept)(const char* cstr, int errlvl, int type) = NULL;
-enum ErrorType { ERR_OTHER, ERR_OOM, ERR_RANGE, ERR_ALLOC };
-void Except(const char* cstr, int errlvl=1, int type=0){ enum ErrorLvl { ERR_FATAL, ERR_ERROR, ERR_WARNING, ERR_INFO };
-	if(onExcept){ onExcept(cstr, errlvl, type); return; } const char* prefix = "[?]";
-	switch(errlvl){
-		case ERR_FATAL:   prefix = "(!!) FATAL: "; break;
-		case ERR_ERROR:   prefix = "(E!) "; break;
-		case ERR_WARNING: prefix = "(!) ";  break;
-        case ERR_INFO:    prefix = "(i) ";  break; } _pErr(prefix); _pErr(cstr); if(errlvl==0) exit(1); }
 	
-struct String; void Except(const String& s, int errlvl=1, int type=0);
+extern void (*onExcept)(const char* cstr, int errlvl, int type);
+enum ErrorType { ERR_OTHER, ERR_OOM, ERR_RANGE, ERR_ALLOC };
+
+struct String;
+void Except(const char* cstr, int errlvl=1, int type=0);
+void Except(const String& s, int errlvl=1, int type=0);
 };

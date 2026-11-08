@@ -1,5 +1,4 @@
-#ifndef NCPP_TESTS_H
-#define NCPP_TESTS_H
+#ifndef NCPP_COMPILE_INFO
 //Predefined macros: https://ru.cppreference.com/cpp/preprocessor/replace
 
 //cpp_version
@@ -78,4 +77,4 @@ void os_version(){ using namespace ncpp; print("[OS] "); StringMap info = ::ncpp
 #define NCPP_COMPILE_INFO "[" NCPP_CPPVER "] UTF-8 кирилица にも含み " "[Compiller] " NCPP_GCCVER "\n" \
 	"[NCPP_VER] " NCPP_VER NCPP_LIB_USE " | [Arch]" NCPP_ARCHSTR_EX "\n"
 
-#endif //NCPP_TESTS_H
+#endif //NCPP_COMPILE_INFO //compile-info.h

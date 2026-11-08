@@ -1,5 +1,6 @@
 #*.bat binary
-*.bat text eol=crlf
-*.sh text eol=lf
+*.bat eol=crlf
+*.cmd eol=crlf
+*.sh eol=lf
 # Default
-* text=auto eol=lf
+*-text=auto

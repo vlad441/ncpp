@@ -48,18 +48,15 @@ private:
 			uint64_t B[25];
 			for(int x = 0; x < 5; ++x)
 			for(int y = 0; y < 5; ++y){
-				int idx = x + 5*y;
-				int newX = y;
-				int newY = (2*x + 3*y) % 5;
-				B[newX + 5*newY] = (state[idx] << r[idx]) | (state[idx] >> (64 - r[idx]));
+				int idx = x + 5*y; int newX = y; int newY = (2*x + 3*y) % 5;
+				int shift = r[idx]; uint64_t val = state[idx]; B[newX + 5*newY] = (shift == 0) ? val : ((val << shift) | (val >> (64 - shift)));
+				//uint64_t nz = -((uint64_t)shift != 0); B[newX + 5*newY] = (val << shift) | ((val >> (64 - (shift & 63))) & nz); //branchless попытка :(
 			}
 			for(int i = 0; i < 25; ++i) state[i] = B[i];
 
-			for(int y = 0; y < 5; ++y){
-				uint64_t tmp[5];
+			for(int y = 0; y < 5; ++y){ uint64_t tmp[5];
 				for(int x = 0; x < 5; ++x) tmp[x] = state[x + 5*y];
-				for(int x = 0; x < 5; ++x)
-					state[x + 5*y] = tmp[x] ^ ((~tmp[(x+1)%5]) & tmp[(x+2)%5]);
+				for(int x = 0; x < 5; ++x) state[x + 5*y] = tmp[x] ^ ((~tmp[(x+1)%5]) & tmp[(x+2)%5]);
 			} state[0] ^= RC[round]; }
 	}
 };
@@ -75,7 +72,7 @@ struct SHA3_256 : Keccak {
 	SHA3_256() : Keccak(1088, 512, 256){}
     SHA3_256(const Buffer& input) : Keccak(1088, 512, 256){ Keccak::update(&input[0], input.size()); }
     static Buffer hash(const Buffer& input) { return SHA3_256(input).digest(); }
-    SHA3_256& update(const Buffer& input){ Keccak::update(&input[0], input.size()); return *this; }
+    SHA3_256& update(const Buffer& input){ Keccak::update(input.data(), input.size()); return *this; }
 };
 
 struct SHA3_512 : SHA3 { SHA3_512() : SHA3(512){}

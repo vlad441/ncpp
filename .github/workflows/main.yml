@@ -3,7 +3,7 @@ name: Cloud Tests
 on:
   workflow_dispatch: # Добавляет кнопку "Run workflow"
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "tests" ]
   pull_request:
     branches: [ "main", "dev" ]
 
@@ -14,9 +14,9 @@ jobs:
     
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest] #ubuntu-24.04-arm
-        compiler: [GCC, CLANG]
-        standard: [C++98, C++11]
+        os: [windows-latest, ubuntu-latest] #windows-latest, ubuntu-latest, ubuntu-24.04-arm
+        compiler: [GCC, CLANG] #GCC, CLANG
+        standard: [C++98, C++11] #C++98, C++11
 
     steps:
       - name: Download and Checkout Code
@@ -49,6 +49,56 @@ jobs:
           cd tests/
           tests.exe
           
+  qemu-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [riscv64, aarch64] #riscv64, aarch64, riscv32, arm
+        compiler: [GCC, CLANG] #GCC, CLANG
+        standard: [C++98] #C++98, C++11
+
+    steps:
+      - name: Download and Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Install Dependencies
+        run: |
+          cd tests/
+          sudo apt update -q && sudo apt install g++-${{ matrix.arch }}-linux-gnu -y -q --no-install-recommends
+          
+      - name: Cross-Compiling Tests for ${{ matrix.arch }}
+        run: |
+          cd tests/
+          chmod +x ./make_test.sh
+          ARCH="RISCV64"
+          [ "${{ matrix.arch }}" = "aarch64" ] && ARCH="ARM64"
+          [ "${{ matrix.arch }}" = "riscv32" ] && ARCH="RISCV32"
+          bash ./make_test.sh ${{ matrix.compiler }} ${{ matrix.standard }} $ARCH
+          
+      # - name: Install Dependencies & Compiling Tests (In Container)
+        # uses: uraimo/run-on-arch-action@v3
+        # timeout-minutes: 3
+        # with:
+          # arch: ${{ matrix.arch }}
+          # distro: ubuntu22.04
+          # run: |
+            # PKG="g++" 
+            # [ "${{ matrix.compiler }}" = "CLANG" ] && PKG="clang"
+            # apt update -q && apt install $PKG -y -q --no-install-recommends
+            # cd tests/
+            # chmod +x ./make_test.sh
+            # bash ./make_test.sh ${{ matrix.compiler }} ${{ matrix.standard }}
+
+      - name: Executing Tests (QEMU)
+        uses: uraimo/run-on-arch-action@v3
+        timeout-minutes: 1
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ubuntu22.04
+          run: |
+            cd tests/
+            ./tests
+            
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -65,7 +115,7 @@ jobs:
           
       - name: Install lcov
         run: |
-          sudo apt update -q && sudo apt-get install lcov -y -q --no-install-recommends
+          sudo apt update -q && sudo apt install lcov -y -q --no-install-recommends
           
       - name: Generate Report
         run: |
@@ -78,30 +128,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: tests/lcov.info
-
-  # qemu-tests:
-    # runs-on: ubuntu-latest
-    # strategy:
-      # matrix:
-        # arch: [riscv64] #riscv32
-        # standard: [C++98] #C++11
-
-    # steps:
-      # - name: Download and Checkout Code
-        # uses: actions/checkout@v4
-
-      # - name: Compiling & Executing Tests on ${{ matrix.arch }} (QEMU)
-        # uses: uraimo/run-on-arch-action@v3
-        # timeout-minutes: 3
-        # with:
-          # arch: ${{ matrix.arch }}
-          # distro: ubuntu22.04
-          # run: |
-            # apt update -q && apt install g++ -y -q --no-install-recommends
-            # cd tests/
-            # chmod +x ./make_test.sh
-            # bash ./make_test.sh ${{ matrix.standard }}
-            # ./tests
 
   # win7-gcc-4.9.2:
     # runs-on: self-hosted win7

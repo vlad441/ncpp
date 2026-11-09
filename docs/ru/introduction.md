@@ -61,16 +61,29 @@
  
 #### Linux
 Для Linux вы можете использовать пакетные менеджеры вашей системы для установки GCC/Clang, например:
-* Debian/Ubuntu: `apt install g++ -y --no-install-recommends`.
-* CentOS: `yum install -y gcc-c++` / `dnf install -y --setopt=install_weak_deps=False gcc-c++`
-* Arch: `pacman -S --needed --noconfirm gcc`.
+* Debian-based (Debian/Ubuntu/Mint/Kali/SteamOS/Raspberry/PopOS/etc.):
+* * GCC:   `apt install g++ -y --no-install-recommends`
+* * Clang: `apt install clang -y --no-install-recommends`
+* * Clang dev: `apt install clang libclang-rt-dev -y --no-install-recommends`
+* RHEL-based (Fedora/CentOS/Alma/Rocky/Oracle/Amazon/etc): 
+* * GCC:   `dnf install -y --setopt=install_weak_deps=False gcc-c++` / `yum install -y gcc-c++`
+* * Clang: `dnf install -y --setopt=install_weak_deps=False clang`   / `yum install -y clang`
+* Arch-based (Arch/Manjaro/EndeavourOS/sysresccd/etc.):
+* * GCC:   `pacman -S --needed --noconfirm gcc`
+* * Clang: `pacman -S --needed --noconfirm clang`
+* * ```bash
+alias apt-update="pacman -Sy"
+alias apt-install="pacman -S --needed"
+alias apt-install-y="pacman -S --needed --noconfirm"
+alias apt-remove="pacman -R"
+```
 
 ### Параметры сборки
 Скрипты `make.bat` и `make.sh` представляют собой идентичную функцию `Unity Build` сборки для систем `Windows`/`Linix` соответственно.
 
 Они имеют свои дополнительные _необязательные_ аргументы при сборке:
 ```bash
-make.sh [Компилятор] [Версия C++] [Разрядность] [Режим сборки] [Имя точки входа (без расширения)]
+make.sh [Компилятор] [Версия C++] [Архитектура/Разрядность] [Режим сборки] [Имя точки входа (без расширения)]
 #Примеры
 make.sh project441
 make.sh С++11 example

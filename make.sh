@@ -20,17 +20,18 @@ case "$1" in
 esac
 
 ARCH_FLAG=""
-CROSS_PREFIX=""
+TARGET=""
 case "$1" in
     "x64") ARCH_FLAG="-m64"; shift ;;
     "x32") ARCH_FLAG="-m32"; shift ;;
-	"ARM64"|"ARM") CROSS_PREFIX="aarch64-linux-gnu-"; shift ;;
-	"ARM32") CROSS_PREFIX="arm-linux-gnueabihf-"; shift ;;
-    "RISCV64"|"RISCV") CROSS_PREFIX="riscv64-linux-gnu-"; shift ;;
-	"RISCV32") CROSS_PREFIX="riscv32-linux-gnu-"; shift ;;
-    "I386"|"I686") CROSS_PREFIX="i686-linux-gnu-"; shift ;;
+	"ARM64"|"ARM") TARGET="aarch64-linux-gnu"; shift ;;
+	"ARM32") TARGET="arm-linux-gnueabihf"; shift ;;
+    "RISCV64"|"RISCV") TARGET="riscv64-linux-gnu"; shift ;;
+	"RISCV32") TARGET="riscv32-linux-gnu"; shift ;;
+    "I386"|"I686") TARGET="i686-linux-gnu"; shift ;;
 esac
-CBIN="${CROSS_PREFIX}$CBIN"
+[[ -n "$TARGET" ]] && [[ "$COMPILER" == "GCC" ]] && CBIN="${TARGET}-$CBIN"
+[[ -n "$TARGET" ]] && [[ "$COMPILER" == "CLANG" ]] && ARCH_FLAG="-target $TARGET $ARCH_FLAG"
 
 WARN_FLAGS="-Wall -Wno-misleading-indentation"
 FNO_FLAGS="-fno-exceptions -fno-rtti"

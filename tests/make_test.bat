@@ -26,10 +26,11 @@ if "%~1"=="C++23" (set "STDCXX=c++23" & shift)
 
 set ARCH_FLAG=-m32
 set WL_ENTRY_FNAME=__start
+set CLANG_TARGET=i686-w64-mingw32
 if "%~1"=="x64" (set "ARCH_FLAG=-m64" & set "WL_ENTRY_FNAME=_start" & shift)
 if "%~1"=="x32" (set "ARCH_FLAG=-m32" & set "WL_ENTRY_FNAME=__start" & shift)
 ::if "%ARCH_FLAG%"=="-m64" if "%COMPILER%"=="CLANG" (set "ARCH_FLAG=-target x86_64-w64-mingw32 %ARCH_FLAG%")
-::if "%ARCH_FLAG%"=="-m32" if "%COMPILER%"=="CLANG" (set "ARCH_FLAG=-target i686-w64-mingw32 %ARCH_FLAG%")
+if not "%CLANG_TARGET%"=="" if "%COMPILER%"=="CLANG" (set "ARCH_FLAG=-target %CLANG_TARGET% %ARCH_FLAG%")
 
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
 ::-Wall -Wextra -Wpedantic -Wparentheses -Wconversion -Wfloat-equal -Wuseless-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wundef -Werror
@@ -42,7 +43,7 @@ set DBG_LNK_FLAGS=%ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi
 ::-D_WIN32_WINNT=0x0501 | 0x0600 | 0x0A00; GCC 3.4 _WIN32_WINNT=0x0400; GCC >=13 _WIN32_WINNT=0x0A00;
 ::if "%COMPILER%"=="GCC" set DBG_LNK_FLAGS=%ARCH_FLAG% -nodefaultlibs -lws2_32 -lpsapi -liphlpapi -lsupc++ -lpthread -lmingw32 -lmingwex -lmsvcrt -lgcc -ladvapi32 -lkernel32
 ::if "%COMPILER%"=="CLANG" set DBG_LNK_FLAGS=%ARCH_FLAG% -nodefaultlibs -lws2_32 -lpsapi -liphlpapi -lpthread -lc++ -lclang_rt.builtins-i386 -lmingw32 -lmingwex -lmsvcrt -ladvapi32 -luser32 -lkernel32
-if "%COMPILER%"=="CLANG" (set "DBG_LNK_FLAGS=-target i686-w64-mingw32 %DBG_LNK_FLAGS% -pthread")
+if "%COMPILER%"=="CLANG" (set "DBG_LNK_FLAGS=%DBG_LNK_FLAGS% -pthread")
 
 set GCC_LIBS=-static-libgcc -static-libstdc++
 set D_LNK_FLAGS=-s %GCC_LIBS% %DBG_LNK_FLAGS%

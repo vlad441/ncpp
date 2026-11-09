@@ -25,6 +25,7 @@ struct Pair { K first; V second; Pair(const K& k=K(), const V& v=V()) : first(k)
 	V& value(){ return second; } const V& value() const { return second; } };
 	
 extern void (*onExcept)(const char* cstr, int errlvl, int type);
+enum ErrorLvl { ERR_FATAL, ERR_ERROR, ERR_WARNING, ERR_INFO };
 enum ErrorType { ERR_OTHER, ERR_OOM, ERR_RANGE, ERR_ALLOC };
 
 struct String;

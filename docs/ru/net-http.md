@@ -199,6 +199,6 @@ void AutoIndex(const CString& dirpath, Res& res);
 
 ## ncpp::http::RenderHtml()
 ```cpp
-String RenderHtml(const CString& html, const StringMap& tokens, CString oTag = "{{%", CString cTag = "%}}");
+String RenderHtml(const CString& html, const StringMap& tokens, const CString& oTag = "{{%", const CString& cTag = "%}}");
 ```
 Простейший шаблонизатор. Заменяет вхождения `{{% key %}}` в строке `html` на значения из `tokens[key]`.

@@ -48,7 +48,7 @@ namespace ncpp{
 		void set(unsigned int i){ parts.clear(); parts.push(i); }
 		void set(unsigned long long ll){ parts.clear(); if(ELEM_SZ>=8){ parts.push(ll); return; } parts.push((ll & 0xFFFFFFFFULL)).push((ll >> 32)); }
 		void set(int i){ parts.clear(); if(i>=0){ parts.push(i); sign=true; }else{ parts.push(-i); sign=false; } }
-		void set(long long ll){ if(ll>=0){ set((unsigned long long)ll); sign=true; }else{ set((unsigned long long)(-ll)); sign=false; } }
+		void set(long long ll){ if(ll>=0){ set((unsigned long long)ll); sign=true; }else{ set(0ULL-(unsigned long long)ll); sign=false; } }
 		void set(const CString& cs){ _fromIntString(cs); }
 		void set(const Buffer& bf){ _fromBuffBE(bf); }
 		BigInt& operator=(unsigned int i){ set(i); return *this; }
@@ -105,7 +105,7 @@ namespace ncpp{
 			for(int i = arr.size() - 1; i >= 0; --i){ CARRY_T current = (r << (ELEM_SZ*8)) | arr[i]; 
 				arr[i] = current / value; r = current % value; } if(erase){ removeLeadingZeros(bint); } return r; }
 
-		static char compare(const BigInt& a, const BigInt& b){
+		static signed char compare(const BigInt& a, const BigInt& b){
 			size_t a_len = a.parts.size(); while(a_len > 0 && a.parts[a_len-1] == 0){ --a_len; }
 			size_t b_len = b.parts.size(); while(b_len > 0 && b.parts[b_len-1] == 0){ --b_len; }
 			if(a_len > b_len){ return 1; } if(a_len < b_len){ return -1; }
@@ -135,7 +135,7 @@ namespace ncpp{
 		static BigInt divide(const BigInt& a, const BigInt& b, bool resize = true){ return divmod(a, b).first; }
 		static BigInt mod(const BigInt& a, const BigInt& b, bool resize = true){ return divmod(a, b).second; }
 		static Pair<BigInt,BigInt> divmod(const BigInt& a, const BigInt& b, bool resize = true){
-			if(b.IsZero()){ return Pair<BigInt,BigInt>(0, 0); } char cmp_ab = compare(a, b);
+			if(b.IsZero()){ return Pair<BigInt,BigInt>(0, 0); } int8_t cmp_ab = compare(a, b);
 			if(cmp_ab < 0){ return Pair<BigInt,BigInt>(0, a); }
 			if(cmp_ab == 0){ return Pair<BigInt,BigInt>(1, 0); }
 			//if(b.parts.size()==1){ BigInt q=a; ELEM_T r = divide_single(q, b.parts[0]); return Pair<BigInt,BigInt>(q, r); }
@@ -174,7 +174,7 @@ namespace ncpp{
 
 			BigInt dividend = a; BigInt divisor = b; dividend.abs(); divisor.abs();
 			removeLeadingZeros(dividend); removeLeadingZeros(divisor);
-			char cmp = compare(dividend, divisor);
+			int8_t cmp = compare(dividend, divisor);
 			if(cmp < 0){ BigInt remainder = a; return Pair<BigInt,BigInt>(BigInt(0), remainder); }
 			if(cmp == 0){ BigInt quotient(1); quotient.sign = a.sign == b.sign;
 				if(!quotient.sign && quotient.IsZero()){ quotient.sign = true; }
@@ -246,7 +246,7 @@ namespace ncpp{
 		
 		// Перегрузки
 		BigInt& operator+=(const BigInt& other){ if(sign == other.sign){ _add(*this, other, true); }
-			else{ char cmp=compare(*this, other); if(cmp==0){ set(0U); sign=true; }
+			else{ int8_t cmp=compare(*this, other); if(cmp==0){ set(0U); sign=true; }
 				else if(cmp>0){ _subtract(*this, other, true); }else{ *this=subtract(other, *this, true); sign = other.sign; } } return *this; }
 				
 		BigInt& operator+=(unsigned int value){ if(sign){ increment(*this, value, true); }

@@ -165,12 +165,12 @@ namespace ncpp{ namespace http{ HashMap<int, String> ErrCodes;
 		"<h3>AutoIndex of " << path << "</h3><hr><pre><ul>" << fileList << "</ul><hr></pre>\nPowered by <a href=\"http://ncpp.art\">ncpp</a></body></html>"; 
 		res.end(htmlContent); }
 		
-	String RenderHtml(const CString& html, const StringMap& tokens, CString oTag = "{{%", CString cTag = "%}}"){ 
+	String RenderHtml(const CString& html, const StringMap& tokens, const CString& oTag = "{{%", const CString& cTag = "%}}"){ 
 		unsigned int cursor = 0; String result; result.reserve(html.size()); String key; 
 		while(true){
-			unsigned int startPos = html.indexOf(oTag, cursor); if(startPos == NPOS){ result+=html.slice(cursor); break; }
+			size_t startPos = html.indexOf(oTag, cursor); if(startPos == NPOS){ result+=html.slice(cursor); break; }
 			result+=html.slice(cursor, startPos);
-			unsigned int endPos = html.indexOf(cTag, startPos+oTag.size()); if(endPos == NPOS){ result+=html.slice(startPos); break; }
+			size_t endPos = html.indexOf(cTag, startPos+oTag.size()); if(endPos == NPOS){ result+=html.slice(startPos); break; }
 			key = html.slice(startPos+oTag.size(), endPos).trim();
 			result+=tokens.has(key)?tokens.at(key):""; cursor = endPos + cTag.size(); } return result; }
 } }

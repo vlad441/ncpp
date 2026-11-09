@@ -103,6 +103,8 @@ void bigint_test(){
 	TEST_EQ(qr.first.toString(), "4294967297");
 	TEST_EQ(qr.second.toString(), "0");
 	TEST_EQ(BigInt::fromBuffBE(BigInt("4294967296").toBuffBE()).toString(), "4294967296");
+	// qr = BigInt::divmod(BigInt("448441098339"), BigInt("8337081413648785545319633427184794663442231257812474053748924357873034396348443147463459176658193871428912054316060197154657584308858711521584149869800409"));
+	// TEST_EQ(qr.first.toString(), "0"); TEST_EQ(qr.second.toString(), "448441098339");
 	
 	bigint_powMod_test();
 }

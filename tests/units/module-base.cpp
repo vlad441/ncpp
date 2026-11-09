@@ -441,7 +441,7 @@ void Date_test(){
 }
 
 void Module_Base_test(){
-	Except("[Test] - Except test");
+	Except("[Test] - Except test\n", ERR_INFO);
 	Array_test();
 	String_test();
 	///Dtos_test();

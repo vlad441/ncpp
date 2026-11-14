@@ -35,7 +35,7 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		//void* (SocketPool::*PFN_freeSock)(void* ptr) const;
 		Socket* (*_allocSock)(); void  (*_freeSock)(Socket* s);
 		static Socket* _allocFNDef(){ return new TCPSocket(); }
-		static void _freeFNDef(Socket* s){ delete &s; s=NULL; }
+		static void _freeFNDef(Socket* s){ delete s; s=NULL; }
 		void setAllocator(Socket* (*allocFN)()=_allocFNDef, void (*freeFN)(Socket*)=_freeFNDef){ _allocSock=allocFN; _freeSock=freeFN; }
 		//void setAllocator(SlabAlloc<Socket> slab);
 		
@@ -195,20 +195,22 @@ namespace ncpp{	// Buffer buf; while ((buf = clientSock.recv()).size() > 0){}
 		void _init(){}
 		void run(int timeout=0){ Buffer buff; buff.reserve(DEF_SOCK_SIZE); //lsof -p <PID> - descryptors list. std::cout << "DEBUG: Select Run." << std::endl;
 			struct timeval tv; if(timeout>=0){ tv.tv_sec = timeout/1000; tv.tv_usec = (timeout%1000)*1000; }
-			while(true){ fd_set read_fds; FD_ZERO(&read_fds); FD_SET(servfd, &read_fds); int max_sd = servfd;
-				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ if(!*it) continue; Socket& s = **it;
+			while(true){ fd_set read_fds, write_fds; FD_ZERO(&read_fds); FD_ZERO(&write_fds); FD_SET(servfd, &read_fds); int max_sd = servfd;
+				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ if(!*it) continue; Socket& s = **it; //Prepare read_fds
 					if(s.sockfd==-1){ _freeSock(&s); it = sockets.erase(it); continue; }
 					FD_SET(s.sockfd, &read_fds); if(s.sockfd > max_sd) max_sd = s.sockfd; ++it; }
-				int activity = ::select(max_sd+1, &read_fds, NULL, NULL, timeout>0?&tv:NULL);
+				// for(HashMap<Socket*, Buffer>::iterator it = writeQueue.begin(); it != writeQueue.end(); ++it){ if(!*it) continue; Socket& s = **it; //Prepare write_fds
+					// if(s.sockfd==-1) continue; FD_SET(s.sockfd, &write_fds); if(s.sockfd > max_sd) max_sd = s.sockfd; }
+				int activity = ::select(max_sd+1, &read_fds, &write_fds, NULL, timeout>0?&tv:NULL);
 				if(activity<0){ int err1=Socket::GetLastErr(); print("(!) SelectPool: select error: "); print(err1); print("\n"); if(err1==EINTR) continue; return; }
-				if(FD_ISSET(servfd, &read_fds)){ TCPSocket& socket = *TCPSocket::accept(servfd, _allocSock);
+				if(FD_ISSET(servfd, &read_fds)){ TCPSocket& socket = *TCPSocket::accept(servfd, _allocSock); //Accept
 					if(socket.sockfd<0){ print("(!) select(): Accept error: "); print(dtos(socket.GetErr())); print("\n"); break; }
 					sockets.insert((Socket*)&socket); _onConnect(socket); }
 				for(HashSet<Socket*>::iterator it = sockets.begin(); it != sockets.end();){ Socket& socket = **it; if(!FD_ISSET(socket.sockfd, &read_fds)){ ++it; continue; }
 					buff.resize(DEF_SOCK_SIZE); int bytesRead = ::recv(socket.sockfd, (char*)buff.data(), DEF_SOCK_SIZE, 0); //std::cout << "select recv: " << bytesRead << " bytes." << std::endl;
 					if(bytesRead<=0){ if(bytesRead<0){ socket.GetErr(); if(onError!=NULL) onError((TCPSocket&)socket); } _onClose((TCPSocket&)socket); 
 						socket.destroy(); _freeSock(&socket); it = sockets.erase(it); continue; } buff.resize(bytesRead); _onData((TCPSocket&)socket, buff); ++it; }
-				//print("DEBUG: Select HashSet<Socket*> size: "); print(sockets.size()); print("\n");
+				//print("[#DEBUG]: select: HashSet<Socket*> size: "); print(sockets.size()); print("\n");
 			} }
 		
 		bool _waitSelectWriteOne(int timeout=-1){

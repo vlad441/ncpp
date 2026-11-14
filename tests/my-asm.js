@@ -20,4 +20,11 @@ function compileHEX(fInp="input.txt", fOut="output.exe"){ const txt = fs.readFil
 	console.log(" 2) Output:", fOut); console.log(" -- Размер: "+buff.length+" байт"); }
 
 //const result = cleanAndJoinHex(rawData); console.log("Результат склейки:"); console.log(result);
-compileHEX("PE32-min.txt");
+
+
+// =================== console argv ===================
+let fileInp="", fileOut="output.exe";
+function CLIparse(){ fileInp=process.argv[2]?process.argv[2]:"PE32-min.txt";  
+	for(let i=2;i<process.argv.length;i++){ switch(process.argv[i]){
+		case "-o": { fileOut=process.argv[i+1]; break; } } } }
+CLIparse(); compileHEX(fileInp, fileOut);

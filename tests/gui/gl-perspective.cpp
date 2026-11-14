@@ -227,7 +227,7 @@ void onConsoleCmd(const String& cmdtxt){ Array<String> cmd = cmdtxt.split(" ");
 	
 	GConsole::defCmdHandle(cmdtxt, gcons); }
 
-int main(){ print(NCPP_COMPILE_INFO); os_version(); 
+int main(){ print(NCPP_COMPILE_INFO); print(os_version()); 
 	glApp.createWindow(GLWindow(&app, "OpenGL Perspective Test", 600, 100, 600, 600));
 	bool glInited=glApp.init(); cons << "glApp.init(): " << glInited << "\n"; if(!glInited){ exit(1); } 
 	glApp.setHandler(glEvent); glApp.GPURender=GPURender; glApp.CPULogic=CPULogic;

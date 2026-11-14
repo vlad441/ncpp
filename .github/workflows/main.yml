@@ -106,6 +106,10 @@ jobs:
     steps:
       - name: Download and Checkout Code
         uses: actions/checkout@v4
+        
+      - name: Install lcov
+        run: |
+          sudo apt update -q && sudo apt install lcov -y -q --no-install-recommends
       
       - name: Compiling & Execute Tests
         run: |
@@ -113,15 +117,11 @@ jobs:
           chmod +x ./make_test.sh
           bash ./make_test.sh COVERAGE
           
-      - name: Install lcov
-        run: |
-          sudo apt update -q && sudo apt install lcov -y -q --no-install-recommends
-          
       - name: Generate Report
         run: |
           cd tests/
-          lcov --capture --directory . --output-file lcov.info --rc lcov_branch_coverage=1
-          lcov --remove lcov.info '/usr/*' 'tests/*' --output-file lcov.info
+          lcov --capture --directory . --output-file lcov.info --rc lcov_branch_coverage=1 --ignore-errors inconsistent
+          lcov --remove lcov.info '/usr/*' 'tests/*' --output-file lcov.info --ignore-errors inconsistent
 
       - name: Push to Coveralls
         uses: coverallsapp/github-action@v2
@@ -129,9 +129,44 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: tests/lcov.info
 
+  winxp-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      RUNNER_TOKEN: ${{ secrets.RUNNER_TOKEN }}
+    
+    strategy:
+      max-parallel: 1 # Последовательное выполнение
+      matrix:
+        runners: [winxp] #winxp
+        compiler: [GCC3, GCC] #GCC3, GCC, CLANG
+        standard: [C++98, C++11] #C++98, C++11
+        exclude:
+          - compiler: GCC3
+            standard: C++11
+          - compiler: GCC
+            standard: C++98
+
+    steps:
+      - name: Local - Download and Checkout Code
+        uses: actions/checkout@v4
+       
+      - name: Remote - Download Code
+        run: |
+          cd scripts/
+          node ci-client.js --runner ${{ matrix.runners }} --token $RUNNER_TOKEN --branch ${{ github.ref_name }} getCode
+          
+      - name: Remote - Compiling Tests
+        run: |
+          cd scripts/
+          node ci-client.js --runner ${{ matrix.runners }} --token $RUNNER_TOKEN compile ${{ matrix.compiler }} ${{ matrix.standard }} x32
+
+      - name: Remote - Executing Tests
+        run: |
+          cd scripts/
+          node ci-client.js --runner ${{ matrix.runners }} --token $RUNNER_TOKEN tests
+
   # win7-gcc-4.9.2:
-    # runs-on: self-hosted win7
-  # win7-gcc-3.4.2:
     # runs-on: self-hosted win7
   # debian-old-gcc-4.9.2:
     # runs-on: self-hosted linux2.6

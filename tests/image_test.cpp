@@ -6,7 +6,7 @@ using namespace ncpp;
 Console cons;
 #include "tests-header.h"
 
-int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); _ncpp_check_ver(); os_version();
+int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); _ncpp_check_ver(); print(os_version());
 	const Image& img = Image::fromFile("../index"); print("img: "); print(img.w); print("; "); print(img.h); print("\n");
 	//img.savePNG("../index2.png"); print("PNG saved.\n");
 	char q[] = {10, 30, 50,90,95,100}; for(char i=0;i<(char)(sizeof(q)/sizeof(q[0]));++i) img.saveJPG("../index2-"+String(dtos(q[i]))+".jpg", q[i]);

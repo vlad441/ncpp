@@ -39,7 +39,11 @@ set cppfile=%CD%\%fname%.cpp
 set exefile=%CD%\%fname%.exe
 set start_time=%TIME%
 
-::GCC: 776 bytes | CLANG: 660 bytes
+::GCC 4.9.2: 776 bytes | CLANG 9.0.0: 660 bytes
+
+::g++ -s -static -nostdlib -O2 -std=c++98 -fno-exceptions -fno-rtti -Wl,--entry=_start extra-small.cpp -o extra-small
+::GCC 4.8.5:  1.2K Nov 13 21:46 extra-small
+::GCC 14.2.0: 8.8K Nov 13 14:42 extra-small
 
 if not "%gccpath%"=="" (cd /d %gccpath%)
 

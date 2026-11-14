@@ -46,49 +46,60 @@ struct FStream : Stream { enum { IO_READ, IO_WRITE, IO_APPEND }; bool autodestro
 	FStream(const CString& fpath, char mode) : autodestroy(true){ open(fpath, mode); }
 	FStream(const FStream& other) : autodestroy(true){ _fd=other._fd; }
 	FStream& own(bool en=true){ autodestroy=en; return *this; }
+	~FStream(){ if(isOpen(_fd)&&autodestroy) close(); }
 #ifdef _WIN32
-	~FStream(){ if(_IsValidHandle(_fd)>0&&autodestroy) close(); }
-    typedef HANDLE FD_T; FD_T _fd; size_t getfd(){ return (size_t)_fd; } 
+    typedef HANDLE FD_T; FD_T _fd; size_t getFd(){ return (size_t)_fd; } 
 	FStream(size_t fd) : autodestroy(true){ _fd=(HANDLE)fd; }
-	bool _IsValidHandle(HANDLE h){ return h!=NULL && h!=INVALID_HANDLE_VALUE; }
-	bool isOpen(){ return _IsValidHandle(_fd)?true:false; }
-	bool is_open(){ return _IsValidHandle(_fd)?true:false; }
+	static bool isOpen(FD_T fd){ return fd!=NULL && fd!=INVALID_HANDLE_VALUE; } 
 	
-	bool open(const CString& fpath, char mode){ DWORD dwDesiredAccess = GENERIC_READ; DWORD dwCreationDisposition = OPEN_EXISTING; //IO_READ
-		if(mode == IO_WRITE){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = CREATE_ALWAYS; }
-		else if(mode == IO_APPEND){ dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = OPEN_ALWAYS; }
-		_fd = CreateFileW(_toWStr(fpath).c_str(), dwDesiredAccess, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
-		if(_fd == INVALID_HANDLE_VALUE){ _fd=0; destroy(); return false; }
-		else if(mode == IO_APPEND){ SetFilePointer(_fd, 0, NULL, FILE_END); } return true; }
+	static FD_T openFd(const CString& fpath, char mode){ DWORD dwDesiredAccess = GENERIC_READ; DWORD dwCreationDisposition = OPEN_EXISTING; //IO_READ
+		switch(mode){ case IO_WRITE: { dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = CREATE_ALWAYS; break; }
+			case IO_APPEND: { dwDesiredAccess = GENERIC_WRITE; dwCreationDisposition = OPEN_ALWAYS; break; } }
+		FD_T fd = CreateFileW(_toWStr(fpath).c_str(), dwDesiredAccess, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
+		if(mode == IO_APPEND){ SetFilePointer(fd, 0, NULL, FILE_END); } return fd; }
+		
+	static int read(FD_T fd, char* ptr, size_t size){ DWORD bytes; if(ReadFile(fd, ptr, (DWORD)size, &bytes, NULL)){ return (int)bytes; } return -1; }
+	static int write(FD_T fd, const char* ptr, size_t size){ DWORD wrbytes; BOOL result = WriteFile(fd, ptr, (DWORD)size, &wrbytes, NULL); return result?(int)wrbytes:-1; }
+	int read(char* ptr, size_t size){ return read(_fd, ptr, size); }
+	int write(const char* ptr, size_t size){ return write(_fd, ptr, size); }
+	
+	static void destroy(FD_T fd){ CloseHandle(fd); }
+	void destroy(){ destroy(_fd); _fd=0; }
+	void close(){ if(isOpen()) destroy(_fd); _fd=0; }
+	
+	static size_t size(FD_T fd){ LARGE_INTEGER fileSize; if(!GetFileSizeEx(fd, &fileSize)) return NPOS; return fileSize.QuadPart; }
 	
 	size_t pos(){ LARGE_INTEGER currPos; currPos.QuadPart = 0; LARGE_INTEGER offset; offset.QuadPart = 0;
 		if(SetFilePointerEx(_fd, offset, &currPos, FILE_CURRENT)){ return (size_t)currPos.QuadPart; } return NPOS; }
 	void setPos(size_t pos){ LARGE_INTEGER newPos; newPos.QuadPart = pos; SetFilePointerEx(_fd, newPos, NULL, FILE_BEGIN); }
-	size_t size(){ LARGE_INTEGER fileSize; if(!GetFileSizeEx(_fd, &fileSize)) return NPOS; return fileSize.QuadPart; }
-	void close(){ CloseHandle(_fd); _fd=0; }
-	
-	int read(char* ptr, size_t size){ DWORD bytesRead; if(ReadFile(_fd, ptr, (DWORD)size, &bytesRead, NULL)){ return (int)bytesRead; } return -1; }
-	int write(const char* ptr, size_t size){ DWORD wrbytes; BOOL result = WriteFile(_fd, ptr, (DWORD)size, &wrbytes, NULL); return result?(int)wrbytes:-1; }
 #else
-	~FStream(){ if(_fd>0&&autodestroy) close(); }
-	typedef int FD_T; FD_T _fd; size_t getfd(){ return _fd; } 
+	typedef int FD_T; FD_T _fd; size_t getFd(){ return _fd; } 
 	FStream(size_t fd) : autodestroy(true){ _fd=fd; }
-	bool is_open(){ return _fd>0?true:false; }
-	bool isOpen(){ return _fd>0?true:false; }
+	static bool isOpen(FD_T fd){ return fd>=0?true:false; }
 	
-	bool open(const CString& fpath, char mode){ int flags = 0; mode_t perms = 0744; // O_CREAT
-		if(mode == IO_READ){ flags = O_RDONLY; } else if(mode == IO_WRITE){ flags = O_WRONLY | O_CREAT | O_TRUNC; }
-		else if(mode == IO_APPEND){ flags = O_WRONLY | O_CREAT | O_APPEND; }
-		_fd = ::open(fpath.c_str(), flags, perms); if(_fd==-1){ destroy(); return false; } return true; }
+	static FD_T openFd(const CString& fpath, char mode){ int flags = 0; mode_t perms = 0744; // O_CREAT
+		switch(mode){ case IO_READ: { flags = O_RDONLY; break; } case IO_WRITE: { flags = O_WRONLY | O_CREAT | O_TRUNC; break; }
+			case IO_APPEND: { flags = O_WRONLY | O_CREAT | O_APPEND; break; } } return ::open(fpath.c_str(), flags, perms); }
+			
+	static int read(FD_T fd, char* ptr, size_t size){ return ::read(fd, ptr, size); }
+	static int write(FD_T fd, const char* ptr, size_t size){ return ::write(fd, ptr, size); }
+	int read(char* ptr, size_t size){ return ::read(_fd, ptr, size); }
+	int write(const char* ptr, size_t size){ return ::write(_fd, ptr, size); }
+	
+	static void destroy(FD_T fd){ ::close(fd); }
+	void destroy(){ destroy(_fd); _fd=-1; }
+	void close(){ if(isOpen()) destroy(_fd); _fd=-1; }
+	
+	static size_t size(FD_T fd){ struct stat st; if(fstat(fd, &st)==-1) return NPOS; return (size_t)st.st_size; }
 	
 	size_t pos(){ return (size_t)lseek(_fd, 0, SEEK_CUR); }
 	void setPos(size_t pos){ lseek(_fd, (off_t)pos, SEEK_SET); }
-	size_t size(){ struct stat st; if(fstat(_fd, &st)==-1) return NPOS; return (size_t)st.st_size; }
-	void close(){ ::close(_fd); _fd=-1; }
-	
-	int read(char* ptr, size_t size){ return ::read(_fd, ptr, size); }
-	int write(const char* ptr, size_t size){ return ::write(_fd, ptr, size); }
 #endif	
+	bool isOpen(){ return isOpen(_fd); }
+	bool is_open(){ return isOpen(_fd); }
+	bool open(const CString& fpath, char mode){ _fd = openFd(fpath, mode); if(isOpen()){ return true; }else{ destroy(); return false; } }
+	size_t size(){ return size(_fd); }
+	
 	size_t tellg(){ return pos(); }
 	void seekg(size_t pos){ setPos(pos); }
 	

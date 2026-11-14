@@ -156,12 +156,14 @@ int _FromNativeKeyID(int kid){
 			case NCPP_VKEYS_FN+37: return "Num /"; case NCPP_VKEYS_FN+38: return "Num . (Del)"; } return "(Unknown)"; }
 } }
 
-// - **Поддержка графики:**
-// - - [x] OpenGL 2.0+
-// - - [ ] Vulkan
+// - **Поддержка оконных систем:**
 // - - [x] GDI/GDI+ (частично)
 // - - [x] X11 (частично)
 // - - [ ] Wayland
+// - **Поддержка графики:**
+// - - [x] OpenGL 2.0+
+// - - [ ] Vulkan
+// - - [ ] CPU Render
 
 #ifdef _WIN32
 #include "winapi.cpp"

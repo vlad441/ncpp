@@ -4,7 +4,7 @@
 #include "tests-header.h"
 
 
-int main(){ print(NCPP_COMPILE_INFO); os_version();
+int main(){ print(NCPP_COMPILE_INFO); print(os_version());
 	ncpp::print("alloctest2\n");
     return 0;
 }

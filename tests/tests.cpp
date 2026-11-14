@@ -7,9 +7,9 @@
 //#define HIDE_TESTS_LOG
 
 using namespace ncpp;
-int tested=0, passed=0, warnings=0, errors=0; char color[2];
+int tested=0, passed=0, warnings=0, errors=0; char color[2]; double TotalTime=0; String osver;
 int warns=0, errs=0; String currtest, tresp;
-Array<String> errsarr; Array<String> warnarr;
+Array<String> errsarr; Array<String> warnarr; bool logfile=false;
 Console cons; //performance::start(); long long time1=performance::now();
 
 //http::SaveStream("http://static.wikia.nocookie.net/test1666/images/c/c9/T8vlSlTOp3o.jpg/revision/latest?cb=20171017123525&path-prefix=ru", "./saved_stream");
@@ -48,19 +48,30 @@ void Sys_module_test();
 #include "units/module-structs.cpp" //Module_Structs_test();
 #include "units/module-crypto.cpp" //Module_Crypto_test();
 
-#ifdef _WIN32
+#if defined(_WIN32) && _WIN32_WINNT >= 0x0600 // Win Vista
 void __attribute__((constructor)) _init_chcp(){ SetConsoleOutputCP(CP_UTF8); SetConsoleCP(CP_UTF8); } //CP_UTF8=65001
 #endif
 
-int main(int argc, char* argv[]){ print(NCPP_COMPILE_INFO); _ncpp_check_ver(); os_version(); //setInterval(_dbg_ShowAllocs, 1000);
+void CLIArgs(int argc, char* argv[]){
+	for(int i=1; i<argc; ++i){ String arg=argv[i]; //if(arg=="--name"&&i+1<argc){ params.myname=argv[i+1]; i++; }
+		if(arg=="--log"){ logfile=true; } } }
+	
+String genStrResults(){ String res=NCPP_COMPILE_INFO; res << osver;
+	res << "\n==== Tests Complete ==== " << "(Time: " << dtos(TotalTime, 3) << " msec)\n";
+	res << " Tested|(Passed/Fail): " << tested << " | (" << passed << "/" << (tested-passed);
+	res << "); Errors|Warnings: " << errors << " | " << warnings << "\n";
+	if(warnings>0){ res << " Warnings pull: " << warnarr << "\n"; }
+	if(errors>0){ res << " Errors pull: " << errsarr << "\n"; } return res; }
+
+int main(int argc, char* argv[]){ CLIArgs(argc, argv); print(NCPP_COMPILE_INFO); _ncpp_check_ver(); print(osver=os_version()); //setInterval(_dbg_ShowAllocs, 1000);
 	// === BEGIN TEST ===
 	Module_Base_test();
 	Module_Structs_test();
 	Module_Crypto_test();
 	// === END TEST ===
-	subm(); double time = performance::now();
+	subm(); TotalTime = performance::now(); if(logfile) fs::writeFile("tests.log", genStrResults());
 	
-	cons.setColor(3) << "\n==== Tests Complete ==== "; cons.reset() << "(Time: "; cons.setColor(3) << dtos(time, 3); cons.reset() << " msec)\n";
+	cons.setColor(3) << "\n==== Tests Complete ==== "; cons.reset() << "(Time: "; cons.setColor(3) << dtos(TotalTime, 3); cons.reset() << " msec)\n";
 	cons.reset() << " Tested|(Passed/Fail): "; cons.setColor(3) << tested; cons.reset() << " | ("; cons.setColor(2) << passed;
 	cons.reset() << "/"; cons.setColor(1) << (tested-passed);
 	cons.reset() << "); Errors|Warnings: "; cons.setColor(1) << errors; cons.reset() << " | "; cons.setColor(3) << warnings; cons.reset() << "\n";

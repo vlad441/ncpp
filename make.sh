@@ -72,9 +72,9 @@ case "$mode" in
 	"GL") echo "Make for GL..."; $CBIN -DUSE_GUI $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $GL_LIBS $D_LNK_FLAGS ;;
 	"EXP"|"ALL") echo "Make for Experimental..."; $CBIN -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $GL_LIBS $AUDIO_LIBS $D_LNK_FLAGS ;;
 	"EXP_SAN") echo "Make using sanitizers (for Experimental)..."; $CBIN -DUSE_GUI -DUSE_EXPERIMENTAL $WARN_FLAGS -g -Og -std=$STDCXX $FNO_FLAGS_WH "$cppfile" -o "$exefile" $GL_LIBS $AUDIO_LIBS -lpthread -fsanitize=address,undefined ;;
-	"NOCRT") echo Make NOCRT... & $CBIN -DNCPP_NOCRT $WARN_FLAGS -O2 -std=$STDCXX $FNO_FLAGS "$cppfile" -o "$exefile" $ARCH_FLAG -Wl,--entry=_start -s -static -nostdlib ;;
+	"NOCRT") echo "Make NOCRT..." && $CBIN -DNCPP_NOCRT $WARN_FLAGS -O2 -std=$STDCXX $FNO_FLAGS "$cppfile" -o "$exefile" $ARCH_FLAG -Wl,--entry=_start -s -static -nostdlib ;;
 	"DLNK") echo "Make DLNK (Dynamic Lnk)..."; $CBIN $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $D_LNK_FLAGS ;;
-	"COVERAGE") echo "Make for --coverage..." && $CBIN --coverage $WARN_FLAGS $OPT_FLAGS $cppfile -o $exefile $LNK_FLAGS && ./$fname && gcov -n -m -f -b $fname.cpp > gcov-coverage.txt && rm -f $fname.gcda $fname.gcno && node ./scripts/calc-coverage.js ;;
+	"COVERAGE") echo "Make for --coverage..." && $CBIN --coverage $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_FLAGS && ./$fname && gcov -n -m -f -b $fname.cpp > gcov-coverage.txt && rm -f $fname.gcda $fname.gcno && node ./scripts/calc-coverage.js ;;
 	*) echo "Make (default)..."; $CBIN $WARN_FLAGS $OPT_FLAGS "$cppfile" -o "$exefile" $LNK_FLAGS ;;
 esac
 [ -n "$gccpath" ] && cd "$currCD"

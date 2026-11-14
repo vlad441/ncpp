@@ -2,7 +2,7 @@
 #pragma once
 #ifndef NCPP_H_DEF
 #define NCPP_H_DEF
-#define NCPP_VER "v0.0.1-1-rev4" //Old: v0.0.x-y-revZ; Alternative: v0.0.x-dev.Y.Z+revN, v0.0.x-rc.Y.Z+revN //https://semver.org/lang/ru/
+#define NCPP_VER "v0.0.1-dev.1.5" //Old: v0.0.x-y-revZ; Alternative: v0.0.x-dev.Y.Z+revN, v0.0.x-rc.Y.Z+revN, v0.0.1+dev //https://semver.org/lang/ru/
 //#define NCPP_VER_MAJOR 0
 //#define NCPP_VER_MINOR 0
 //#define NCPP_VER_PATCH 1

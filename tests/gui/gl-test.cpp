@@ -59,7 +59,7 @@ void GLRenderFunc(){ glwnd.setContext(); glwnd.setHandler(glEvent);
 	while(true){ GPURender(); glwnd.swapBuffers(); if(FPS>0) Sleep(1000/FPS); } 
 }
 
-int main(){ print(NCPP_COMPILE_INFO); os_version();
+int main(){ print(NCPP_COMPILE_INFO); print(os_version());
 	move(glwnd, GLWindow(&app, "OpenGL Test Window", 600, 100, 600, 600));
 	
 	GLRenderFunc();

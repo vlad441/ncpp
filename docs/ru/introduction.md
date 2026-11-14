@@ -71,11 +71,15 @@
 * Arch-based (Arch/Manjaro/EndeavourOS/sysresccd/etc.):
 * * GCC:   `pacman -S --needed --noconfirm gcc`
 * * Clang: `pacman -S --needed --noconfirm clang`
-* * ```bash
+```bash
 alias apt-update="pacman -Sy"
+alias apt-upgrade="pacman -Syu"
 alias apt-install="pacman -S --needed"
 alias apt-install-y="pacman -S --needed --noconfirm"
-alias apt-remove="pacman -R"
+alias apt-remove="pacman -Rs"
+alias apt-purge="pacman -Rsn"
+alias apt-autoremove="pacman -Qdtq | pacman -Rns -"
+alias apt-clean="pacman -Sc"
 ```
 
 ### Параметры сборки

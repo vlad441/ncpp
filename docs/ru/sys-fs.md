@@ -1,15 +1,14 @@
 [![doc-link](https://img.shields.io/badge/Введение%20main-gray)](introduction.md)
 
 - [ncpp::FStream](#ncpphashmap)
-- [FStream.isOpen()](#fstreamisopen)
-    - [FStream.is_open()](#fstreamis_open)
+    - [FStream.isOpen()](#fstreamisopen)
     - [FStream.open()](#fstreamopen)
-    - [FStream.pos()](#fstreampos)
-    - [FStream.setPos()](#fstreamsetpos)
-    - [FStream.size()](#fstreamsize)
-    - [FStream.close()](#fstreamclose)
     - [FStream.read()](#fstreamread)
     - [FStream.write()](#fstreamwrite)
+    - [FStream.close()](#fstreamclose)
+    - [FStream.size()](#fstreamsize)
+    - [FStream.pos()](#fstreampos)
+    - [FStream.setPos()](#fstreamsetpos)
     - [FStream.readEOF()](#fstreamreadeof)
     - [FStream.readline()](#fstreamreadline)
     - [FStream.readLines()](#fstreamreadlines)
@@ -40,15 +39,31 @@
 ## ncpp::FStream
 Класс для работы с файловыми потоками. Поддерживает кроссплатформенную работу (WinAPI/POSIX).
 
-### FStream::isOpen()
 ```cpp
+FStream();
+FStream(size_t fd);
+```
+
+Определения типов класса:
+```cpp
+#ifdef _WIN32
+    typedef HANDLE FD_T;
+#else
+	typedef int FD_T;
+#endif	
+```
+
+### FStream.isOpen()
+```cpp
+static bool isOpen(FD_T fd);
 bool isOpen();
 bool is_open();
 ```
 Возвращает `true`, если файл успешно открыт и дескриптор валиден.
 
-### FStream::open()
+### FStream.open()
 ```cpp
+static FD_T openFd(const CString& fpath, char mode);
 bool open(const CString& fpath, char mode);
 ```
 Открывает файл по пути fpath. Режимы `mode`:
@@ -56,28 +71,9 @@ bool open(const CString& fpath, char mode);
 `FStream::IO_WRITE` — запись (создает новый или перезаписывает).
 `FStream::IO_APPEND` — дозапись (курсор в конец файла).
 
-### FStream::pos()
+### FStream.read()
 ```cpp
-size_t pos();
-size_t tellg();
-```
-Возвращает текущую позицию курсора в файле.
-
-### FStream::setPos()
-```cpp
-void setPos(size_t pos);
-void seekg(size_t pos);
-```
--
-
-### FStream::size()
-```cpp
-size_t size();
-```
-Возвращает общий размер файла в байтах.
-
-### FStream::read()
-```cpp
+static int read(FD_T fd, char* ptr, size_t size);
 int read(char* ptr, size_t size);
 int read(Buffer* rbuff);
 Buffer read();
@@ -85,31 +81,61 @@ Buffer read(int len);
 ```
 Считывает данные из файла. Версия без параметров считывает файл целиком от текущей позиции до конца. Возвращает кол-во записанных байт или -1 при ошибке.
 
-### FStream::readEOF()
+### FStream.write()
+```cpp
+static int write(FD_T fd, const char* ptr, size_t size);
+int write(const char* ptr, size_t size);
+int write(const char* c);
+int write(const Buffer& wrbuff);
+```
+Записывает данные в файл. Возвращает кол-во записанных байт или -1 при ошибке.
+
+### FStream.close()
+```cpp
+static void destroy(FD_T fd);
+void destroy();
+void close();
+```
+Закрывает дескриптор файла.
+
+### FStream.size()
+```cpp
+static size_t size(FD_T fd);
+size_t size();
+```
+Возвращает общий размер файла в байтах.
+
+### FStream.pos()
+```cpp
+size_t pos();
+size_t tellg();
+```
+Возвращает текущую позицию курсора в файле.
+
+### FStream.setPos()
+```cpp
+void setPos(size_t pos);
+void seekg(size_t pos);
+```
+Устанавливает курсор файла на указанную позицию.
+
+### FStream.readEOF()
 ```cpp
 Buffer readEOF();
 ```
 Считывает все оставшиеся данные из потока до достижения конца файла (EOF).
 
-### FStream::readline()
+### FStream.readline()
 ```cpp
 bool readline(String& line, bool once=false);
 ```
 Считывает одну строку до символа `\n`. Если `once` установлен в `true`, позиция курсора не сдвигается автоматически для следующего чтения.
 
-### FStream::readLines()
+### FStream.readLines()
 ```cpp
 size_t readLines(Array<String>& lines, int cnt);
 ```
 Считывает указанное количество строк `cnt` в массив `lines`. Возвращает кол-во прочитанных строк.
-
-### FStream::write()
-```cpp
-int write(const char* ptr, size_t size);
-int write(const Buffer& wrbuff);
-int write(const char* c);
-```
-Записывает данные в файл. Возвращает кол-во записанных байт или -1 при ошибке.
 
 ### FStream.swap()
 ```cpp
@@ -118,7 +144,7 @@ friend void swap(FStream& a, FStream& b);
 ```
 Меняет содержимое двух массивов местами (путем обмена указателями и метаданными), избегая копирования.
 
-### FStream::move()
+### FStream.move()
 ```cpp
 friend void move(FStream& dst, FStream& tmp);
 ```

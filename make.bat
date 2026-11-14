@@ -1,14 +1,16 @@
 @echo off
 set currCD=%CD%
 set gccpath=
+set gcc3path="%GCC3_PATH%"
 ::set clangpath=
 ::set msvcpath=
 
 set COMPILER=GCC
 set CBIN=g++
 if "%~1"=="GCC"   (set "COMPILER=GCC"   & set "CBIN=g++" & shift)
+if "%~1"=="GCC3"  (set "COMPILER=GCC3"  & set "CBIN=g++" & set "gccpath=%gcc3path%" & shift)
 if "%~1"=="CLANG" (set "COMPILER=CLANG" & set "CBIN=clang++" & set "gccpath=%clangpath%" & shift)
-if "%~1"=="MSVC"  (set "COMPILER=MSVC"  & set "CBIN=cl" & set "gccpath=%msvcpath%" & shift)
+if "%~1"=="MSVC"  (set "COMPILER=MSVC"  & set "CBIN=cl"  & set "gccpath=%msvcpath%" & shift)
 
 set STDCXX=c++98
 if "%~1"=="C++98" (set "STDCXX=c++98" & shift)
@@ -16,7 +18,7 @@ if "%~1"=="C++11" (set "STDCXX=c++11" & shift)
 if "%~1"=="C++17" (set "STDCXX=c++17" & shift)
 if "%~1"=="C++23" (set "STDCXX=c++23" & shift)
 
-set ARCH_FLAG=-m32
+set ARCH_FLAG=
 set WL_ENTRY_FNAME=__start
 set CLANG_TARGET=i686-w64-mingw32
 if "%~1"=="x64" (set "ARCH_FLAG=-m64" & set "WL_ENTRY_FNAME=_start" & shift)
@@ -26,15 +28,15 @@ if not "%CLANG_TARGET%"=="" if "%COMPILER%"=="CLANG" (set "ARCH_FLAG=-target %CL
 set WARN_FLAGS=-Wall -Wno-misleading-indentation
 set FNO_FLAGS=-fno-exceptions -fno-rtti
 set FNO_FLAGS_WH=%FNO_FLAGS% -fwhole-program
+set GCC_LIBS=-static-libgcc -static-libstdc++
+if "%COMPILER%"=="GCC3" (set "COMPILER=GCC" & set "WARN_FLAGS=-w" & set "FNO_FLAGS_WH=%FNO_FLAGS%" & set "GCC_LIBS=-static-libgcc")
 ::if "%COMPILER%"=="CLANG" (set "FNO_FLAGS_WH=%FNO_FLAGS% -flto=full -fvisibility=hidden -Wl,/OPT:REF -Wl,/OPT:ICF")
 set OPT_FLAGS=-O2 -std=%STDCXX% %FNO_FLAGS_WH%
 
 set DBG_LNK_FLAGS=%ARCH_FLAG% -lws2_32 -lpsapi -liphlpapi
 if "%COMPILER%"=="CLANG" (set "DBG_LNK_FLAGS=%DBG_LNK_FLAGS% -pthread")
-set GCC_LIBS=-static-libgcc -static-libstdc++
 set D_LNK_FLAGS=-s %GCC_LIBS% %DBG_LNK_FLAGS%
 set LNK_FLAGS=-static %D_LNK_FLAGS%
-::--coverage gcov tests.cpp Set-ExecutionPolicy Bypass -Scope Process
 
 set AUDIO_LIBS=-lwinmm
 set IMAGE_LIBS=-lgdiplus -lgdi32 -lole32

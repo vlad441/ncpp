@@ -11,7 +11,7 @@
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #endif
-#ifndef EAGAIN
+#ifndef EAGAIN //EAGAIN=EWOULDBLOCK?
 #define EAGAIN WSAEWOULDBLOCK
 #endif
 
@@ -79,6 +79,7 @@ namespace ncpp{
 			ipLo = ((uint64_t)hextets[4] << 48) | ((uint64_t)hextets[5] << 32) | ((uint64_t)hextets[6] << 16) | (uint64_t)hextets[7]; } // Собираем младшие 64 бита из оставшихся 4 хексетов (ipLo)
 		
 		//String getIP(){ return IPv4ToStr((uint32_t)ipLo); }
+		//char ipVer(){ return ipHi==0?4:6; }
 		String toString() const { if(ipver==4){ return ip+":"+dtos(port); }else{ return "["+ip+"]:"+dtos(port); } }
 		static IPAddr fromStr(const CString& host){ Array<String> ip; IPAddr addr; 
 			if(host.indexOf("]:")!=NPOS){ ip=host.split("]:", 2, 2); ip[0]=ip[0].slice(1); addr.ipver=6; }
@@ -277,16 +278,19 @@ namespace ncpp{
 		TCPSocket(int sockfd1) : Socket(sockfd1){}
 		TCPSocket(const Socket& sock) : Socket(sock){ this->autodestroy=false; }
 		
-		int send(const char* cptr, int len){ return ::send(sockfd, cptr, len, 0); }
-		int send(const char* cstr){ return ::send(sockfd, cstr, strlen(cstr), 0); }
-		int send(const Buffer& buff){ return ::send(sockfd, (const char*)buff.data(), buff.size(), 0); }
+		int send(const char* cptr, int len){ int bytes = ::send(sockfd, cptr, len, 0); return bytes;
+			//if(bytes<=0){ int err=GetErr(); if(err!=EAGAIN && err!=EINTR){ destroy(); return bytes; } }
+		}
+		int send(const char* cstr){ return send(cstr, strlen(cstr)); }
+		int send(const Buffer& buff){ return send((const char*)buff.data(), buff.size()); }
 		
-		int recv(char* ptr, int len){ rsetErr(); int bytesRead = ::recv(sockfd, ptr, len, 0);
-			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
-		int recv(Buffer* buff){ buff->resize(DEF_SOCK_SIZE); rsetErr(); 
-			int bytesRead = ::recv(sockfd, (char*)buff->data(), buff->size(), 0);
-			if(bytesRead<=0){ buff->resize(0); destroy(); if(bytesRead<0) GetErr(); }
-			else{ buff->resize(bytesRead); } return bytesRead; }
+		int recv(char* ptr, int len){ rsetErr(); int bytes = ::recv(sockfd, ptr, len, 0); if(bytes>0) return bytes;
+			else if(bytes==0){ destroy(); return bytes; } int err = GetErr(); if(err!=EAGAIN && err!=EINTR) destroy(); return -1; }
+		
+		int recv(Buffer* buff){ buff->resize(DEF_SOCK_SIZE); int bytes = recv((char*)buff->data(), buff->size()); buff->resize(bytes>0?bytes:0); return bytes; }
+		// int recv(Buffer* buff){ buff->resize(DEF_SOCK_SIZE); rsetErr(); int bytes = ::recv(sockfd, (char*)buff->data(), buff->size(), 0);
+			// if(bytes>0){ buff->resize(bytes); }else if(bytes==0){ buff->resize(0); destroy(); }
+			// else{ buff->resize(0); int err = GetErr(); if(err!=EAGAIN && err!=EINTR) destroy(); } return bytes; }
 		Buffer recv(){ Buffer buff; recv(&buff); return buff; }
 		//inline Buffer read(){ return recv(); }
 		
@@ -320,12 +324,12 @@ namespace ncpp{
 		int send(const char* cstr, int len){ return send(destAddr, cstr, len); }
 		int send(const char* cstr){ return send(destAddr, cstr, strlen(cstr)); }
 	
-		int recv(char* ptr, int len, IPAddr* rinfo=NULL){ rsetErr(); int bytesRead;
+		int recv(char* ptr, int len, IPAddr* rinfo=NULL){ rsetErr(); int bytes;
 			if(rinfo!=NULL){ sockaddr_storage dest_addr; socklen_t addrlen = sizeof(dest_addr); 
-				bytesRead = ::recvfrom(sockfd, ptr, len, 0, (sockaddr*)&dest_addr, &addrlen); 
+				bytes = ::recvfrom(sockfd, ptr, len, 0, (sockaddr*)&dest_addr, &addrlen); 
 				*rinfo=_from_sockaddr_storage(&dest_addr); }
-			else{ bytesRead = ::recvfrom(sockfd, ptr, len, 0, NULL, NULL); }
-			if(bytesRead<=0){ destroy(); if(bytesRead<0) GetErr(); } return bytesRead; }
+			else{ bytes = ::recvfrom(sockfd, ptr, len, 0, NULL, NULL); }
+			if(bytes<=0){ destroy(); if(bytes<0) GetErr(); } return bytes; }
 		int recv(Buffer* buff, IPAddr* rinfo=NULL){ buff->resize(DEF_SOCK_SIZE);
 			int rbytes = recv((char*)buff->data(), buff->size(), rinfo); buff->resize(rbytes>0?rbytes:0); return rbytes; }
 		Buffer recv(){ Buffer buff; recv(&buff); return buff; }

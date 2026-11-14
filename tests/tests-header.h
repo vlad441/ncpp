@@ -65,13 +65,13 @@
 	#define NCPP_LIB_USE " (Directly compiled)"
 #endif
 
-void os_version(){ using namespace ncpp; print("[OS] "); StringMap info = ::ncpp::system::os_info(); print(info["OS"]);
+String os_version(){ using namespace ncpp; String res="[OS] "; StringMap info = ::ncpp::system::os_info(); res+=info["OS"];
 #ifdef _WIN32
-	print(" | NT: "); print(info["NT"]);
+	res << " | NT: " << info["NT"] << "\n";
 #else
-	print(" | Kernel: "); print(info["Kernel"]);
+	res << " | Kernel: " << info["Kernel"] << "\n";
 #endif
-	print("\n"); //print(info.cout()); print("\nCPU: "); print(system::CPU::info().cout()); print("\nRAM: "); print(system::RAM::strUsage()); print("\n");
+	return res; //print(info.cout()); print("\nCPU: "); print(system::CPU::info().cout()); print("\nRAM: "); print(system::RAM::strUsage()); print("\n");
 }
 
 #define NCPP_COMPILE_INFO "[" NCPP_CPPVER "] UTF-8 кирилица にも含み " "[Compiller] " NCPP_GCCVER "\n" \

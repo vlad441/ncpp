@@ -1,0 +1,4 @@
+
+g++ Main.cpp -nostdlib -Wl,--oformat=binary -Wl,-Map=map.txt -fno-rtti -fno-asynchronous-unwind-tables -T linker.ld -fno-stack-protector -fno-pie -Os
+
+nasm -f bin Elf.asm -o Out
